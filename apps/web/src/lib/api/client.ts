@@ -105,6 +105,32 @@ export async function apiGet<T>(
   return { ok: true, status: raw.status, data: parsed.data };
 }
 
+/**
+ * Leitura SEM cache, para dados por convidado (o convite e suas respostas).
+ * Use dentro de <Suspense>: com `cacheComponents`, dado de runtime não pode
+ * entrar no HTML pré-renderizado.
+ */
+export async function apiReadFresh<T>(path: string, schema: z.ZodType<T>): Promise<ApiResult<T>> {
+  const base = apiBase();
+  if (!base) return unavailable("API_URL vazia");
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+    });
+  } catch (err) {
+    return unavailable(describe(err));
+  }
+  const json = await readJson(res);
+  if (!res.ok) return toApiFailure(res.status, json);
+  const parsed = schema.safeParse(json);
+  if (!parsed.success)
+    return badResponse(res.status, `${path}: ${parsed.error.issues[0]?.message}`);
+  return { ok: true, status: res.status, data: parsed.data };
+}
+
 /* ------------------------------------------------------------------------ */
 /* Escritas                                                                  */
 /* ------------------------------------------------------------------------ */

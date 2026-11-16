@@ -11,7 +11,7 @@ if (existsSync(rootEnv)) {
   }
 }
 
-const port = 3100;
+const port = Number(process.env.E2E_PORT ?? 3100);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -23,17 +23,37 @@ export default defineConfig({
   projects: [
     {
       name: "mobile",
+      testIgnore: /prazo.spec.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
     {
       name: "desktop",
+      testIgnore: /prazo.spec.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      // O prazo do RSVP é uma configuração global: este teste a altera e restaura,
+      // então roda sozinho, depois dos outros projetos.
+      name: "prazo",
+      testMatch: /prazo.spec.ts/,
+      dependencies: ["mobile", "desktop"],
+      fullyParallel: false,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
   ],
-  webServer: {
-    command: `pnpm exec next dev --turbopack -p ${port}`,
-    url: `http://localhost:${port}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      // API (Hono) para os e2e de RSVP e de conteúdo; precisa do MariaDB no ar.
+      command: "pnpm --filter @casamento/api dev:server",
+      url: "http://localhost:3333/api/health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm exec next dev --turbopack -p ${port}`,
+      url: `http://localhost:${port}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });
