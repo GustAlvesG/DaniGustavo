@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
-@theme {
-  /* Paleta "Azulejo" (docs/PROMPT.md 4.2) */
+/*
+ * Design system "Azulejo" (docs/PROMPT.md §4).
+ *
+ * `@theme static` emite todas as variáveis no :root mesmo que nenhuma classe
+ * as use: outros componentes (GSAP, Motion, CSS próprio) leem `var(--…)`.
+ */
+@theme static {
+  /* Paleta (4.2) */
   --color-tinta: #0e1f4d;
   --color-cobalto: #1f3fae;
   --color-anil: #4c6fd8;
@@ -10,12 +16,265 @@
   --color-branco: #ffffff;
   --color-erro: #b3261e;
 
-  /* Curvas (4.6.5) */
+  /* Curvas (4.6.5) → utilitários `ease-out`, `ease-in-out` */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Durações → utilitários `duration-micro`, `duration-ui`, `duration-scene` */
+  --transition-duration-micro: var(--duration-micro);
+  --transition-duration-ui: var(--duration-ui);
+  --transition-duration-scene: var(--duration-scene);
+
+  /* Larguras → `max-w-measure` (66 caracteres), `max-w-page` */
+  --container-measure: 66ch;
+  --container-page: 84rem;
+
+  /*
+   * Escala de texto (Figtree): modular 1,25 a partir do corpo.
+   * `--text-base` vale 17px no celular e 18px a partir de 1024px
+   * (redefinido em :root abaixo); os outros degraus derivam dele.
+   */
+  --text-*: initial;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: calc(var(--text-base) / 1.25);
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6;
+  --text-lg: calc(var(--text-base) * 1.25);
+  --text-lg--line-height: 1.45;
+  --text-xl: calc(var(--text-base) * 1.5625);
+  --text-xl--line-height: 1.3;
+  --text-2xl: calc(var(--text-base) * 1.953125);
+  --text-2xl--line-height: 1.2;
+  --text-3xl: calc(var(--text-base) * 2.44140625);
+  --text-3xl--line-height: 1.1;
+
+  /*
+   * Saltos de display (Bodoni Moda): fora da escala, tamanho de cartaz.
+   * Use com `font-display`. Entrelinha 0,9 e tracking negativo já embutidos.
+   *   display-sm  títulos de subseção (h3)          40 → 64px
+   *   display-md  títulos de seção (h2)             48 → 104px
+   *   display-lg  frases de impacto, data           64 → 160px
+   *   display-xl  nomes no hero (~18vw no celular)  70 → 232px
+   */
+  --text-display-sm: clamp(2.5rem, 1.9rem + 2.4vw, 4rem);
+  --text-display-sm--line-height: 0.95;
+  --text-display-sm--letter-spacing: -0.015em;
+  --text-display-md: clamp(3rem, 1.6rem + 5.4vw, 6.5rem);
+  --text-display-md--line-height: 0.9;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-lg: clamp(4rem, 1.4rem + 10vw, 10rem);
+  --text-display-lg--line-height: 0.9;
+  --text-display-lg--letter-spacing: -0.025em;
+  --text-display-xl: clamp(4.25rem, 18vw, 14.5rem);
+  --text-display-xl--line-height: 0.9;
+  --text-display-xl--letter-spacing: -0.03em;
+
+  /* Animações → `animate-roll-in`, `animate-fade-in`, `animate-tile-turn`… */
+  --animate-roll-in: roll-in var(--duration-ui) var(--ease-out) both;
+  --animate-roll-out: roll-out var(--duration-ui) var(--ease-out) both;
+  --animate-fade-in: fade-in var(--duration-ui) var(--ease-out) both;
+  --animate-fade-out: fade-out var(--duration-ui) var(--ease-out) both;
+  --animate-tile-turn: tile-turn 1.8s var(--ease-in-out) infinite;
+
+  @keyframes roll-in {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes roll-out {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  /* Um ladrilho que gira de 90 em 90 graus, com pausa entre giros. */
+  @keyframes tile-turn {
+    0%,
+    20% {
+      transform: rotate(0deg);
+    }
+    45%,
+    70% {
+      transform: rotate(90deg);
+    }
+    95%,
+    100% {
+      transform: rotate(180deg);
+    }
+  }
 }
 
-body {
-  background: var(--color-esmalte);
-  color: var(--color-tinta);
+/*
+ * Fontes: next/font define --font-bodoni e --font-figtree no <html>.
+ * `inline` faz os utilitários usarem o valor direto (a variável é resolvida
+ * no elemento, onde a classe do next/font já está aplicada).
+ */
+@theme inline {
+  --font-display: var(--font-bodoni), "Bodoni Moda", Didot, "Bodoni 72", Georgia, serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+}
+
+:root {
+  /* Durações (4.6.5). Em CSS próprio: var(--duration-ui, 320ms). */
+  --duration-micro: 160ms;
+  --duration-ui: 320ms;
+  --duration-scene: 720ms;
+
+  /* Layout (4.4) */
+  --gutter: 1.5rem; /* margem lateral: 24px no celular */
+  --grid-gap: 1.5rem;
+  --container-max: 84rem; /* largura útil máxima da grade de 12 colunas */
+
+  /* Respiro vertical entre seções */
+  --section-space: clamp(5rem, 3rem + 8vw, 10rem);
+}
+
+@media (width >= 64rem) {
+  :root {
+    --text-base: 1.125rem; /* corpo 18px a partir de 1024px */
+    --gutter: 3rem;
+    --grid-gap: 2rem;
+  }
+}
+
+@media (width >= 90rem) {
+  :root {
+    --gutter: 4rem;
+  }
+}
+
+/* ---------- Utilitários de layout ---------- */
+
+/* Moldura da página: margens laterais e largura máxima. */
+@utility page-wrap {
+  width: 100%;
+  max-width: calc(var(--container-max) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Grade: 1 coluna no celular, 12 colunas a partir de 1024px.
+ * Componha com `lg:col-span-6 lg:col-start-2` etc. */
+@utility page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--grid-gap);
+
+  @media (width >= 64rem) {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+
+/* Medida de leitura: até 66 caracteres. */
+@utility measure {
+  max-width: 66ch;
+}
+
+/* Respiro vertical padrão de seção. */
+@utility section-space {
+  padding-block: var(--section-space);
+}
+
+/* Anel de foco branco para conteúdo sobre fundo cobalto/tinta. */
+@utility focus-on-dark {
+  & :focus-visible,
+  &:focus-visible {
+    outline-color: var(--color-branco);
+  }
+}
+
+/* ---------- Base ---------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-kerning: normal;
+  }
+
+  body {
+    background-color: var(--color-esmalte);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd,
+  figcaption {
+    text-wrap: pretty;
+  }
+
+  /* Bodoni Moda escolhe o corte óptico (eixo opsz) pelo tamanho do texto. */
+  .font-display {
+    font-optical-sizing: auto;
+  }
+
+  ::selection {
+    background-color: var(--color-cobalto);
+    color: var(--color-branco);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cobalto);
+    outline-offset: 3px;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/*
+ * Movimento reduzido: transições e animações CSS ficam instantâneas, mas o
+ * estado final continua aplicado. Exceção: elementos com data-motion="keep"
+ * (use em crossfades curtos que comunicam mudança, ex.: dígitos da contagem).
+ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *:not([data-motion="keep"]),
+  *:not([data-motion="keep"])::before,
+  *:not([data-motion="keep"])::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
 }
