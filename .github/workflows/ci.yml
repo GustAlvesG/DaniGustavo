@@ -20,8 +20,16 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+    # Valores fictícios só para o CI; nada aqui é segredo real.
     env:
       DATABASE_URL: mysql://root:@127.0.0.1:3306/casamento
+      API_URL: http://localhost:3333
+      WEB_KEY: ci-web-key-ficticia-com-mais-de-32-caracteres
+      BETTER_AUTH_SECRET: ci-better-auth-secret-ficticio-com-mais-de-32
+      BETTER_AUTH_URL: http://localhost:3333
+      ADMIN_EMAIL_1: dani@exemplo.com
+      ADMIN_EMAIL_2: gustavo@exemplo.com
+      ADMIN_PASSWORD_INICIAL: ci-senha-ficticia-123
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -33,5 +41,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
       - run: pnpm test
       - run: pnpm build
