@@ -1,7 +1,7 @@
-import { useId } from "react";
+import { useId, ViewTransition } from "react";
 import { ButtonLink } from "@/components/ui";
 import { Countdown } from "@/components/countdown";
-import { TileBand, TileGrid } from "@/components/tiles";
+import { Monogram, TileBand, TileGrid } from "@/components/tiles";
 import type { HeroContent } from "@/content/placeholder";
 import { formatWeddingDate } from "@/lib/countdown";
 import { cx } from "@/lib/cx";
@@ -40,6 +40,15 @@ export function Hero({
 
       <div className={styles.panel} aria-hidden="true">
         <TileGrid design="onda" cols={3} rows={6} className={styles.panelGrid} />
+        {/* Cartela com o monograma: par da View Transition com o cabeçalho
+            das páginas internas (o monograma "voa" entre as páginas). */}
+        <div className={styles.cartela}>
+          <ViewTransition name="monograma" share="monograma" default="none">
+            <span className={styles.cartelaMono}>
+              <Monogram weight={1.8} />
+            </span>
+          </ViewTransition>
+        </div>
       </div>
 
       <div className={cx("page-wrap page-grid", styles.body)}>
