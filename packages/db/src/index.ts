@@ -23,3 +23,6 @@ export const db: Database = new Proxy({} as Database, {
     return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(real) : value;
   },
 });
+
+// Operadores do drizzle reexportados para que os apps usem a mesma instância do pacote.
+export { and, asc, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
