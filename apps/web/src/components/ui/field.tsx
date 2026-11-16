@@ -46,7 +46,7 @@ export function Field({ id, label, hint, error, optional, className, children }:
 
   return (
     <div className={cx("flex flex-col", className)}>
-      <label htmlFor={controlId} className="self-start text-base font-medium text-tinta">
+      <label htmlFor={controlId} className="self-start text-base font-medium text-ink">
         {label}
         {optional ? <OptionalTag /> : null}
       </label>
@@ -64,12 +64,12 @@ export function Field({ id, label, hint, error, optional, className, children }:
 }
 
 export function OptionalTag() {
-  return <span className="ml-2 text-sm font-normal text-tinta/65">opcional</span>;
+  return <span className="ml-2 text-sm font-normal text-ink-soft">opcional</span>;
 }
 
 export function FieldHint({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <p id={id} className="mt-1 text-sm text-tinta/70">
+    <p id={id} className="mt-1 text-sm text-ink-soft">
       {children}
     </p>
   );
@@ -87,7 +87,7 @@ export function FieldError({
   return (
     <p
       id={id}
-      className={cx("mt-2 flex items-start gap-2 text-sm font-medium text-erro", className)}
+      className={cx("mt-2 flex items-start gap-2 text-sm font-medium text-danger", className)}
     >
       <span aria-hidden="true" className="flex h-[1lh] shrink-0 items-center">
         <ErrorMark />
@@ -109,15 +109,15 @@ function ErrorMark() {
 }
 
 /*
- * Aparência dos controles de texto. Borda anil (4,5:1 sobre esmalte, acima
- * do mínimo de 3:1 para componentes), superfície branca sobre o esmalte da
- * página (camada, não sombra), cobalto no hover e no foco.
+ * Aparência dos controles de texto. Campo claro (branco dentro do relevo),
+ * borda na cor da linha da superfície (royal no claro, 11,6:1; serenity no
+ * marinho, 6,3:1), cantos de 12px: a cápsula fica para os botões.
  */
 export const controlStyles = cx(
-  "block w-full min-h-12 rounded-[2px] border-[1.5px] border-anil bg-branco px-4",
-  "font-sans text-base text-tinta placeholder:text-tinta/55",
-  "transition-[border-color,background-color] duration-micro ease-out",
-  "hover:border-cobalto focus-visible:border-cobalto",
-  "aria-[invalid=true]:border-erro",
-  "disabled:cursor-not-allowed disabled:border-tinta/20 disabled:bg-nevoa disabled:text-tinta/60",
+  "block w-full min-h-12 rounded-xl border-[1.5px] border-line bg-field px-4",
+  "font-sans text-base text-ink placeholder:text-ink-soft",
+  "transition-[border-color,background-color,box-shadow] duration-micro ease-out",
+  "hover:border-ink focus-visible:border-ink focus-visible:shadow-[inset_0_0_0_1px_var(--ink)]",
+  "aria-[invalid=true]:border-danger",
+  "disabled:cursor-not-allowed disabled:border-line-soft disabled:bg-transparent disabled:text-ink-soft",
 );

@@ -12,14 +12,15 @@ export type ButtonStyleOptions = {
 };
 
 /*
- * Forma: retângulo de quina viva (raio 2px). O primário tem um filete interno a 4px da
- * borda, como a moldura pintada que contorna um azulejo. O filete é um
- * pseudo-elemento (::before), não uma sombra: não recorta o anel de foco
- * (clip-path recortaria) e continua nítido em qualquer densidade de tela.
+ * Forma: cápsula (o "estádio" dos cartões do casal). O primário é chapado
+ * na cor da tinta da superfície (branco no marinho, marinho no relevo), com
+ * um fio interno a 3px da borda, como a moldura dupla dos cartões. O fio é
+ * um pseudo-elemento (::before), não uma sombra: não recorta o anel de foco
+ * e continua nítido em qualquer densidade de tela.
  */
 const base = cx(
   "relative isolate inline-flex items-center justify-center gap-2.5",
-  "rounded-[2px] font-sans font-medium leading-tight text-center text-balance",
+  "rounded-full font-sans font-medium leading-tight text-center text-balance",
   "select-none touch-manipulation cursor-pointer",
   "transition-[transform,background-color,color,border-color] duration-micro ease-out",
   "active:scale-[0.97] motion-reduce:active:scale-100",
@@ -28,27 +29,27 @@ const base = cx(
 );
 
 const frame = cx(
-  "before:pointer-events-none before:absolute before:inset-1 before:-z-10",
-  "before:rounded-[1px] before:border before:transition-colors before:duration-micro",
+  "before:pointer-events-none before:absolute before:inset-[3px] before:-z-10",
+  "before:rounded-full before:border before:transition-colors before:duration-micro",
 );
 
 const variants: Record<ButtonVariant, string> = {
   primary: cx(
     frame,
-    "bg-cobalto text-branco before:border-branco/35",
-    "not-disabled:hover:bg-tinta not-disabled:hover:before:border-branco/55",
-    "disabled:bg-nevoa disabled:text-tinta/55 disabled:before:border-tinta/15",
+    "bg-ink text-on-ink before:border-on-ink/30",
+    "not-disabled:hover:bg-ink/85 not-disabled:hover:before:border-on-ink/50",
+    "disabled:bg-ink/25 disabled:text-ink disabled:before:border-transparent",
   ),
-  // Sem o filete interno: com ele, o contorno lia como campo de texto.
+  // Sem o fio interno: com ele, o contorno lia como campo de texto.
   secondary: cx(
-    "border-[1.5px] border-cobalto bg-transparent text-cobalto",
-    "not-disabled:hover:bg-nevoa",
-    "disabled:border-tinta/25 disabled:bg-transparent disabled:text-tinta/50",
+    "border-[1.5px] border-ink bg-transparent text-ink",
+    "not-disabled:hover:bg-ink/10",
+    "disabled:border-ink/30 disabled:bg-transparent disabled:text-ink-soft",
   ),
   quiet: cx(
-    "text-cobalto underline decoration-1 underline-offset-[0.28em]",
+    "text-ink underline decoration-accent decoration-1 underline-offset-[0.28em]",
     "transition-[transform,text-decoration-thickness,color]",
-    "not-disabled:hover:decoration-2 not-disabled:hover:text-tinta disabled:text-tinta/50 disabled:no-underline",
+    "not-disabled:hover:decoration-2 disabled:text-ink-soft disabled:no-underline",
   ),
 };
 

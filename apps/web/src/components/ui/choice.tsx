@@ -10,7 +10,7 @@ import { describedBy, FieldError, FieldHint, OptionalTag } from "./field";
 
 const row =
   "group flex min-h-11 cursor-pointer items-start gap-3 py-2.5 has-disabled:cursor-not-allowed";
-const textCol = "flex flex-col text-base text-tinta group-has-disabled:text-tinta/55";
+const textCol = "flex flex-col text-base text-ink group-has-disabled:text-ink-soft";
 
 type ChoiceExtras = {
   label: ReactNode;
@@ -27,8 +27,8 @@ export type CheckboxProps = Omit<ComponentProps<"input">, "type" | "className"> 
   };
 
 /**
- * Caixa de seleção: um mini azulejo quadrado. Marcada, ganha esmalte cobalto
- * e o visto é desenhado em traço branco.
+ * Caixa de seleção: um mini azulejo quadrado. Marcada, ganha a cor da tinta
+ * e o visto é desenhado na cor do campo.
  */
 export function Checkbox({ id, label, hint, error, className, ...rest }: CheckboxProps) {
   const autoId = useId();
@@ -49,19 +49,19 @@ export function Checkbox({ id, label, hint, error, className, ...rest }: Checkbo
               aria-invalid={error ? true : rest["aria-invalid"]}
               className={cx(
                 "peer absolute inset-0 m-0 size-6 cursor-pointer appearance-none rounded-[2px]",
-                "border-[1.5px] border-cobalto bg-branco",
+                "border-[1.5px] border-line bg-field",
                 "transition-colors duration-micro ease-out",
-                "hover:bg-nevoa checked:bg-cobalto checked:hover:bg-tinta checked:hover:border-tinta",
-                "aria-[invalid=true]:border-erro",
-                "disabled:cursor-not-allowed disabled:border-tinta/25 disabled:bg-nevoa",
-                "disabled:checked:bg-tinta/30",
+                "hover:bg-ink/10 checked:border-ink checked:bg-ink checked:hover:bg-ink/85",
+                "aria-[invalid=true]:border-danger",
+                "disabled:cursor-not-allowed disabled:border-line-soft disabled:bg-transparent",
+                "disabled:checked:bg-ink/30",
               )}
             />
             <svg
               aria-hidden="true"
               viewBox="0 0 16 16"
               className={cx(
-                "pointer-events-none relative size-4 text-branco",
+                "pointer-events-none relative size-4 text-on-ink",
                 "[&>path]:[stroke-dasharray:1] [&>path]:[stroke-dashoffset:1]",
                 "[&>path]:transition-[stroke-dashoffset] [&>path]:duration-ui [&>path]:ease-out",
                 "peer-checked:[&>path]:[stroke-dashoffset:0]",
@@ -79,7 +79,7 @@ export function Checkbox({ id, label, hint, error, className, ...rest }: Checkbo
         <span className={textCol}>
           <span>{label}</span>
           {hint ? (
-            <span id={hintId} className="text-sm text-tinta/70">
+            <span id={hintId} className="text-sm text-ink-soft">
               {hint}
             </span>
           ) : null}
@@ -96,7 +96,7 @@ export function Checkbox({ id, label, hint, error, className, ...rest }: Checkbo
 
 export type RadioProps = Omit<ComponentProps<"input">, "type" | "className"> & ChoiceExtras;
 
-/** Rádio: círculo com contorno cobalto; marcado, um ponto cresce do centro. */
+/** Rádio: círculo com contorno na cor da linha; marcado, um ponto cresce do centro. */
 export function Radio({ id, label, hint, className, ...rest }: RadioProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
@@ -113,17 +113,17 @@ export function Radio({ id, label, hint, className, ...rest }: RadioProps) {
             aria-describedby={describedBy(hintId, rest["aria-describedby"])}
             className={cx(
               "peer absolute inset-0 m-0 size-6 cursor-pointer appearance-none rounded-full",
-              "border-[1.5px] border-cobalto bg-branco",
-              "transition-colors duration-micro ease-out hover:bg-nevoa",
-              "disabled:cursor-not-allowed disabled:border-tinta/25 disabled:bg-nevoa",
+              "border-[1.5px] border-line bg-field",
+              "transition-colors duration-micro ease-out hover:bg-ink/10 checked:border-ink",
+              "disabled:cursor-not-allowed disabled:border-line-soft disabled:bg-transparent",
             )}
           />
           <span
             aria-hidden="true"
             className={cx(
-              "pointer-events-none relative size-2.5 scale-0 rounded-full bg-cobalto",
+              "pointer-events-none relative size-2.5 scale-0 rounded-full bg-ink",
               "transition-transform duration-ui ease-out peer-checked:scale-100",
-              "peer-disabled:bg-tinta/35",
+              "peer-disabled:bg-ink/35",
             )}
           />
         </span>
@@ -131,7 +131,7 @@ export function Radio({ id, label, hint, className, ...rest }: RadioProps) {
       <span className={textCol}>
         <span>{label}</span>
         {hint ? (
-          <span id={hintId} className="text-sm text-tinta/70">
+          <span id={hintId} className="text-sm text-ink-soft">
             {hint}
           </span>
         ) : null}
@@ -178,7 +178,7 @@ export function RadioGroup({
       aria-invalid={error ? true : undefined}
       className={cx("m-0 flex min-w-0 flex-col border-0 p-0", className)}
     >
-      <legend id={legendId} className="p-0 text-base font-medium text-tinta">
+      <legend id={legendId} className="p-0 text-base font-medium text-ink">
         {legend}
         {optional ? <OptionalTag /> : null}
       </legend>

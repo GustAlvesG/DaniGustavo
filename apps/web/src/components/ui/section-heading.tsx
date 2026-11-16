@@ -26,10 +26,10 @@ export function SectionHeading({ children, as = "h2", lead, id, className }: Sec
   const Tag = as;
   return (
     <div className={cx("flex flex-col gap-5 lg:gap-7", className)}>
-      <Tag id={id} className={cx("font-display text-tinta", sizeFor[as])}>
+      <Tag id={id} className={cx("font-display text-ink", sizeFor[as])}>
         {children}
       </Tag>
-      {lead ? <p className="max-w-[44ch] text-lg text-tinta/80">{lead}</p> : null}
+      {lead ? <p className="max-w-[44ch] text-lg text-ink-soft">{lead}</p> : null}
     </div>
   );
 }
