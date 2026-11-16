@@ -12,7 +12,7 @@ export type ButtonStyleOptions = {
 };
 
 /*
- * Forma: retângulo de quina viva (raio 2px) com um filete interno a 4px da
+ * Forma: retângulo de quina viva (raio 2px). O primário tem um filete interno a 4px da
  * borda, como a moldura pintada que contorna um azulejo. O filete é um
  * pseudo-elemento (::before), não uma sombra: não recorta o anel de foco
  * (clip-path recortaria) e continua nítido em qualquer densidade de tela.
@@ -39,11 +39,11 @@ const variants: Record<ButtonVariant, string> = {
     "not-disabled:hover:bg-tinta not-disabled:hover:before:border-branco/55",
     "disabled:bg-nevoa disabled:text-tinta/55 disabled:before:border-tinta/15",
   ),
+  // Sem o filete interno: com ele, o contorno lia como campo de texto.
   secondary: cx(
-    frame,
-    "border-[1.5px] border-cobalto bg-transparent text-cobalto before:border-cobalto/25",
-    "not-disabled:hover:bg-nevoa not-disabled:hover:before:border-cobalto/45",
-    "disabled:border-tinta/25 disabled:bg-transparent disabled:text-tinta/50 disabled:before:border-tinta/10",
+    "border-[1.5px] border-cobalto bg-transparent text-cobalto",
+    "not-disabled:hover:bg-nevoa",
+    "disabled:border-tinta/25 disabled:bg-transparent disabled:text-tinta/50",
   ),
   quiet: cx(
     "text-cobalto underline decoration-1 underline-offset-[0.28em]",
