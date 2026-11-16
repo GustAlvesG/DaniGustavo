@@ -125,8 +125,11 @@ export function waveDelays(
 export const OPENING_TIMELINE = {
   /** a) ladrilhos viram do verso para a face, em onda a partir do centro. */
   flip: { start: 0, duration: 0.6, spread: 0.55 },
-  /** b) o monograma se desenha no campo liso (que vira primeiro). */
-  draw: { start: 0.42, duration: 0.5, stagger: 0.075 },
+  /**
+   * b) o DG se escreve no campo liso (que vira primeiro): uma parte por vez
+   * (haste, S, esporão, arco, pé), com a tinta `inkLag` atrás da linha.
+   */
+  draw: { start: 0.36, duration: 0.42, stagger: 0.17, inkLag: 0.1 },
   /** c) as folhas abrem pelas dobradiças das bordas. */
   doors: { start: 1.72, duration: 0.86 },
   /** d) "Dani" e "& Gustavo" sobem por máscara, letra a letra. */
@@ -141,7 +144,11 @@ export const OPENING_TIMELINE = {
 export function openingDuration(monogramStrokes: number, nameChars: number): number {
   const t = OPENING_TIMELINE;
   const flip = t.flip.start + t.flip.spread + t.flip.duration;
-  const draw = t.draw.start + t.draw.duration + Math.max(0, monogramStrokes - 1) * t.draw.stagger;
+  const draw =
+    t.draw.start +
+    t.draw.duration +
+    t.draw.inkLag +
+    Math.max(0, monogramStrokes - 1) * t.draw.stagger;
   const doors = t.doors.start + t.doors.duration;
   const names = t.names.start + t.names.duration + Math.max(0, nameChars - 1) * t.names.stagger;
   return Math.max(flip, draw, doors, names);

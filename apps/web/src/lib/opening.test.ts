@@ -137,7 +137,7 @@ describe("waveDelays", () => {
 });
 
 describe("openingDuration", () => {
-  it("cabe em 3,2 s com o monograma (11 traços) e os nomes (12 letras)", () => {
-    expect(openingDuration(11, 12)).toBeLessThanOrEqual(3.2);
+  it("cabe em 3,2 s com o DG (5 partes) e os nomes (12 letras)", () => {
+    expect(openingDuration(5, 12)).toBeLessThanOrEqual(3.2);
   });
 });

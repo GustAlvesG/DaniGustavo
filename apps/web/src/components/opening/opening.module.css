@@ -11,7 +11,7 @@
   /* Colunas por folha: igual a doorColumns() em src/lib/opening.ts. */
   --c: 3;
   --t: calc(50vw / var(--c));
-  --mono-w: calc(var(--t) * 3.5);
+  --mono-w: calc(var(--t) * 2.55);
   display: none;
   position: fixed;
   inset: 0;
@@ -53,7 +53,7 @@
   width: 50%;
   overflow: hidden;
   /* Junta entre os ladrilhos (as faces ficam 0,5px para dentro). */
-  background: var(--color-nevoa, #e6edfa);
+  background: var(--tile-joint, #26355c);
   backface-visibility: hidden;
 }
 
@@ -127,16 +127,16 @@
   display: none;
 }
 
-/* Verso: névoa com um filete anil fino a 9% da borda (como o da TileBand). */
+/* Verso: esmalte royal com um filete claro a 9% da borda (como o da TileBand). */
 .back {
-  background: var(--color-nevoa, #e6edfa);
+  background: var(--tile-back, #0b3270);
 }
 
 .back::after {
   content: "";
   position: absolute;
   inset: 9%;
-  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-celeste, #bbd0ec) 22%, transparent);
 }
 
 /* Ladrilhos fora da tela não participam (menos DOM no layout e na pintura). */
@@ -144,9 +144,9 @@
   display: none;
 }
 
-/* Campo liso do monograma: esmalte sem desenho. */
+/* Campo liso do monograma: marinho sem desenho. */
 .blank {
-  background: var(--color-esmalte, #fbfcff);
+  background: var(--color-marinho, #15244b);
 }
 
 /* Monograma ------------------------------------------------------------- */
@@ -160,6 +160,7 @@
   top: 50%;
   width: var(--mono-w);
   translate: 0 -50%;
+  color: var(--color-branco, #fff);
   /* Escondido até o JS zerar o traço (DrawSVG). */
   visibility: hidden;
   pointer-events: none;
@@ -217,16 +218,18 @@
 }
 
 /*
- * Cartela: filete duplo cobalto em volta do campo do monograma. Cada folha
- * tem a sua metade (sem a borda da junta); o JS a revela da junta para fora.
+ * Cartela: a cápsula (o "estádio" dos cartões do casal) em volta do campo do
+ * monograma, em fio branco duplo. Cada folha tem a sua metade (sem a borda da
+ * junta); o JS a revela da junta para fora.
  */
 .frame {
-  --inset: max(6px, calc(var(--t) * 0.07));
+  --inset: max(6px, calc(var(--t) * 0.08));
+  --h: calc(var(--t) * 2 - 2 * var(--inset));
   position: absolute;
-  top: calc(50% - var(--t) * 2 / 2 + var(--inset));
-  height: calc(var(--t) * 2 - 2 * var(--inset));
+  top: calc(50% - var(--t) + var(--inset));
+  height: var(--h);
   width: calc(var(--t) * 2 - var(--inset));
-  border: 1.5px solid var(--color-cobalto, #1f3fae);
+  border: 1.5px solid var(--color-branco, #fff);
   visibility: hidden;
   pointer-events: none;
 }
@@ -234,28 +237,32 @@
 .frame::after {
   content: "";
   position: absolute;
-  inset: 4px;
-  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 70%, transparent);
+  inset: 5px;
+  border: 1px solid color-mix(in srgb, var(--color-serenity, #92a8d1) 75%, transparent);
 }
 
 .door[data-door="l"] .frame {
   right: 0;
   border-right: 0;
+  border-radius: calc(var(--h) / 2) 0 0 calc(var(--h) / 2);
 }
 
 .door[data-door="l"] .frame::after {
   right: 0;
   border-right: 0;
+  border-radius: calc(var(--h) / 2 - 5px) 0 0 calc(var(--h) / 2 - 5px);
 }
 
 .door[data-door="r"] .frame {
   left: 0;
   border-left: 0;
+  border-radius: 0 calc(var(--h) / 2) calc(var(--h) / 2) 0;
 }
 
 .door[data-door="r"] .frame::after {
   left: 0;
   border-left: 0;
+  border-radius: 0 calc(var(--h) / 2 - 5px) calc(var(--h) / 2 - 5px) 0;
 }
 
 .root[data-drawing] .frame {

@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
-import { Monogram } from "@/components/tiles";
+import { MonogramDG } from "@/components/brand";
 import { TileSymbols, TileUse, symbolId, useSymbolPrefix } from "@/components/tiles/TileSymbols";
 import { loadGsapScene, type GsapScene } from "@/components/motion/load-gsap";
 import { cx } from "@/lib/cx";
@@ -157,6 +157,9 @@ export function Opening({ forced = false, onDone }: OpeningProps) {
       cleanupScene();
       delete root.dataset.leaving;
       delete root.dataset.drawing;
+      root
+        .querySelectorAll("svg[data-resolved]")
+        .forEach((el) => el.removeAttribute("data-resolved"));
       root.querySelectorAll<HTMLElement>("[data-front], [data-off]").forEach((el) => {
         delete el.dataset.front;
         delete el.dataset.off;
@@ -203,10 +206,10 @@ export function Opening({ forced = false, onDone }: OpeningProps) {
           ))}
           <div className={styles.frame} data-frame={door} />
           <div className={cx(styles.mono, styles.monoSm)}>
-            <Monogram weight={1.7} />
+            <MonogramDG variant="draw" bold={5} />
           </div>
           <div className={cx(styles.mono, styles.monoLg)}>
-            <Monogram weight={1.05} />
+            <MonogramDG variant="draw" bold={2} />
           </div>
         </div>
       ))}
@@ -244,16 +247,18 @@ function play(
     T.flip.spread,
   );
 
-  // Traços dos monogramas visíveis, intercalados (esq., dir.) por ordem de escrita.
-  const monos = Array.from(root.querySelectorAll<SVGSVGElement>("svg")).filter(
+  // Monogramas visíveis (um por folha). Por parte, na ordem de escrita: a
+  // linha (a pena) e a máscara que revela a tinta logo atrás dela.
+  const monos = Array.from(root.querySelectorAll<SVGSVGElement>("svg[data-mono]")).filter(
     (svg) => svg.closest(`.${styles.mono}`) && visible(svg),
   );
-  const strokeLists = monos.map((svg) => Array.from(svg.querySelectorAll("path")));
-  const strokes: SVGPathElement[] = [];
-  for (let i = 0; i < (strokeLists[0]?.length ?? 0); i++) {
-    strokeLists.forEach((list) => list[i] && strokes.push(list[i]));
-  }
-  const perStroke = Math.max(1, strokeLists.length);
+  const byPart = <T extends Element>(selector: string) => {
+    const lists = monos.map((svg) => Array.from(svg.querySelectorAll<T>(selector)));
+    return Array.from({ length: lists[0]?.length ?? 0 }, (_, i) => lists.map((l) => l[i]!));
+  };
+  const pens = byPart<SVGPathElement>("[data-mono-line]");
+  const masks = byPart<SVGPathElement>("[data-mono-mask]");
+  const strokes = [...pens.flat(), ...masks.flat()];
 
   const doors = Array.from(root.querySelectorAll<HTMLElement>("[data-door]"));
   const [left, right] = doors;
@@ -304,16 +309,21 @@ function play(
     tl.add(flip, T.flip.start + (delays[i] ?? 0));
   });
 
-  // b) monograma desenhado em cobalto
-  tl.to(
-    strokes,
-    {
-      drawSVG: "100%",
-      duration: T.draw.duration,
-      ease: "power1.inOut",
-      stagger: (i: number) => Math.floor(i / perStroke) * T.draw.stagger,
-    },
-    T.draw.start,
+  // b) o DG se escreve em linha branca; a tinta vem atrás da pena e, no fim,
+  // o desenho vira o monograma preenchido (data-resolved: idêntico ao parado).
+  pens.forEach((group, i) => {
+    const at = T.draw.start + i * T.draw.stagger;
+    tl.to(group, { drawSVG: "100%", duration: T.draw.duration, ease: "power1.inOut" }, at);
+    tl.to(
+      masks[i] ?? [],
+      { drawSVG: "100%", duration: T.draw.duration, ease: "power1.inOut" },
+      at + T.draw.inkLag,
+    );
+  });
+  tl.call(
+    () => monos.forEach((svg) => svg.setAttribute("data-resolved", "")),
+    undefined,
+    T.draw.start + (pens.length - 1) * T.draw.stagger + T.draw.duration + T.draw.inkLag,
   );
 
   // cartela: o filete corre da junta para as pontas enquanto o monograma se escreve
