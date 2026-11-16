@@ -182,6 +182,23 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
     expect(JSON.stringify(logs[0]?.payload)).toContain("Sem glúten");
   });
 
+  it("envia exatamente um e-mail por RSVP bem-sucedido", async () => {
+    const token = await makeInvitation(db, {
+      label: "Heloísa Tavares",
+      names: [{ name: "Heloísa Tavares" }],
+      contactEmail: "heloisa@exemplo.com",
+    });
+    const { body } = await getInvitation(token);
+    const before = sent.length;
+    const res = await put(token, { guests: [{ id: body!.guests[0]!.id, attending: true }] });
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(sent.length).toBeGreaterThan(before));
+    // Dá tempo de um eventual segundo envio aparecer antes de contar.
+    await new Promise((r) => setTimeout(r, 100));
+    const mine = sent.slice(before).filter((m) => m.to === "heloisa@exemplo.com");
+    expect(mine).toHaveLength(1);
+  });
+
   it("recusa convidado de outro convite e resposta incompleta", async () => {
     const { body: other } = await getInvitation(pontes);
     const { body: mine } = await getInvitation(quintanilha);
