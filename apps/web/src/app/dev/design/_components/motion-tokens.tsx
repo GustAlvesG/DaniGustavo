@@ -57,9 +57,9 @@ function CurvePlot({ points, title }: { points: Curve["points"]; title: string }
   const py = (y: number) => 112 - y * S;
   return (
     <svg viewBox="0 0 124 124" className="w-full" role="img" aria-label={title}>
-      <rect x={px(0)} y={py(1)} width={S} height={S} fill="var(--color-branco)" />
+      <rect x={px(0)} y={py(1)} width={S} height={S} fill="var(--color-noite)" />
       {[0.25, 0.5, 0.75].map((t) => (
-        <g key={t} stroke="var(--color-nevoa)" strokeWidth="0.6">
+        <g key={t} stroke="var(--color-royal)" strokeWidth="0.6">
           <line x1={px(t)} y1={py(0)} x2={px(t)} y2={py(1)} />
           <line x1={px(0)} y1={py(t)} x2={px(1)} y2={py(t)} />
         </g>
@@ -70,7 +70,7 @@ function CurvePlot({ points, title }: { points: Curve["points"]; title: string }
         width={S}
         height={S}
         fill="none"
-        stroke="var(--color-cobalto)"
+        stroke="var(--color-branco)"
         strokeOpacity="0.3"
         strokeWidth="0.6"
       />
@@ -79,26 +79,26 @@ function CurvePlot({ points, title }: { points: Curve["points"]; title: string }
         y1={py(0)}
         x2={px(1)}
         y2={py(1)}
-        stroke="var(--color-anil)"
+        stroke="var(--color-serenity)"
         strokeOpacity="0.35"
         strokeWidth="0.6"
       />
-      <g stroke="var(--color-anil)" strokeWidth="0.7">
+      <g stroke="var(--color-serenity)" strokeWidth="0.7">
         <line x1={px(0)} y1={py(0)} x2={px(x1)} y2={py(y1)} />
         <line x1={px(1)} y1={py(1)} x2={px(x2)} y2={py(y2)} />
       </g>
       <path
         d={`M${px(0)} ${py(0)} C${px(x1)} ${py(y1)} ${px(x2)} ${py(y2)} ${px(1)} ${py(1)}`}
         fill="none"
-        stroke="var(--color-cobalto)"
+        stroke="var(--color-branco)"
         strokeWidth="2"
         strokeLinecap="round"
       />
-      <g fill="var(--color-branco)" stroke="var(--color-anil)" strokeWidth="0.9">
+      <g fill="var(--color-noite)" stroke="var(--color-serenity)" strokeWidth="0.9">
         <circle cx={px(x1)} cy={py(y1)} r="2.2" />
         <circle cx={px(x2)} cy={py(y2)} r="2.2" />
       </g>
-      <g fill="var(--color-cobalto)">
+      <g fill="var(--color-branco)">
         <circle cx={px(0)} cy={py(0)} r="1.8" />
         <circle cx={px(1)} cy={py(1)} r="1.8" />
       </g>
@@ -131,20 +131,20 @@ export function CurvesBoard() {
               <CurvePlot points={c.points} title={`Gráfico da curva ${c.token}`} />
             </div>
             <figcaption className="mt-5 flex flex-col gap-1">
-              <code className="font-mono text-sm text-cobalto">{c.token}</code>
-              <span className="text-sm tabular-nums text-tinta/75">{c.value}</span>
-              <span className="mt-1 max-w-[40ch] text-base text-tinta/85">{c.usage}</span>
+              <code className="font-mono text-sm text-accent">{c.token}</code>
+              <span className="text-sm tabular-nums text-ink-soft">{c.value}</span>
+              <span className="mt-1 max-w-[40ch] text-base text-ink-soft">{c.usage}</span>
             </figcaption>
             <div className="mt-6 flex flex-col gap-2">
               <Runner duration={DEMO_MS} ease={`var(${c.token})`} />
-              <p className="text-xs text-tinta/65">{DEMO_MS} ms com esta curva</p>
+              <p className="text-xs text-ink-soft">{DEMO_MS} ms com esta curva</p>
             </div>
           </figure>
         ))}
       </div>
       <div className="flex flex-col gap-2">
         <Runner duration={DEMO_MS} ease="linear" />
-        <p className="text-xs text-tinta/65">Referência linear, {DEMO_MS} ms</p>
+        <p className="text-xs text-ink-soft">Referência linear, {DEMO_MS} ms</p>
       </div>
       <div>
         <Button variant="secondary" onClick={replay}>
@@ -163,18 +163,18 @@ export function DurationsBoard() {
         {DURATIONS.map((d) => (
           <li
             key={d.token}
-            className="grid grid-cols-1 gap-x-8 gap-y-4 border-t border-nevoa py-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+            className="grid grid-cols-1 gap-x-8 gap-y-4 border-t border-line-soft py-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
           >
             <div className="flex flex-col gap-1">
               <div className="flex items-baseline gap-3">
-                <span className="font-display text-3xl tabular-nums text-tinta">{d.ms}</span>
-                <span className="text-sm text-tinta/75">ms</span>
+                <span className="font-display text-3xl tabular-nums text-ink">{d.ms}</span>
+                <span className="text-sm text-ink-soft">ms</span>
               </div>
-              <code className="font-mono text-sm text-cobalto">{d.token}</code>
-              <span className="text-sm text-tinta/80">{d.usage}</span>
+              <code className="font-mono text-sm text-accent">{d.token}</code>
+              <span className="text-sm text-ink-soft">{d.usage}</span>
             </div>
             <div className="flex flex-col justify-center gap-4">
-              <div className="relative h-2 bg-nevoa">
+              <div className="relative h-2 bg-ink/15">
                 <div
                   data-at="end"
                   className={styles.bar}
@@ -191,7 +191,7 @@ export function DurationsBoard() {
           </li>
         ))}
       </ul>
-      <p className="-mt-6 text-xs text-tinta/65">
+      <p className="-mt-6 text-xs text-ink-soft">
         Barras na escala de 0 a 1 s. O quadrado percorre o trilho no tempo do token, com --ease-out.
       </p>
       <div>

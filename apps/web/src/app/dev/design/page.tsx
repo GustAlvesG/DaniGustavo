@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Monogram, TileBand } from "@/components/tiles";
+import { MonogramDG } from "@/components/brand";
+import { TileBand } from "@/components/tiles";
+import { BrandBoard } from "./_components/brand-board";
 import { BandReplay } from "./_components/band-replay";
 import { ButtonBoard } from "./_components/button-board";
 import { CountdownDemo } from "./_components/countdown-demo";
@@ -22,6 +24,7 @@ export const metadata: Metadata = {
 
 const INDEX = [
   { id: "cores", label: "Cores" },
+  { id: "marca", label: "Monograma e formas" },
   { id: "movimento", label: "Curvas e durações" },
   { id: "tipografia", label: "Tipografia" },
   { id: "azulejos", label: "Azulejos" },
@@ -47,29 +50,30 @@ export default function DesignBoardPage() {
       <header className="page-wrap">
         <div className="page-grid gap-y-12 pt-16 pb-16 lg:items-end lg:pt-28 lg:pb-24">
           <div className="flex flex-col gap-8 lg:col-span-7">
-            <h1 className="font-display text-display-lg text-tinta">Prancha de design</h1>
-            <p className="max-w-[46ch] text-lg text-tinta/80">
-              Cores, movimento, tipografia, azulejos e componentes do site de Dani & Gustavo,
-              reunidos num lugar só para revisão. Cada animação tem botão para repetir. Esta página
-              só existe em desenvolvimento.
+            <h1 className="font-display text-display-lg text-ink">Prancha de design</h1>
+            <p className="max-w-[46ch] text-lg text-ink-soft">
+              Cores, monograma, movimento, tipografia, azulejos e componentes do site de Dani &
+              Gustavo, na identidade do casal (azul-marinho com detalhes brancos), reunidos num
+              lugar só para revisão. Cada animação tem botão para repetir. Esta página só existe em
+              desenvolvimento.
             </p>
           </div>
           <div className="hidden lg:col-span-4 lg:col-start-9 lg:block">
-            <Monogram label="D & G" weight={1.2} />
+            <MonogramDG label="Dani & Gustavo" />
           </div>
         </div>
       </header>
 
       <nav
         aria-label="Seções da prancha"
-        className="sticky top-0 z-20 border-y border-cobalto/20 bg-esmalte"
+        className="sticky top-0 z-20 border-y border-line-soft bg-surface"
       >
         <ul className="page-wrap flex gap-x-6 overflow-x-auto [scrollbar-width:none] lg:gap-x-9">
           {INDEX.map((item) => (
             <li key={item.id} className="shrink-0">
               <a
                 href={`#${item.id}`}
-                className="flex min-h-12 items-center text-sm font-medium whitespace-nowrap text-tinta/75 underline-offset-[0.3em] transition-colors duration-micro ease-out hover:text-cobalto hover:underline"
+                className="flex min-h-12 items-center text-sm font-medium whitespace-nowrap text-ink-soft underline-offset-[0.3em] transition-colors duration-micro ease-out hover:text-accent hover:underline"
               >
                 {item.label}
               </a>
@@ -82,15 +86,23 @@ export default function DesignBoardPage() {
         <BoardSection
           id="cores"
           title="Cores"
-          lead="Tinta cobalto sobre esmalte branco, como no azulejo. Sete tokens, sem degradê e sem sombra cinza: a profundidade vem da névoa sob o branco."
+          lead="A paleta do casal: marinho dominante, branco e azul-claro como detalhe, azul serenity como destaque. Cada cor tem um papel; os componentes usam papéis (ink, accent, line…) que trocam com a superfície."
         >
           <Swatches />
         </BoardSection>
 
         <BoardSection
+          id="marca"
+          title="Monograma e formas"
+          lead="O DG do casal, redesenhado em vetor, e as três formas dos cartões deles: arco, cápsula e círculo."
+        >
+          <BrandBoard />
+        </BoardSection>
+
+        <BoardSection
           id="movimento"
           title="Curvas e durações"
-          lead="Duas curvas e três tempos para tudo que se move. O quadrado cobalto mostra cada um na prática."
+          lead="Duas curvas e três tempos para tudo que se move. O círculo serenity mostra cada um na prática."
         >
           <div className="flex flex-col gap-24 lg:gap-32">
             <div>
@@ -135,7 +147,7 @@ export default function DesignBoardPage() {
         <BoardSection
           id="botoes"
           title="Botões"
-          lead="Quina viva e um filete interno, como a moldura pintada de um azulejo. Na pressão, encolhem para 97%."
+          lead="Cápsulas, como os cartões do casal, com um fio interno no primário. Na pressão, encolhem para 97%."
         >
           <ButtonBoard />
         </BoardSection>
@@ -143,7 +155,7 @@ export default function DesignBoardPage() {
         <BoardSection
           id="campos"
           title="Campos"
-          lead="Controles nativos redesenhados: rótulo acima, superfície branca sobre o esmalte, erro em vermelho só quando há erro."
+          lead="Controles nativos redesenhados. Os formulários ficam num cartão claro: campo branco, rótulo marinho, erro em vermelho escuro só quando há erro."
         >
           <FieldBoard />
         </BoardSection>
@@ -151,7 +163,7 @@ export default function DesignBoardPage() {
         <BoardSection
           id="contagem"
           title="Contagem"
-          lead="Dias, horas e minutos até 15 de maio de 2027, sem segundos. O relógio aqui é controlado: avance uma hora para ver os dígitos rolarem."
+          lead="Dias, horas, minutos e segundos até 10 de abril de 2027. O relógio aqui é controlado: ande segundo a segundo ou avance uma hora para ver os dígitos rolarem."
         >
           <CountdownDemo details />
         </BoardSection>
@@ -173,7 +185,7 @@ export default function DesignBoardPage() {
               <BandReplay />
             </div>
             <div>
-              <BoardSubheading note="Os traços se desenham na ordem dos paths, em linha cobalto; pontos e aguada entram no fim.">
+              <BoardSubheading note="Os traços se desenham na ordem dos paths; pontos, aguada e o DG do ladrilho entram no fim.">
                 Desenho do azulejo
               </BoardSubheading>
               <DrawReplay />
@@ -190,7 +202,7 @@ export default function DesignBoardPage() {
         <BoardSection
           id="abertura"
           title="Abertura"
-          lead="A assinatura do site: os ladrilhos viram em onda, formam o monograma, que se desenha, e a grade se abre como duas folhas de porta."
+          lead="A assinatura do site: os ladrilhos viram em onda, a cápsula se abre no meio, o DG se escreve e a grade se abre como duas folhas de porta."
         >
           <OpeningReplay />
         </BoardSection>
@@ -200,7 +212,7 @@ export default function DesignBoardPage() {
           title="Hero"
           lead="A primeira tela da home, com os nomes em tamanho de cartaz."
         >
-          <div className="-mx-[var(--gutter)] border-y border-nevoa bg-esmalte">
+          <div className="-mx-[var(--gutter)] border-y border-line-soft">
             <Hero {...heroPlaceholder} headingLevel="h2" />
           </div>
         </BoardSection>

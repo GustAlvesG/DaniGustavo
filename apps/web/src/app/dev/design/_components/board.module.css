@@ -9,35 +9,13 @@
  * Só no elemento marcado com data-force-focus dentro do contêiner.
  */
 .forceFocus [data-force-focus] {
-  outline: 2px solid var(--color-cobalto);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
 .forceFocus :is(input, select, textarea)[data-force-focus]:not([type="checkbox"], [type="radio"]) {
-  border-color: var(--color-cobalto);
-}
-
-.forceFocusDark [data-force-focus] {
-  outline: 2px solid var(--color-branco);
-  outline-offset: 3px;
-}
-
-/*
- * Botão secundário sobre cobalto. Ainda não existe variante para fundo
- * escuro no design system; este ajuste local só mostra o anel de foco
- * branco (focus-on-dark) num botão legível.
- */
-.onDarkButton {
-  border-color: var(--color-branco);
-  color: var(--color-branco);
-}
-
-.onDarkButton::before {
-  border-color: color-mix(in srgb, var(--color-branco) 35%, transparent);
-}
-
-.onDarkButton:hover:not(:disabled) {
-  background-color: var(--color-tinta);
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 /* Trilho das demonstrações de curva e duração. */
@@ -45,7 +23,7 @@
   position: relative;
   overflow: hidden;
   height: 1.5rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-cobalto) 30%, transparent);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .runner {
@@ -66,14 +44,15 @@
   display: block;
   width: 1.5rem;
   height: 1.5rem;
-  background: var(--color-cobalto);
-  border-radius: 1px;
+  background: var(--color-serenity);
+  border-radius: 50%;
 }
 
 /* Barra que cresce com a duração (scaleX, só transform). */
 .bar {
   height: 0.5rem;
-  background: var(--color-cobalto);
+  background: var(--color-serenity);
+  border-radius: 9999px;
   transform-origin: left center;
   transform: scaleX(1);
   transition: transform var(--run-duration, 320ms) var(--ease-out);

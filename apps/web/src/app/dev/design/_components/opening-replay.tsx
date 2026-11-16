@@ -12,9 +12,9 @@ const STEPS = [
     until: T.flip.start + T.flip.spread + T.flip.duration,
   },
   {
-    label: "Monograma se desenha e a cartela corre",
+    label: "A cápsula corre da junta e o DG se escreve",
     at: T.draw.start,
-    until: T.draw.start + T.draw.duration + 10 * T.draw.stagger,
+    until: T.draw.start + T.draw.duration + T.draw.inkLag + 4 * T.draw.stagger,
   },
   {
     label: "Folhas de porta abrem pelas bordas",
@@ -37,25 +37,25 @@ const fmt = (s: number) => `${s.toFixed(2).replace(".", ",")} s`;
 export function OpeningReplay() {
   const [run, setRun] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const total = openingDuration(11, 12);
+  const total = openingDuration(5, 12);
 
   return (
     <div className="flex flex-col gap-8">
-      <ol className="flex flex-col border-t border-nevoa">
+      <ol className="flex flex-col border-t border-line-soft">
         {STEPS.map((step) => (
           <li
             key={step.label}
-            className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-b border-nevoa py-3"
+            className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-b border-line-soft py-3"
           >
-            <span className="text-base text-tinta">{step.label}</span>
-            <span className="text-sm text-tinta/70 tabular-nums">
+            <span className="text-base text-ink">{step.label}</span>
+            <span className="text-sm text-ink-soft tabular-nums">
               {fmt(step.at)} até {fmt(step.until)}
             </span>
           </li>
         ))}
         <li className="grid grid-cols-[1fr_auto] items-baseline gap-4 py-3">
-          <span className="text-base font-medium text-tinta">Total (teto de 3,2 s)</span>
-          <span className="text-sm font-medium text-tinta tabular-nums">{fmt(total)}</span>
+          <span className="text-base font-medium text-ink">Total (teto de 3,2 s)</span>
+          <span className="text-sm font-medium text-ink tabular-nums">{fmt(total)}</span>
         </li>
       </ol>
       <div className="flex flex-wrap items-center gap-4">
@@ -68,7 +68,7 @@ export function OpeningReplay() {
         >
           Repetir abertura
         </Button>
-        <p className="text-sm text-tinta/70">
+        <p className="text-sm text-ink-soft">
           Toque, clique ou qualquer tecla pula. Com movimento reduzido, vira um fade de 200 ms.
         </p>
       </div>

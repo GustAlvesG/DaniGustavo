@@ -30,11 +30,11 @@ function Row({
           <div
             key={state}
             className={cx(
-              "flex flex-col gap-4 border-t border-nevoa pt-4",
+              "flex flex-col gap-4 border-t border-line-soft pt-4",
               state === "foco" && styles.forceFocus,
             )}
           >
-            <p className="text-sm text-tinta/70">{label}</p>
+            <p className="text-sm text-ink-soft">{label}</p>
             {render(state, `${title}-${state}`, state === "foco" ? "" : undefined)}
           </div>
         ))}
@@ -48,7 +48,7 @@ export function FieldBoard() {
     <div className="flex flex-col gap-20 lg:gap-28">
       <Row
         title="Campo de texto"
-        note="Rótulo sempre acima, dica curta abaixo dele, erro que diz o que fazer. Borda anil (3:1 ou mais), cobalto no foco."
+        note="Rótulo sempre acima, dica curta abaixo dele, erro que diz o que fazer. Borda royal no claro (11,6:1), serenity no marinho (6,3:1); a borda engrossa no foco."
         render={(state, _key, focus) => (
           <TextField
             label="Nome completo"
@@ -96,7 +96,7 @@ export function FieldBoard() {
       />
       <Row
         title="Caixa de seleção"
-        note="Um mini azulejo: marcada, ganha esmalte cobalto e o visto se desenha."
+        note="Um mini azulejo: marcada, ganha a cor da tinta e o visto se desenha."
         render={(state, _key, focus) => (
           <div className="flex flex-col">
             <Checkbox

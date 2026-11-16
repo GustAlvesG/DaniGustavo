@@ -76,7 +76,7 @@ const TEXT = [
 
 function Meta({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 text-sm text-tinta/75 lg:col-span-3">
+    <div className="flex min-w-0 flex-col gap-0.5 text-sm text-ink-soft lg:col-span-3">
       {children}
     </div>
   );
@@ -91,16 +91,16 @@ export function TypeBoard() {
         </BoardSubheading>
         <ul className="flex flex-col">
           {DISPLAY.map((d) => (
-            <li key={d.token} className="page-grid gap-y-5 border-t border-nevoa py-8 lg:py-10">
+            <li key={d.token} className="page-grid gap-y-5 border-t border-line-soft py-8 lg:py-10">
               <Meta>
-                <code className="font-mono text-sm text-cobalto">{d.token}</code>
+                <code className="font-mono text-sm text-accent">{d.token}</code>
                 <span className="tabular-nums">{d.range}</span>
-                <span className="font-mono text-xs break-all text-tinta/60">{d.clamp}</span>
+                <span className="font-mono text-xs break-all text-ink-soft">{d.clamp}</span>
                 <span className="mt-1">{d.usage}</span>
               </Meta>
               <p
                 className={cx(
-                  "min-w-0 font-display text-tinta lg:col-span-9 lg:col-start-4",
+                  "min-w-0 font-display text-ink lg:col-span-9 lg:col-start-4",
                   d.className,
                 )}
               >
@@ -119,16 +119,16 @@ export function TypeBoard() {
           {TEXT.map((t) => (
             <li
               key={t.token}
-              className="page-grid items-baseline gap-y-3 border-t border-nevoa py-6"
+              className="page-grid items-baseline gap-y-3 border-t border-line-soft py-6"
             >
               <Meta>
-                <code className="font-mono text-sm text-cobalto">{t.token}</code>
+                <code className="font-mono text-sm text-accent">{t.token}</code>
                 <span className="tabular-nums">
                   {"fixed" in t ? t.fixed : `${px(17, t.factor)} → ${px(18, t.factor)} px`},
                   entrelinha {t.lh}
                 </span>
               </Meta>
-              <p className={cx("measure min-w-0 text-tinta lg:col-span-9 lg:col-start-4", t.token)}>
+              <p className={cx("measure min-w-0 text-ink lg:col-span-9 lg:col-start-4", t.token)}>
                 {t.sample}
               </p>
             </li>
@@ -139,7 +139,7 @@ export function TypeBoard() {
       <div className="page-grid gap-y-16">
         <div className="lg:col-span-6">
           <BoardSubheading>Pesos</BoardSubheading>
-          <ul className="flex flex-col gap-3 text-xl text-tinta">
+          <ul className="flex flex-col gap-3 text-xl text-ink">
             <li className="font-normal">Regular 400 para o texto corrido</li>
             <li className="font-medium">Médio 500 para rótulos e botões</li>
             <li className="font-semibold">Seminegrito 600 para ênfase curta</li>
@@ -150,7 +150,7 @@ export function TypeBoard() {
           <div className="grid grid-cols-2 gap-x-8">
             <div>
               <Caption className="mb-3">Proporcionais</Caption>
-              <ul className="flex flex-col items-end gap-1 text-xl text-tinta">
+              <ul className="flex flex-col items-end gap-1 text-xl text-ink">
                 <li>R$ 1.111,11</li>
                 <li>R$ 980,00</li>
                 <li>R$ 75,50</li>
@@ -158,14 +158,14 @@ export function TypeBoard() {
             </div>
             <div>
               <Caption className="mb-3">tabular-nums</Caption>
-              <ul className="flex flex-col items-end gap-1 text-xl tabular-nums text-tinta">
+              <ul className="flex flex-col items-end gap-1 text-xl tabular-nums text-ink">
                 <li>R$ 1.111,11</li>
                 <li>R$ 980,00</li>
                 <li>R$ 75,50</li>
               </ul>
             </div>
           </div>
-          <p className="mt-8 font-display text-display-sm tabular-nums text-tinta">
+          <p className="mt-8 font-display text-display-sm tabular-nums text-ink">
             180 dias 04 horas 12 min
           </p>
           <Caption className="mt-2">Bodoni com tabular-nums, como na contagem</Caption>
