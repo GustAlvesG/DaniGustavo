@@ -15,7 +15,7 @@ describe("GET /api/site", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, max-age=60");
     const body = SiteContent.parse(await res.json());
-    expect(body.wedding.datetime).toBe("2027-04-10T15:30:00-03:00");
+    expect(body.wedding.datetime).toBe("2027-04-10T16:00:00-03:00");
     expect(body.couple.monogram).toBe("DG");
     expect(body.ceremony).toMatchObject({
       name: "Solare Roma",

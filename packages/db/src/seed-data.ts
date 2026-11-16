@@ -157,7 +157,7 @@ export const seedGifts: SeedGift[] = [
 export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] = [
   { key: "couple.names", value: "Dani & Gustavo", isPublic: true },
   { key: "couple.monogram", value: "DG", isPublic: true },
-  { key: "wedding.datetime", value: "2027-04-10T15:30:00-03:00", isPublic: true },
+  { key: "wedding.datetime", value: "2027-04-10T16:00:00-03:00", isPublic: true },
   { key: "wedding.timezone", value: "America/Sao_Paulo", isPublic: true },
   // TODO(conteudo): coordenadas (lat/lng) opcionais; os links de mapa saem do endereço.
   {
@@ -167,7 +167,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
       address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
       lat: null,
       lng: null,
-      time: "15h30",
+      time: "16h",
     },
     isPublic: true,
   },
@@ -179,7 +179,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
       address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
       lat: null,
       lng: null,
-      time: "16h30",
+      time: "17h",
     },
     isPublic: true,
   },
@@ -202,14 +202,14 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
     key: "schedule.items",
     value: [
       {
-        time: "15h",
+        time: "15h30",
         title: "Chegada",
         text: "Chegue com calma, cumprimente quem já está lá e escolha um lugar.",
       },
-      { time: "15h30", title: "Cerimônia", text: "Dura cerca de 40 minutos." },
-      { time: "16h30", title: "Recepção", text: "Coquetel e fotos logo após a cerimônia." },
-      { time: "18h", title: "Jantar", text: "Mesas por grupo. Avise se tiver restrição." },
-      { time: "20h", title: "Festa", text: "Pista aberta. Prepare o pé de dança." },
+      { time: "16h", title: "Cerimônia", text: "Dura cerca de 40 minutos." },
+      { time: "17h", title: "Recepção", text: "Coquetel e fotos logo após a cerimônia." },
+      { time: "18h30", title: "Jantar", text: "Mesas por grupo. Avise se tiver restrição." },
+      { time: "20h30", title: "Festa", text: "Pista aberta. Prepare o pé de dança." },
     ],
     isPublic: true,
   },
@@ -276,7 +276,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
       },
       {
         question: "Qual o horário de chegada?",
-        answer: "A cerimônia começa às 15h30, no Solare Roma. Chegue a partir das 15h.",
+        answer: "A cerimônia começa às 16h, no Solare Roma. Chegue a partir das 15h30.",
       },
       {
         question: "Até quando posso confirmar presença?",
@@ -345,8 +345,8 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
       dressCode:
         "Madrinhas de vestido azul serenity, modelo livre. Padrinhos de terno cinza, camisa branca, gravata azul claro e tênis branco.",
       schedule: [
-        { time: "15h", text: "Chegada ao local da cerimônia (meia hora de antecedência)." },
-        { time: "15h30", text: "Cerimônia." },
+        { time: "15h30", text: "Chegada ao local da cerimônia (meia hora de antecedência)." },
+        { time: "16h", text: "Cerimônia." },
       ],
       palette: [{ name: "Azul serenity", hex: "#92A8D1" }],
       notes: [

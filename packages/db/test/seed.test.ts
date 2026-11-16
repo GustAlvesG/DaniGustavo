@@ -57,7 +57,7 @@ describe("seed", () => {
       address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
       lat: null,
       lng: null,
-      time: "15h30",
+      time: "16h",
     });
   });
 
