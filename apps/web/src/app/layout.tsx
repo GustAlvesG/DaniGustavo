@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bodoni_Moda, Figtree } from "next/font/google";
 import { SmoothScroll } from "@/components/motion";
+import { getSite } from "@/lib/api/site";
+import { siteUrl } from "@/lib/site";
 import { openingInlineScript } from "@/lib/opening";
 import "./globals.css";
 
@@ -21,9 +23,28 @@ const figtree = Figtree({
   variable: "--font-figtree",
 });
 
-export const metadata: Metadata = {
-  title: "Dani & Gustavo",
-};
+// Metadados a partir de /api/site (cacheado): título, descrição e Open Graph.
+// `metadataBase` torna absolutas as URLs da imagem OG (o WhatsApp exige).
+export async function generateMetadata(): Promise<Metadata> {
+  const { seo, couple } = await getSite();
+  return {
+    metadataBase: new URL(siteUrl()),
+    title: { default: seo.title, template: `%s | ${couple.names}` },
+    description: seo.description,
+    applicationName: couple.names,
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: couple.names,
+      title: seo.ogTitle,
+      description: seo.ogDescription,
+      url: "/",
+    },
+    twitter: { card: "summary_large_image", title: seo.ogTitle, description: seo.ogDescription },
+  };
+}
+
+export const viewport: Viewport = { themeColor: "#fbfcff" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
