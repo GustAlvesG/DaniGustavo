@@ -76,6 +76,24 @@ export async function seed(
   return result;
 }
 
+/** Convites com token e convidados, para testar manualmente (links /c/<token>). */
+export async function listInvitationTokens(
+  db: Database,
+): Promise<{ label: string; token: string; guests: string[] }[]> {
+  const rows = await db
+    .select({ label: invitations.label, token: invitations.token, name: guests.name })
+    .from(invitations)
+    .innerJoin(guests, eq(guests.invitationId, invitations.id))
+    .orderBy(invitations.id, guests.id);
+  const byToken = new Map<string, { label: string; token: string; guests: string[] }>();
+  for (const r of rows) {
+    const entry = byToken.get(r.token) ?? { label: r.label, token: r.token, guests: [] };
+    entry.guests.push(r.name);
+    byToken.set(r.token, entry);
+  }
+  return [...byToken.values()];
+}
+
 /** Cria os dois usuários do painel (e-mails do .env) com a senha inicial, se ainda não existirem. */
 export async function seedAdmins(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
   const emails = [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2];

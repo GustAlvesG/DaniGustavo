@@ -29,10 +29,10 @@ afterAll(async () => {
 });
 
 describe("seed", () => {
-  it("cria 3 convites e 8 presentes", async () => {
+  it("cria 5 convites e 8 presentes", async () => {
     const [inv] = await db.select({ n: count() }).from(invitations);
     const [gft] = await db.select({ n: count() }).from(gifts);
-    expect(inv?.n).toBe(3);
+    expect(inv?.n).toBe(5);
     expect(gft?.n).toBe(8);
   });
 

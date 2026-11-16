@@ -36,6 +36,9 @@ export const invitations = mysqlTable("invitations", {
   maxGuests: int("max_guests").notNull().default(1),
   side: mysqlEnum("side", SIDES).notNull(),
   allowPlusOne: boolean("allow_plus_one").notNull().default(false),
+  /** Contato do grupo para o e-mail de confirmação e para os noivos. Preenchido no RSVP. */
+  contactEmail: varchar("contact_email", { length: 191 }),
+  contactPhone: varchar("contact_phone", { length: 32 }),
   sentAt: utcDatetime("sent_at"),
   ...timestamps(),
 });
@@ -51,6 +54,8 @@ export const guests = mysqlTable(
     isChild: boolean("is_child").notNull().default(false),
     /** Faixa etária, só para crianças. */
     ageRange: mysqlEnum("age_range", AGE_RANGES),
+    /** Acompanhante (+1) criado pelo próprio convidado no RSVP. */
+    isPlusOne: boolean("is_plus_one").notNull().default(false),
     rsvpStatus: mysqlEnum("rsvp_status", RSVP_STATUSES).notNull().default("pending"),
     /** Dado sensível (saúde): uso apenas pelo buffet. */
     dietaryNotes: text("dietary_notes"),
