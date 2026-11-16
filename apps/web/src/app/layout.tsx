@@ -44,7 +44,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = { themeColor: "#fbfcff" };
+// Barra do navegador no celular na cor do campo do site (marinho).
+export const viewport: Viewport = { themeColor: "#15244b", colorScheme: "dark" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

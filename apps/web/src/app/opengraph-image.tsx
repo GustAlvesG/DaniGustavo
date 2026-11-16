@@ -4,12 +4,17 @@ import { ImageResponse } from "next/og";
 import { MONOGRAM_ART, TILE_COLORS, monogramMarkup, tileMarkup } from "@/components/tiles/designs";
 import { getSite } from "@/lib/api/site";
 import { formatWeddingDate } from "@/lib/countdown";
+import { cityFromAddress, splitCoupleNames } from "@/lib/site";
 
 /*
  * Imagem da prévia do link (WhatsApp, Open Graph), 1200×630, gerada no build
- * e refeita com o cache de /api/site. O ImageResponse (Satori) não lê woff2
- * nem fontes variáveis: usamos instâncias estáticas em TTF da Bodoni Moda
- * (corte óptico 96) e da Figtree, ambas SIL Open Font License, em `_og/`.
+ * e refeita com o cache de /api/site. Campo marinho com o DG branco, os nomes
+ * e, em linhas separadas, a data e a cidade; à direita, um arco de azulejos
+ * (o painel vertical do manual do casal).
+ *
+ * O ImageResponse (Satori) não lê woff2 nem fontes variáveis: usamos
+ * instâncias estáticas em TTF da Bodoni Moda (corte óptico 96) e da Figtree,
+ * ambas SIL Open Font License, em `_og/`.
  */
 
 export const alt = "Dani & Gustavo";
@@ -29,22 +34,27 @@ export default async function OpengraphImage() {
     readFile(join(fontDir, "Figtree-Medium.ttf")),
     getSite(),
   ]);
-  const [first, second] = site.couple.names.split(/\s*&\s*/);
+  const { first, second } = splitCoupleNames(site.couple.names);
   const date = formatWeddingDate(site.wedding.datetime, site.wedding.timezone);
+  const city = cityFromAddress(site.ceremony.address);
 
-  const tile = svgUri(
-    "0 0 100 100",
-    `<rect width="100" height="100" fill="${TILE_COLORS.esmalte}"/>${tileMarkup("onda")}`,
-  );
-  const tileTurned = svgUri(
-    "0 0 100 100",
-    `<rect width="100" height="100" fill="${TILE_COLORS.esmalte}"/>${tileMarkup("onda", { rotate: 90 })}`,
-  );
-  const mono = svgUri(MONOGRAM_ART.viewBox, monogramMarkup({ weight: 2.2 }));
+  const tileAt = (rotate: 0 | 90 | 180 | 270) =>
+    svgUri(
+      "0 0 100 100",
+      `<rect width="100" height="100" fill="${TILE_COLORS.marinho}"/>${tileMarkup("rosa", { rotate, washOpacity: 0.16 })}`,
+    );
+  const tiles = [tileAt(0), tileAt(90), tileAt(270), tileAt(180)];
+  const mono = svgUri(MONOGRAM_ART.viewBox, monogramMarkup({ ink: TILE_COLORS.branco, bold: 8 }));
 
-  const tilePx = 158;
-  const rows = 4;
-  const cols = 2;
+  const archW = 344;
+  const tile = archW / 2;
+  const nameStyle = {
+    fontFamily: "Bodoni",
+    fontSize: 136,
+    lineHeight: 0.92,
+    letterSpacing: -3.5,
+    color: TILE_COLORS.branco,
+  } as const;
 
   return new ImageResponse(
     <div
@@ -52,8 +62,8 @@ export default async function OpengraphImage() {
         width: "100%",
         height: "100%",
         display: "flex",
-        background: TILE_COLORS.esmalte,
-        color: "#0E1F4D",
+        background: TILE_COLORS.marinho,
+        padding: "0 78px 0 80px",
       }}
     >
       <div
@@ -62,53 +72,70 @@ export default async function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "64px 0 60px 72px",
+          padding: "70px 0 62px",
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img> */}
-        <img src={mono} width={150} height={72} alt="" />
+        <img src={mono} width={150} height={90} alt="" />
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div
-            style={{
-              fontFamily: "Bodoni",
-              fontSize: 150,
-              lineHeight: 0.92,
-              letterSpacing: -4,
-            }}
-          >
-            {first}
-          </div>
-          <div
-            style={{
-              fontFamily: "Bodoni",
-              fontSize: 150,
-              lineHeight: 0.92,
-              letterSpacing: -4,
-            }}
-          >
-            {`& ${second ?? ""}`}
-          </div>
+          <div style={nameStyle}>{first}</div>
+          <div style={nameStyle}>{`& ${second}`}</div>
         </div>
-        <div style={{ fontFamily: "Figtree", fontSize: 38, color: "#1F3FAE" }}>{date}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontFamily: "Figtree", fontSize: 36, color: TILE_COLORS.celeste }}>
+            {date}
+          </div>
+          {city ? (
+            <div style={{ fontFamily: "Figtree", fontSize: 30, color: TILE_COLORS.serenity }}>
+              {city}
+            </div>
+          ) : null}
+        </div>
       </div>
+
+      {/* Arco de azulejos com fio duplo (moldura dos cartões do casal). */}
       <div
         style={{
-          width: tilePx * cols,
           display: "flex",
-          flexWrap: "wrap",
-          borderLeft: "2px solid #E6EDFA",
+          alignSelf: "flex-end",
+          width: archW + 28,
+          height: 556,
+          padding: 12,
+          paddingBottom: 0,
+          border: `2px solid ${TILE_COLORS.serenity}`,
+          borderBottom: "none",
+          borderTopLeftRadius: (archW + 28) / 2,
+          borderTopRightRadius: (archW + 28) / 2,
         }}
       >
-        {Array.from({ length: rows * cols }, (_, i) => (
-          // eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img>
-          <img
-            key={i}
-            src={(Math.floor(i / cols) + i) % 2 ? tileTurned : tile}
-            width={tilePx}
-            height={tilePx}
-            alt=""
-          />
-        ))}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            width: archW,
+            height: 544,
+            overflow: "hidden",
+            borderTopLeftRadius: archW / 2,
+            borderTopRightRadius: archW / 2,
+            border: `3px solid ${TILE_COLORS.branco}`,
+            borderBottom: "none",
+          }}
+        >
+          {Array.from({ length: 8 }, (_, i) => {
+            const row = Math.floor(i / 2);
+            const col = i % 2;
+            return (
+              // eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img>
+              <img
+                key={i}
+                src={tiles[(row % 2) * 2 + col]}
+                width={tile - 3}
+                height={tile - 3}
+                alt=""
+              />
+            );
+          })}
+        </div>
       </div>
     </div>,
     {

@@ -1,7 +1,8 @@
 /**
  * Gera os placeholders de imagem (docs/PROMPT.md §2) em public/placeholder/:
- * fundo névoa com padrão de azulejo claro e uma "janela" de esmalte com um
- * ladrilho grande. Sem fotos, sem texto.
+ * campo marinho com padrão de azulejo em linha branca e uma "janela" clara
+ * (relevo, linha royal) com a forma dos cartões do casal: arco nas fotos em
+ * pé, cápsula nas deitadas, círculo nas quadradas. Sem fotos, sem texto.
  *
  * Uso (de apps/web): node scripts/generate-placeholders.ts
  * O Node 24 roda .ts direto; os desenhos vêm dos dados puros dos azulejos.
@@ -24,7 +25,7 @@ interface Spec {
   /** Tamanho do ladrilho do fundo, em px do viewBox. */
   tile: number;
   /**
-   * Janela de esmalte com um bloco 2×2 do desenho (o motivo inteiro; o
+   * Janela clara (arco, cápsula ou círculo) com um bloco 2×2 do desenho (o motivo inteiro; o
    * monograma vai sozinho): posição (0–1) e lado (fração da menor medida).
    */
   win?: { design: Design; x: number; y: number; size: number; rotate?: Rot };
@@ -53,35 +54,51 @@ function svg(spec: Spec): string {
       }),
     ).join("");
   const uses = blockUses("bg", 0, 0, t);
-  // Um símbolo por desenho; a janela reaproveita o do fundo quando é o mesmo.
-  const symbol = (id: string, design: Design) =>
-    `<symbol id="${id}" viewBox="0 0 100 100">${tileMarkup(design, { washOpacity: 0.12 })}</symbol>`;
-  const bgSymbol = symbol("bg", bg);
+  // Um símbolo por desenho: o fundo em linha branca, a janela em royal.
+  const bgSymbol = `<symbol id="bg" viewBox="0 0 100 100">${tileMarkup(bg, { washOpacity: 0.14 })}</symbol>`;
   let windowMarkup = "";
   let windowSymbol = "";
   if (win) {
     const side = Math.round(Math.min(w, h) * win.size);
     const x = Math.round((w - side) * win.x);
     const y = Math.round((h - side) * win.y);
-    const pad = Math.round(side * 0.05);
-    const same = win.design === bg;
-    windowSymbol = same ? "" : symbol("win", win.design);
-    const rot = win.rotate ?? 0;
+    const pad = Math.round(side * 0.06);
+    windowSymbol = `<symbol id="win" viewBox="0 0 100 100">${tileMarkup(win.design, {
+      ink: TILE_COLORS.royal,
+      inkSecondary: TILE_COLORS.serenity,
+      washOpacity: 0.22,
+    })}</symbol>`;
+    // Forma da janela pela proporção da imagem.
+    const X = x - pad;
+    const Y = y - pad;
+    const S = side + pad * 2;
+    const shape =
+      h > w * 1.05
+        ? `M${X} ${Y + S}V${Y + S / 2}A${S / 2} ${S / 2} 0 0 1 ${X + S} ${Y + S / 2}V${Y + S}Z`
+        : w > h * 1.05
+          ? `M${X + S / 4} ${Y + S / 4}H${X + (S * 3) / 4}A${S / 4} ${S / 4} 0 0 1 ${X + (S * 3) / 4} ${Y + (S * 3) / 4}H${X + S / 4}A${S / 4} ${S / 4} 0 0 1 ${X + S / 4} ${Y + S / 4}Z`
+          : `M${X} ${Y + S / 2}A${S / 2} ${S / 2} 0 1 1 ${X + S} ${Y + S / 2}A${S / 2} ${S / 2} 0 1 1 ${X} ${Y + S / 2}Z`;
+    const ring = Math.max(6, Math.round(S * 0.022));
+    const content =
+      win.design === "monograma"
+        ? `<use href="#win" x="${x}" y="${y}" width="${side}" height="${side}"/>`
+        : blockUses("win", x, y, side / 2, win.rotate ?? 0);
     windowMarkup =
-      `<rect x="${x - pad}" y="${y - pad}" width="${side + pad * 2}" height="${side + pad * 2}" fill="${TILE_COLORS.esmalte}"/>` +
-      (win.design === "monograma"
-        ? `<use href="#${same ? "bg" : "win"}" x="${x}" y="${y}" width="${side}" height="${side}"/>`
-        : blockUses(same ? "bg" : "win", x, y, side / 2, rot)) +
-      `<rect x="${x - pad + 0.5}" y="${y - pad + 0.5}" width="${side + pad * 2 - 1}" height="${side + pad * 2 - 1}" fill="none" stroke="${TILE_COLORS.cobalto}" stroke-opacity=".35"/>`;
+      `<clipPath id="c"><path d="${shape}"/></clipPath>` +
+      `<path d="${shape}" fill="${TILE_COLORS.relevo}"/>` +
+      `<g clip-path="url(#c)">${content}</g>` +
+      `<path d="${shape}" fill="none" stroke="${TILE_COLORS.royal}" stroke-width="${ring * 2}" clip-path="url(#c)"/>` +
+      `<path d="${shape}" fill="none" stroke="${TILE_COLORS.serenity}" stroke-opacity=".6" stroke-width="2" transform="translate(0 0)"/>`;
   }
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">` +
     `<defs>${bgSymbol}${windowSymbol}` +
     `<pattern id="p" width="${block}" height="${block}" patternUnits="userSpaceOnUse" x="${-shift[0] * t}" y="${-shift[1] * t}">${uses}</pattern></defs>` +
-    `<rect width="${w}" height="${h}" fill="${TILE_COLORS.nevoa}"/>` +
-    `<rect width="${w}" height="${h}" fill="url(#p)" opacity=".3"/>` +
+    `<rect width="${w}" height="${h}" fill="${TILE_COLORS.marinho}"/>` +
+    `<rect width="${w}" height="${h}" fill="url(#p)" opacity=".42"/>` +
     windowMarkup +
-    `</svg>\n`
+    `</svg>
+`
   );
 }
 
