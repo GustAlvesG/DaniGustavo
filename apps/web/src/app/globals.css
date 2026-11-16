@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  /* Paleta "Azulejo" (docs/PROMPT.md 4.2) */
+  --color-tinta: #0e1f4d;
+  --color-cobalto: #1f3fae;
+  --color-anil: #4c6fd8;
+  --color-nevoa: #e6edfa;
+  --color-esmalte: #fbfcff;
+  --color-branco: #ffffff;
+  --color-erro: #b3261e;
+
+  /* Curvas (4.6.5) */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+body {
+  background: var(--color-esmalte);
+  color: var(--color-tinta);
+}
