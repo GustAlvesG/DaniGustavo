@@ -39,7 +39,7 @@ export function Hero({
       </div>
 
       <div className={styles.panel} aria-hidden="true">
-        <TileGrid design="flor" cols={4} rows={8} className={styles.panelGrid} />
+        <TileGrid design="onda" cols={3} rows={6} className={styles.panelGrid} />
       </div>
 
       <div className={cx("page-wrap page-grid", styles.body)}>
@@ -76,6 +76,12 @@ export function Hero({
             <Countdown target={dateISO} />
           </div>
         </div>
+      </div>
+
+      {/* Base do hero e separador da próxima seção (§4.4). Parada: já está na
+          primeira tela, onde o observador da faixa (6% de margem) não a vira. */}
+      <div className="lg:hidden">
+        <TileBand design="onda" animate={false} />
       </div>
     </section>
   );

@@ -4,18 +4,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 100svh;
   overflow: clip;
 }
 
 .body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   padding-block: clamp(3rem, 10svh, 6rem) clamp(3rem, 8svh, 5rem);
 }
 
 .copy {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
 }
 
 /* Nomes: Bodoni em tamanho de cartaz, entrelinha 0,9, à esquerda. */
@@ -56,7 +59,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  margin-top: clamp(3.5rem, 9svh, 5rem);
+  /* Ancorada no pé do hero, logo acima da faixa de base. */
+  margin-top: auto;
+  padding-top: clamp(3rem, 7svh, 4.5rem);
 }
 
 /* Painel de azulejos: só no desktop. */
@@ -107,9 +112,8 @@
   }
 
   .meta {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 2rem;
+    gap: 0.75rem;
+    margin-top: clamp(2rem, 4.5svh, 3rem);
   }
 
   /* O painel começa na coluna 9 e sangra até a borda direita e o topo. */
@@ -128,7 +132,8 @@
     border-left: 1px solid var(--color-nevoa);
   }
 
+  /* Ladrilhos grandes (~190px em 1440): o padrão respira. */
   .panelGrid {
-    width: 100%;
+    width: max(100%, 3 * 12rem);
   }
 }
