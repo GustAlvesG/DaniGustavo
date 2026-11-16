@@ -1,4 +1,15 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseEnv } from "node:util";
 import { defineConfig, devices } from "@playwright/test";
+
+// Mesmo .env da raiz que o next.config.ts lê (API_URL para os testes de conteúdo).
+const rootEnv = join(__dirname, "..", "..", ".env");
+if (existsSync(rootEnv)) {
+  for (const [k, v] of Object.entries(parseEnv(readFileSync(rootEnv, "utf8")))) {
+    if (process.env[k] === undefined && v !== undefined) process.env[k] = v;
+  }
+}
 
 const port = 3100;
 
