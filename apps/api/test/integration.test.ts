@@ -1,3 +1,4 @@
+import { SiteContent } from "@casamento/shared";
 import { afterAll, describe, expect, it } from "vitest";
 import { testApp } from "./helpers.ts";
 
@@ -9,12 +10,17 @@ afterAll(async () => {
 });
 
 describe("GET /api/site", () => {
-  it("devolve as configurações públicas já em JSON", async () => {
+  it("devolve o conteúdo completo no formato SiteContent", async () => {
     const res = await app.request("/api/site");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { settings: Record<string, unknown> };
-    expect(body.settings["wedding.datetime"]).toBe("2027-05-15T16:00:00-03:00");
-    expect(body.settings["ceremony.venue"]).toMatchObject({ name: "Local a definir" });
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    const body = SiteContent.parse(await res.json());
+    expect(body.wedding.datetime).toBe("2027-05-15T16:00:00-03:00");
+    expect(body.couple.monogram).toBe("D & G");
+    expect(body.ceremony).toMatchObject({ name: "Local a definir", mapsUrl: null, wazeUrl: null });
+    expect(body.story).toHaveLength(5);
+    expect(body.gallery.items).toHaveLength(8);
+    expect(body.faq.length).toBeGreaterThanOrEqual(6);
   });
 });
 

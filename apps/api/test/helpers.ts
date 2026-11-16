@@ -1,5 +1,5 @@
 import { createDb, loadRootEnv } from "@casamento/db";
-import { createApp } from "../src/app.ts";
+import { createApp, type AppDeps } from "../src/app.ts";
 import { createAuth } from "../src/auth.ts";
 import { parseEnv } from "../src/env.ts";
 
@@ -18,9 +18,9 @@ export function testEnv() {
   });
 }
 
-export function testApp() {
+export function testApp(overrides: Partial<AppDeps> = {}) {
   const env = testEnv();
   const db = createDb(env.DATABASE_URL);
-  const app = createApp({ env, db, auth: createAuth(env, db) });
+  const app = createApp({ env, db, auth: createAuth(env, db), ...overrides });
   return { app, db, env };
 }

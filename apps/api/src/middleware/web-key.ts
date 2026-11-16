@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
+import { apiError, ERROR_CODES } from "../errors.ts";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 // Rotas de escrita que não vêm do site: webhooks (assinatura própria) e Better Auth (sessão).
@@ -23,13 +24,11 @@ export function webKey(expected: string): MiddlewareHandler {
     }
     const provided = c.req.header("x-web-key");
     if (!provided || !safeEqual(provided, expected)) {
-      return c.json(
-        {
-          error: "unauthorized",
-          message:
-            "Chave do site ausente ou inválida. Envie o header X-Web-Key com o valor de WEB_KEY.",
-        },
+      return apiError(
+        c,
         401,
+        ERROR_CODES.unauthorized,
+        "Chave do site ausente ou inválida. Envie o header X-Web-Key com o valor de WEB_KEY.",
       );
     }
     return next();

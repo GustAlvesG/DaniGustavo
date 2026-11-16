@@ -20,7 +20,7 @@ describe("middleware X-Web-Key", () => {
   it("recusa escrita sem a chave com 401 em JSON", async () => {
     const res = await app.request("/api/rota-qualquer", { method: "POST" });
     expect(res.status).toBe(401);
-    expect(await res.json()).toMatchObject({ error: "unauthorized" });
+    expect(await res.json()).toMatchObject({ error: { code: "unauthorized" } });
   });
 
   it("recusa chave errada", async () => {

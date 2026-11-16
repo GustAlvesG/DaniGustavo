@@ -18,6 +18,14 @@ export const envSchema = z.object({
   WEB_KEY: secret("segredo"),
   BETTER_AUTH_SECRET: secret("segredo"),
   BETTER_AUTH_URL: url("http://localhost:3333"),
+  /** URL pública do site, usada nos links dos e-mails (cai em NEXT_PUBLIC_SITE_URL se vazia). */
+  SITE_URL: url("http://localhost:3000").default("http://localhost:3000"),
+  /** SMTP. Com MAIL_HOST vazio, os e-mails só são impressos no console. */
+  MAIL_HOST: z.string().optional(),
+  MAIL_PORT: z.coerce.number().int().positive().default(587),
+  MAIL_USER: z.string().optional(),
+  MAIL_PASS: z.string().optional(),
+  MAIL_FROM: z.string().default("Dani & Gustavo <nao-responda@localhost>"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -37,9 +45,10 @@ export class EnvError extends Error {
 /** Valida as variáveis de ambiente. Lança `EnvError` com mensagem em pt-BR se algo faltar. */
 export function parseEnv(source: Record<string, string | undefined> = process.env): Env {
   // Variáveis vazias no .env contam como não definidas.
-  const cleaned = Object.fromEntries(
+  const cleaned: Record<string, string | undefined> = Object.fromEntries(
     Object.entries(source).filter(([, v]) => v !== undefined && v !== ""),
   );
+  cleaned.SITE_URL ??= cleaned.NEXT_PUBLIC_SITE_URL;
   const result = envSchema.safeParse(cleaned);
   if (!result.success) {
     throw new EnvError(
