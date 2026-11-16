@@ -10,11 +10,13 @@ const DISPLAY = [
     usage: "Nomes no hero",
     sample: (
       <>
-        Dani
-        <br />& Gustavo
+        <span className="block">Dani</span>
+        <span className="block">&amp; Gustavo</span>
       </>
     ),
-    className: "text-display-xl",
+    // Duas linhas como no hero; no celular a coluna tem margens extras, então
+    // o tamanho cede um pouco para "& Gustavo" não quebrar.
+    className: "text-display-xl text-nowrap max-lg:text-[min(18vw,calc((100vw_-_4rem)_/_4.5))]",
   },
   {
     token: "text-display-lg",
