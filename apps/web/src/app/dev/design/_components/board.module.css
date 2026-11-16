@@ -1,0 +1,85 @@
+/*
+ * Estilos locais da prancha /dev/design. Tudo aqui fica fora das camadas do
+ * Tailwind de propósito: estilo sem camada vence utilitários, então os
+ * "estados forçados" abaixo valem mesmo sobre as classes dos componentes.
+ */
+
+/*
+ * Foco forçado: o mesmo anel do :focus-visible global, sem precisar focar.
+ * Só no elemento marcado com data-force-focus dentro do contêiner.
+ */
+.forceFocus [data-force-focus] {
+  outline: 2px solid var(--color-cobalto);
+  outline-offset: 3px;
+}
+
+.forceFocus :is(input, select, textarea)[data-force-focus]:not([type="checkbox"], [type="radio"]) {
+  border-color: var(--color-cobalto);
+}
+
+.forceFocusDark [data-force-focus] {
+  outline: 2px solid var(--color-branco);
+  outline-offset: 3px;
+}
+
+/*
+ * Botão secundário sobre cobalto. Ainda não existe variante para fundo
+ * escuro no design system; este ajuste local só mostra o anel de foco
+ * branco (focus-on-dark) num botão legível.
+ */
+.onDarkButton {
+  border-color: var(--color-branco);
+  color: var(--color-branco);
+}
+
+.onDarkButton::before {
+  border-color: color-mix(in srgb, var(--color-branco) 35%, transparent);
+}
+
+.onDarkButton:hover:not(:disabled) {
+  background-color: var(--color-tinta);
+}
+
+/* Trilho das demonstrações de curva e duração. */
+.track {
+  position: relative;
+  overflow: hidden;
+  height: 1.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-cobalto) 30%, transparent);
+}
+
+.runner {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  right: 1.5rem;
+  transform: translateX(100%);
+  transition: transform var(--run-duration, 720ms) var(--run-ease, linear);
+}
+
+.runner[data-at="start"] {
+  transform: translateX(0);
+  transition: none;
+}
+
+.runnerMark {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: var(--color-cobalto);
+  border-radius: 1px;
+}
+
+/* Barra que cresce com a duração (scaleX, só transform). */
+.bar {
+  height: 0.5rem;
+  background: var(--color-cobalto);
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform var(--run-duration, 320ms) var(--ease-out);
+}
+
+.bar[data-at="start"] {
+  transform: scaleX(0);
+  transition: none;
+}
