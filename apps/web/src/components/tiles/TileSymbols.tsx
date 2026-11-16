@@ -41,11 +41,11 @@ export function TileSymbols({
 export function TileUse({
   href,
   rotate,
-  face = "esmalte",
+  face = "campo",
 }: {
   href: string;
   rotate: TileRotation;
-  face?: "esmalte" | "nevoa";
+  face?: "campo";
 }) {
   return (
     <svg

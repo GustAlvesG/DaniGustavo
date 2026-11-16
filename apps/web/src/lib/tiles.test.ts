@@ -106,8 +106,8 @@ describe("designForCell", () => {
 });
 
 describe("desenhos", () => {
-  it("tem 8 desenhos com traços animáveis e sem coordenadas inválidas", () => {
-    expect(TILE_DESIGNS).toHaveLength(8);
+  it("tem 9 desenhos com traços animáveis e sem coordenadas inválidas", () => {
+    expect(TILE_DESIGNS).toHaveLength(9);
     for (const d of TILE_DESIGNS) {
       const art = TILE_ART[d];
       expect(art.strokes.length).toBeGreaterThan(3);
@@ -118,6 +118,17 @@ describe("desenhos", () => {
         expect(s.w).toBeLessThanOrEqual(2.6);
       }
     }
-    for (const s of MONOGRAM_ART.strokes) expect(s.d).not.toMatch(/NaN|Infinity/);
+  });
+
+  it("o monograma DG tem contorno e linha de escrita em cada parte", () => {
+    expect(MONOGRAM_ART.parts.map((p) => p.id)).toEqual(["haste", "s", "esporao", "arco", "pe"]);
+    for (const p of MONOGRAM_ART.parts) {
+      expect(p.d).toMatch(/^M[\d.]+ [\d.]+.*Z$/);
+      expect(p.line).toMatch(/^M/);
+      expect(`${p.d}${p.line}`).not.toMatch(/NaN|Infinity|undefined/);
+      expect(p.reach).toBeGreaterThan(10);
+    }
+    // Mais largo que alto, como o arquivo do casal (822 × 492).
+    expect(MONOGRAM_ART.width / MONOGRAM_ART.height).toBeCloseTo(1.67, 1);
   });
 });

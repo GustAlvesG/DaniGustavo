@@ -7,7 +7,7 @@
  * scripts, e imports relativos sem extensão quebrariam lá.
  *
  * Convenções de cada ladrilho (viewBox 0 0 100 100):
- * - Traço cobalto sobre esmalte; cada traço é um `<path>` animável
+ * - Traço de tinta sobre o campo (branco no marinho, royal no relevo); cada traço é um `<path>` animável
  *   (stroke-dasharray / DrawSVG). A ordem do array é a ordem de desenho.
  * - Todo desenho que se repete é simétrico na diagonal y = x (canto superior
  *   esquerdo → canto inferior direito). Assim, quatro ladrilhos girados
@@ -32,6 +32,7 @@ export const TILE_DESIGNS = [
   "moldura",
   "trama",
   "laco",
+  "rosa",
 ] as const;
 
 export type TileDesign = (typeof TILE_DESIGNS)[number];
@@ -44,8 +45,8 @@ export function isTileDesign(value: unknown): value is TileDesign {
 export interface TileStroke {
   readonly d: string;
   readonly w: number;
-  /** Traço secundário em anil (padrão: cobalto). */
-  readonly tone?: "anil";
+  /** Traço secundário, mais leve (serenity no marinho). */
+  readonly tone?: "leve";
 }
 
 /** Ponto de tinta (círculo preenchido); aparece depois dos traços. */
@@ -55,15 +56,25 @@ export interface TileDot {
   readonly r: number;
 }
 
+/** Forma preenchida com a tinta (o DG no ladrilho do monograma). */
+export interface TileFill {
+  readonly d: string;
+  readonly transform?: string;
+  /** Contorno da mesma cor (nas unidades do próprio desenho) para os fios não sumirem. */
+  readonly stroke?: number;
+}
+
 export interface TileArt {
   /** Nome legível em pt-BR. */
   readonly label: string;
   /** A ideia do desenho, para a página /dev/design. */
   readonly idea: string;
-  /** Aguada: manchas chapadas em anil, opacidade baixa, por baixo do traço. */
+  /** Aguada: manchas chapadas em serenity, opacidade baixa, por baixo do traço. */
   readonly wash: readonly string[];
   readonly strokes: readonly TileStroke[];
   readonly dots: readonly TileDot[];
+  /** Formas preenchidas, por cima dos traços (aparecem com os pontos). */
+  readonly fills?: readonly TileFill[];
   /**
    * Como combinar o desenho numa grade: `roseta` gira 0/90/270/180 em 2×2
    * (forma o motivo contínuo); `reto` repete sem girar (monograma).
@@ -399,7 +410,7 @@ function dist(a: Pt, b: Pt): number {
 /* Construção                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const S = (d: string, w: number, tone?: "anil"): TileStroke => (tone ? { d, w, tone } : { d, w });
+const S = (d: string, w: number, tone?: "leve"): TileStroke => (tone ? { d, w, tone } : { d, w });
 
 /** Pincelada: traço + segundo fio que engrossa o meio. */
 function brush(
@@ -412,7 +423,7 @@ function brush(
   return [S(curve(points), w), S(curve(swell(points, from, to, off, toward)), w2)];
 }
 
-/** Folha com contorno, barriga engrossada e (opcional) nervura em anil. */
+/** Folha com contorno, barriga engrossada e (opcional) nervura no tom leve. */
 function leafStrokes(
   l: Leaf,
   w: number,
@@ -423,7 +434,7 @@ function leafStrokes(
     S(curve(l.upper, l.lower), w),
     S(curve(swell(l.lower, 0.15, 0.85, off, l.center)), w * 0.7),
   ];
-  if (vein) out.push(S(curve(l.vein), 1.05, "anil"));
+  if (vein) out.push(S(curve(l.vein), 1.05, "leve"));
   return out;
 }
 
@@ -450,84 +461,27 @@ function monograma(): TileArt {
   });
   // Guirlanda fina aberta em cima e embaixo.
   strokes.push(
-    S(curve(arc(50, 50, 33.5, 114, 246, { seed: 21, wobble: 0.6, step: 9 })), 1.1, "anil"),
+    S(curve(arc(50, 50, 33.5, 114, 246, { seed: 21, wobble: 0.6, step: 9 })), 1.1, "leve"),
   );
   strokes.push(
-    S(curve(arc(50, 50, 33.5, -66, 66, { seed: 22, wobble: 0.6, step: 9 })), 1.1, "anil"),
+    S(curve(arc(50, 50, 33.5, -66, 66, { seed: 22, wobble: 0.6, step: 9 })), 1.1, "leve"),
   );
-  // D: haste grossa, serifas e bojo num gesto; o bojo engrossa à direita.
-  strokes.push(S(line([24.6, 35.8], [24.4, 50], [24.6, 64.2]), 2.6));
-  const dBowl: Pt[] = [
-    [27.6, 35.3],
-    [36.4, 35.9],
-    [42.4, 42.4],
-    [42.8, 50.2],
-    [42, 58],
-    [36.4, 64.4],
-    [27.6, 64.8],
-  ];
-  strokes.push(
-    S(
-      curve(
-        [
-          [20.4, 35.3],
-          [27.6, 35.3],
-        ],
-        dBowl,
-        [
-          [27.6, 64.8],
-          [20.4, 64.8],
-        ],
-      ),
-      1.35,
-    ),
-  );
-  strokes.push(S(curve(swell(dBowl, 0.25, 0.78, 1.1, [30, 50])), 1.2));
-  // &
-  strokes.push(
-    S(
-      curve([
-        [56.2, 55],
-        [54.4, 60.6],
-        [50.8, 64.2],
-        [47.6, 63.2],
-        [47.4, 59],
-        [51.2, 55.2],
-        [53, 51.6],
-        [51.6, 48.4],
-        [49.4, 49.4],
-        [49.6, 53.6],
-        [52.6, 59.4],
-        [57.2, 64.8],
-      ]),
-      1.2,
-    ),
-  );
-  // G: bojo com bico em cima, grosso à esquerda; esporão e serifa.
-  const gBowl: Pt[] = [
-    [78.6, 41.4],
-    [76.4, 37],
-    [72.4, 35.2],
-    [68.6, 35.2],
-    [61.6, 36.4],
-    [58, 43],
-    [57.8, 50.2],
-    [58.4, 57.6],
-    [62.4, 64.4],
-    [69.2, 64.8],
-    [73.6, 64.6],
-    [76.6, 62.8],
-    [78.4, 60.8],
-  ];
-  strokes.push(S(curve(gBowl), 1.35));
-  strokes.push(S(curve(swell(gBowl, 0.3, 0.72, 1.1, [70, 50])), 1.2));
-  strokes.push(S(line([78.4, 61], [78.5, 52.4]), 2.2));
-  strokes.push(S(line([73.8, 52.2], [81.4, 52]), 1.1));
+  // DG do casal, preenchido, no centro da guirlanda (o mesmo desenho do
+  // monograma grande, reduzido: 822 → 46 unidades de largura).
+  const k = 46 / 822;
+  const fills: TileFill[] = monogramArt()
+    .parts.filter((p) => p.id !== "esporao")
+    .map((p) => ({
+      d: p.d,
+      stroke: 13,
+      transform: `translate(${fmt(50 - (92 + 411) * k)} ${fmt(50 - (254 + 246) * k)}) scale(${k.toFixed(5)})`,
+    }));
   return {
     label: "Monograma",
-    idea: "D & G em linha no centro, dentro de uma guirlanda aberta; quartos de anel nos quatro cantos emendam com qualquer vizinho.",
+    idea: "O DG do casal no centro, dentro de uma guirlanda aberta; quartos de anel nos quatro cantos emendam com qualquer vizinho.",
     wash: [],
     strokes,
+    fills,
     dots: [
       { cx: 50, cy: 15.2, r: 1.3 },
       { cx: 50, cy: 84.8, r: 1.3 },
@@ -556,7 +510,7 @@ function flor(): TileArt {
 
   // Canto (0,0): quarto de roseta — anel engrossado + pétala na diagonal.
   strokes.push(...brush(cornerArc(0, 13.5, { seed: 51, wobble: 0.5 }), 1.8, [0, 0], { off: 0.8 }));
-  strokes.push(S(curve(cornerArc(0, 8.6, { seed: 52, wobble: 0.3 })), 1.1, "anil"));
+  strokes.push(S(curve(cornerArc(0, 8.6, { seed: 52, wobble: 0.3 })), 1.1, "leve"));
   const cp = leaf([13.5 * Math.SQRT1_2, 13.5 * Math.SQRT1_2], 45, 11, 7, { seed: 53 });
   strokes.push(...leafStrokes(cp, 1.4, { vein: false }));
 
@@ -565,7 +519,7 @@ function flor(): TileArt {
   strokes.push(
     ...brush(cornerArc(100, 22, { seed: 54, wobble: 0.6 }), 1.9, [100, 100], { off: 0.9 }),
   );
-  strokes.push(S(curve(cornerArc(100, 25.6, { seed: 55, wobble: 0.6 })), 1.1, "anil"));
+  strokes.push(S(curve(cornerArc(100, 25.6, { seed: 55, wobble: 0.6 })), 1.1, "leve"));
   const inner = leaf([100 - 2.6 * Math.SQRT1_2, 100 - 2.6 * Math.SQRT1_2], 225, 12.6, 7.4, {
     seed: 56,
   });
@@ -586,7 +540,7 @@ function flor(): TileArt {
         ),
       ),
       1.1,
-      "anil",
+      "leve",
     ),
   );
   strokes.push(
@@ -603,7 +557,7 @@ function flor(): TileArt {
         ),
       ),
       1.1,
-      "anil",
+      "leve",
     ),
   );
 
@@ -627,7 +581,7 @@ function estrela(): TileArt {
   const strokes: TileStroke[] = [];
   // Estrela de oito pontas no centro, de lados côncavos, e um anel interno.
   strokes.push(S(star(50, 50, 8, 19, 8.6, 0, 61), 1.9));
-  strokes.push(S(star(50, 50, 8, 14.2, 8.6, 22.5, 66), 1.05, "anil"));
+  strokes.push(S(star(50, 50, 8, 14.2, 8.6, 22.5, 66), 1.05, "leve"));
   strokes.push(S(loop(hand(arc(50, 50, 4.2, 10, 340, { wobble: 0, step: 30 }), 62, 0.2)), 1.3));
   // Canto (0,0): um quarto de estrela grande — fecha numa estrela no bloco.
   const q: Pt[] = [];
@@ -642,7 +596,7 @@ function estrela(): TileArt {
       1.8,
     ),
   );
-  strokes.push(S(curve(cornerArc(0, 30, { seed: 63, wobble: 0.7 })), 1.1, "anil"));
+  strokes.push(S(curve(cornerArc(0, 30, { seed: 63, wobble: 0.7 })), 1.1, "leve"));
   // Canto (100,100): anel com raios curtos (um sol no centro do bloco).
   strokes.push(
     ...brush(cornerArc(100, 16.5, { seed: 64, wobble: 0.5 }), 2, [100, 100], { off: 0.8 }),
@@ -744,7 +698,7 @@ function onda(): TileArt {
   strokes.push(
     ...brush(wave(4.2, 0), 2.1, [100, 100], { from: 0.25, to: 0.75, off: 0.9, w2: 1.4 }),
   );
-  strokes.push(S(curve(wave(4.2, -6.5)), 1.1, "anil"));
+  strokes.push(S(curve(wave(4.2, -6.5)), 1.1, "leve"));
   // Ondulações concêntricas nos dois cantos.
   strokes.push(S(curve(cornerArc(0, 11.5, { seed: 91, wobble: 0.4 })), 1.5));
   strokes.push(
@@ -757,7 +711,7 @@ function onda(): TileArt {
       },
     ),
   );
-  strokes.push(S(curve(cornerArc(0, 29.5, { seed: 93, wobble: 0.5, step: 5 })), 1.1, "anil"));
+  strokes.push(S(curve(cornerArc(0, 29.5, { seed: 93, wobble: 0.5, step: 5 })), 1.1, "leve"));
   strokes.push(
     ...brush(
       cornerArc(100, 15, { seed: 94, wobble: 0, wave: { amp: 1.1, n: 8 }, step: 4 }),
@@ -768,7 +722,7 @@ function onda(): TileArt {
       },
     ),
   );
-  strokes.push(S(curve(cornerArc(100, 24, { seed: 95, wobble: 0.5, step: 5 })), 1.2, "anil"));
+  strokes.push(S(curve(cornerArc(100, 24, { seed: 95, wobble: 0.5, step: 5 })), 1.2, "leve"));
   return {
     label: "Onda",
     idea: "Uma onda de crista ao meio cruza o ladrilho entre os cantos livres; ondulações concêntricas nos outros dois. Em 2×2, losangos de água em volta de círculos.",
@@ -844,7 +798,7 @@ function moldura(): TileArt {
     seed: 107,
   });
   strokes.push(...leafStrokes(petal, 1.4, { vein: false }));
-  strokes.push(S(curve(cornerArc(100, 30, { seed: 108, wobble: 0.6 })), 1.1, "anil"));
+  strokes.push(S(curve(cornerArc(100, 30, { seed: 108, wobble: 0.6 })), 1.1, "leve"));
   return {
     label: "Moldura",
     idea: "Canto de moldura com filete duplo e um florão de três pétalas; quatro ladrilhos fecham um quadro com medalhão no meio, e numa faixa o filete corre contínuo.",
@@ -892,8 +846,8 @@ function trama(): TileArt {
     }
   }
   // Quartos de anel finos nos cantos.
-  strokes.push(S(curve(cornerArc(0, 15, { seed: 116, wobble: 0.4 })), 1.2, "anil"));
-  strokes.push(S(curve(cornerArc(100, 15, { seed: 117, wobble: 0.4 })), 1.2, "anil"));
+  strokes.push(S(curve(cornerArc(0, 15, { seed: 116, wobble: 0.4 })), 1.2, "leve"));
+  strokes.push(S(curve(cornerArc(100, 15, { seed: 117, wobble: 0.4 })), 1.2, "leve"));
   return {
     label: "Trama",
     idea: "Duas fitas em arco que passam uma por cima e outra por baixo; em 2×2 formam anéis entrelaçados, como uma corrente.",
@@ -903,6 +857,70 @@ function trama(): TileArt {
       { cx: 0, cy: 0, r: 3 },
       { cx: 100, cy: 100, r: 3 },
       { cx: 50, cy: 50, r: 1.4 },
+    ],
+    pattern: "roseta",
+  };
+}
+
+/* Rosa ----------------------------------------------------------------------- */
+
+/**
+ * Flor aberta de pétalas redondas (eco das flores em aquarela do convite,
+ * em linha de azulejo): duas coroas recortadas, miolo em espiral e quatro
+ * folhas nas diagonais. Simétrica em y = x, como os outros ladrilhos.
+ */
+function rosa(): TileArt {
+  const strokes: TileStroke[] = [];
+  const wash: string[] = [];
+  const scallop = (r: number, amp: number, lobes: number, phase: number, n = 60): Pt[] =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * 360;
+      const rr = r + amp * Math.abs(Math.cos(((a - phase) * DEG * lobes) / 2));
+      return [50 + rr * Math.cos(a * DEG), 50 + rr * Math.sin(a * DEG)] as const;
+    });
+  // Coroa de fora: cinco pétalas, uma apontando para o canto (100,100).
+  const outer = scallop(13.5, 4.6, 5, 45);
+  strokes.push(S(loop(outer), 1.7));
+  wash.push(loop(scallop(13.2, 4.6, 5, 45, 30).map(([x, y]) => [x + 0.7, y + 0.5] as const)));
+  // Coroa de dentro, desencontrada.
+  strokes.push(S(loop(scallop(7.6, 2.4, 5, 45 + 36)), 1.3));
+  // Miolo: espiral curta.
+  const spiral: Pt[] = Array.from({ length: 9 }, (_, i) => {
+    const t = i / 8;
+    const a = 45 + t * 400;
+    const r = 0.6 + t * 3.6;
+    return [50 + r * Math.cos(a * DEG), 50 + r * Math.sin(a * DEG)] as const;
+  });
+  strokes.push(S(curve(spiral), 1.2));
+  // Folhas nas diagonais, saindo de trás da coroa.
+  [45, 135, 225, 315].forEach((a, i) => {
+    const base: Pt = [50 + 15.5 * Math.cos(a * DEG), 50 + 15.5 * Math.sin(a * DEG)];
+    const l = leaf(base, a, i % 2 ? 13 : 15.5, i % 2 ? 7 : 8.4, {
+      seed: 131 + (i % 2),
+      belly: 0.55,
+    });
+    strokes.push(...leafStrokes(l, i % 2 ? 1.35 : 1.5));
+    if (i % 2 === 0) wash.push(leafWash(l));
+  });
+  // Botões nos lados livres (sobre a diagonal y = x, em par).
+  const bud = (cx: number, cy: number, seed: number) =>
+    S(loop(hand(arc(cx, cy, 2.6, 0, 330, { wobble: 0, step: 30 }), seed, 0.15)), 1.2);
+  strokes.push(bud(80, 20, 141), bud(20, 80, 141));
+  // Cantos: anel duplo em (0,0); anel com pétala em (100,100).
+  strokes.push(...brush(cornerArc(0, 12, { seed: 143, wobble: 0.4 }), 1.7, [0, 0], { off: 0.7 }));
+  strokes.push(S(curve(cornerArc(0, 17.5, { seed: 144, wobble: 0.5 })), 1.05, "leve"));
+  strokes.push(
+    ...brush(cornerArc(100, 9, { seed: 145, wobble: 0.3 }), 1.6, [100, 100], { off: 0.6 }),
+  );
+  strokes.push(S(curve(cornerArc(100, 22, { seed: 146, wobble: 0.6 })), 1.05, "leve"));
+  return {
+    label: "Rosa",
+    idea: "Uma flor aberta de duas coroas recortadas e miolo em espiral, com folhas nas diagonais: o eco, em linha, das flores em aquarela do convite.",
+    wash,
+    strokes,
+    dots: [
+      { cx: 0, cy: 0, r: 2.4 },
+      { cx: 100, cy: 100, r: 2 },
     ],
     pattern: "roseta",
   };
@@ -952,8 +970,8 @@ function laco(): TileArt {
     [63, 35.4],
     [69.6, 28.2],
   ];
-  strokes.push(S(curve(fold), 1.05, "anil"));
-  strokes.push(S(curve(mirror(fold)), 1.05, "anil"));
+  strokes.push(S(curve(fold), 1.05, "leve"));
+  strokes.push(S(curve(mirror(fold)), 1.05, "leve"));
   // Pontas do laço: duas fitas curtas com corte em V, entre a fita e as
   // alças (espelhadas na diagonal).
   const tailOut: Pt[] = [
@@ -1031,137 +1049,307 @@ export const TILE_ART: Readonly<Record<TileDesign, TileArt>> = {
   moldura: moldura(),
   trama: trama(),
   laco: laco(),
+  rosa: rosa(),
 };
 
 /* -------------------------------------------------------------------------- */
-/* Monograma grande (abertura, OG, favicon)                                   */
+/* Monograma DG (abertura, cabeçalho, rodapé, selos, OG, ícone)               */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Uma parte do monograma: o contorno preenchido (`d`) e a linha de centro
+ * (`line`) na ordem de escrita, com a largura máxima da parte (`reach`), que
+ * é a espessura da máscara que revela o preenchimento enquanto a linha corre.
+ */
+export interface MonogramPart {
+  readonly id: string;
+  readonly d: string;
+  readonly line: string;
+  readonly reach: number;
+}
 
 export interface MonogramArt {
   readonly viewBox: string;
   readonly width: number;
   readonly height: number;
-  readonly strokes: readonly TileStroke[];
+  /** Ordem de escrita: haste do D, bojo do D que desce em S e fecha o G, esporão e barra, arco do G, pé do D. */
+  readonly parts: readonly MonogramPart[];
+}
+
+/** Contorno: lado A na ida, lado B na volta; trechos retos com L, curvos suaves. */
+function outline(
+  start: readonly Pt[],
+  a: readonly Pt[],
+  mid: readonly Pt[],
+  b: readonly Pt[],
+): string {
+  let d = `M${pt(start[0])}`;
+  for (const p of start.slice(1)) d += `L${pt(p)}`;
+  d += `L${pt(a[0])}${bez(a)}`;
+  for (const p of mid) d += `L${pt(p)}`;
+  d += `L${pt(b[0])}${bez(b)}`;
+  return `${d}Z`;
 }
 
 /**
- * D & G desenhados em linha, com o contraste do Bodoni traduzido em
- * contorno: hastes e bojos grossos como dois fios, finos como um fio só.
- * Ordem de escrita: D (haste, serifas e bojo), &, G.
+ * A ligadura DG do casal, redesenhada em vetor a partir do arquivo deles
+ * (docs/marca/manual-1.png, 1000×1000; as coordenadas são as do arquivo).
+ * Contraste de Didone: grossos só na haste do D, no S que é ao mesmo tempo o
+ * bojo do D e o corpo do G, e no esporão do G; o resto é fio.
  */
 function monogramArt(): MonogramArt {
-  const amp: Pt[] = [
-    [190, 85],
-    [183.6, 104],
-    [170.6, 120.6],
-    [152.6, 128.4],
-    [134.6, 128.4],
-    [123, 120.4],
-    [121.8, 106.4],
-    [127.6, 94.4],
-    [140.6, 85.2],
-    [153.4, 76.2],
-    [161.2, 66.2],
-    [161.8, 54.4],
-    [156.6, 45.4],
-    [148, 42.6],
-    [140.6, 47.6],
-    [139.2, 57.6],
-    [143.2, 69.6],
-    [152.6, 86],
-    [166.4, 104.6],
-    [180.4, 119.2],
-    [192, 126.8],
-    [199.6, 128.4],
+  // Haste do D.
+  const stem = "M92 262.5H154.5V736.5H92Z";
+
+  // Fio de cima do D → S grosso → base do G até o esporão; o esporão e a
+  // barra do G fecham o mesmo contorno.
+  const swashTop: Pt[] = [
+    [295, 262.5],
+    [325, 267],
+    [355, 274],
+    [385, 286],
+    [415, 303],
+    [445, 328],
+    [475, 363],
+    [505, 413],
+    [528, 470],
+    [546, 525],
+    [565, 576],
+    [595, 638],
+    [625, 679],
+    [655, 706],
+    [685, 722],
+    [715, 729],
+    [745, 731],
+    [775, 726],
+    [805, 715],
+    [835, 696],
+    [850.5, 680],
   ];
-  const ellipse = (
-    cx: number,
-    cy: number,
-    rx: number,
-    ry: number,
-    a0: number,
-    a1: number,
-    seed: number,
-  ): Pt[] =>
-    hand(
-      Array.from({ length: 13 }, (_, i) => {
-        const a = (a0 + ((a1 - a0) * i) / 12) * DEG;
-        return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)] as const;
-      }),
-      seed,
-      0.35,
-    );
-  const beak: Pt = [288.4, 44.6];
-  const gOuter: Pt[] = [beak, ...ellipse(248, 75, 46.6, 54, -41, -326, 141).slice(1)];
-  const gInner: Pt[] = [beak, ...ellipse(249.4, 75, 36, 51, -35, -319, 142).slice(1)];
-  const strokes: TileStroke[] = [
-    // D — haste (dois fios)
-    S(line([36, 22.4], [35.8, 76], [36, 127.6]), 2.2),
-    S(line([46.2, 22.8], [46, 76], [46.2, 127.2]), 1.6),
-    // D — serifa de cima, bojo externo e serifa de baixo, num gesto só
-    S(
-      curve(
-        [
-          [20, 21],
-          [34, 21.2],
-          [52, 21],
-        ],
-        [
-          [52, 21],
-          [80, 22.6],
-          [104, 40],
-          [109.6, 75],
-          [104.4, 110],
-          [80, 127.6],
-          [52, 129],
-        ],
-        [
-          [52, 129],
-          [34, 128.8],
-          [20, 129],
-        ],
-      ),
-      1.7,
-    ),
-    // D — bojo interno: o fio que dá o grosso do lado direito
-    S(
-      curve([
-        [46.6, 24.4],
-        [74, 25.6],
-        [94, 42],
-        [98.4, 75],
-        [94, 108],
-        [74, 124.6],
-        [46.6, 125.6],
-      ]),
-      1.5,
-    ),
-    // & — e comercial caligráfico, um traço só, e o grosso da pena na descida
-    S(curve(amp), 1.9),
-    S(curve(swell(amp.slice(15, 21), 0.05, 0.95, 3.6, [200, 90])), 1.5),
-    // G — bojo externo, do bico, pela esquerda, até o esporão
-    S(curve(gOuter), 1.7),
-    // G — bojo interno (grosso à esquerda)
-    S(curve(gInner), 1.5),
-    // G — esporão (haste curta de dois fios) e sua serifa
-    S(line(gOuter[gOuter.length - 1], [287.2, 90]), 1.7),
-    S(line(gInner[gInner.length - 1], [276.8, 90]), 1.6),
-    S(line([265, 89.4], [298, 89]), 1.3),
+  const swashBottom: Pt[] = [
+    [913, 668],
+    [895, 689],
+    [880, 702],
+    [865, 712],
+    [850, 720],
+    [820, 732],
+    [790, 739.5],
+    [760, 743.5],
+    [730, 744.5],
+    [700, 741.5],
+    [670, 735.5],
+    [640, 725.5],
+    [610, 710.5],
+    [580, 687.5],
+    [550, 656.5],
+    [520, 612.5],
+    [490, 547.5],
+    [468, 480],
+    [445, 421.5],
+    [415, 362.5],
+    [385, 323.5],
+    [355, 298.5],
+    [325, 284.5],
+    [295, 276.5],
   ];
-  return { viewBox: "0 0 312 150", width: 312, height: 150, strokes };
+  const swash = outline(
+    [
+      [150, 262.5],
+      [295, 262.5],
+    ],
+    swashTop,
+    [
+      [850.5, 532],
+      [722.5, 532],
+      [722.5, 517.5],
+      [913, 517.5],
+    ],
+    swashBottom,
+  ).replace(/Z$/, `L150 276.5Z`);
+
+  // Pé do D: fio da base que sobe em arco e para com corte inclinado.
+  const footTop: Pt[] = [
+    [300, 722.5],
+    [325, 719],
+    [355, 711],
+    [385, 696],
+    [415, 672],
+    [445, 633],
+    [458, 610],
+    [463, 600],
+  ];
+  const footBottom: Pt[] = [
+    [471.5, 607],
+    [466, 620],
+    [454, 640],
+    [441, 660],
+    [424, 680],
+    [401, 700],
+    [385, 711.5],
+    [355, 724.5],
+    [325, 733.5],
+    [300, 736.5],
+  ];
+  const foot = outline(
+    [
+      [150, 722.5],
+      [300, 722.5],
+    ],
+    footTop,
+    [],
+    footBottom,
+  ).replace(/Z$/, `L150 736.5Z`);
+
+  // Arco do G: sobe do meio, passa por cima e desce até o corte da direita.
+  const arcOuter: Pt[] = [
+    [532.5, 399],
+    [535, 390],
+    [550, 361],
+    [565, 338],
+    [580, 319],
+    [595, 304],
+    [610, 292],
+    [625, 282],
+    [640, 273.5],
+    [655, 267],
+    [670, 262],
+    [685, 258.5],
+    [700, 256.5],
+    [715, 255],
+    [730, 254.5],
+    [745, 255.5],
+    [760, 257],
+    [775, 260],
+    [790, 264],
+    [805, 270],
+    [820, 277],
+    [835, 286],
+    [850, 298],
+    [865, 313],
+    [880, 331],
+    [891, 349],
+    [897.5, 361.5],
+  ];
+  const arcInner: Pt[] = [
+    [888.5, 366.5],
+    [879, 350],
+    [865, 331.5],
+    [850, 315.5],
+    [835, 303.5],
+    [820, 293.5],
+    [805, 285.5],
+    [790, 279.5],
+    [775, 274.5],
+    [760, 271.5],
+    [745, 269.5],
+    [730, 268.5],
+    [715, 268.5],
+    [700, 270.5],
+    [685, 272.5],
+    [670, 276.5],
+    [655, 281.5],
+    [640, 288.5],
+    [625, 297.5],
+    [610, 308.5],
+    [595, 321.5],
+    [580, 338.5],
+    [565, 359.5],
+    [550, 385.5],
+    [543.5, 400.5],
+  ];
+  const arc = `M${pt(arcOuter[0])}${bez(arcOuter)}L${pt(arcInner[0])}${bez(arcInner)}Z`;
+
+  return {
+    viewBox: "92 254 822 492",
+    width: 822,
+    height: 492,
+    parts: [
+      { id: "haste", d: stem, line: "M123.3 262.5V736.5", reach: 64 },
+      {
+        id: "s",
+        d: swash,
+        line: `M150 269.5L295 269.5${bez([
+          [295, 269.5],
+          [355, 286],
+          [405, 320],
+          [445, 375],
+          [474, 440],
+          [497, 505],
+          [520, 570],
+          [550, 630],
+          [590, 680],
+          [640, 713],
+          [700, 733],
+          [760, 736],
+          [820, 720],
+          [870, 694],
+          [892, 678],
+        ])}`,
+        reach: 76,
+      },
+      { id: "esporao", d: "", line: "M881.8 686V524.7H722.5", reach: 64 },
+      {
+        id: "arco",
+        d: arc,
+        line: `M538 399.5${bez([
+          [538, 399.5],
+          [560, 357],
+          [600, 307],
+          [660, 271],
+          [730, 261.5],
+          [800, 274],
+          [860, 318],
+          [893, 364],
+        ])}`,
+        reach: 30,
+      },
+      {
+        id: "pe",
+        d: foot,
+        line: `M150 729.5L300 729.5${bez([
+          [300, 729.5],
+          [360, 717],
+          [405, 690],
+          [440, 652],
+          [467, 603],
+        ])}`,
+        reach: 30,
+      },
+    ],
+  };
 }
 
-export const MONOGRAM_ART: MonogramArt = monogramArt();
+/**
+ * O esporão e a barra do G ficam no contorno do S (um só preenchimento), mas
+ * têm a sua própria linha de escrita: a parte "esporao" reaproveita o
+ * contorno do S como área revelável.
+ */
+function linkShared(art: MonogramArt): MonogramArt {
+  const s = art.parts.find((p) => p.id === "s")!;
+  return {
+    ...art,
+    parts: art.parts.map((p) => (p.id === "esporao" ? { ...p, d: s.d } : p)),
+  };
+}
+
+export const MONOGRAM_ART: MonogramArt = linkShared(monogramArt());
+
+/** Partes com preenchimento próprio (o esporão divide o contorno do S). */
+export const MONOGRAM_FILLS: readonly string[] = MONOGRAM_ART.parts
+  .filter((p) => p.id !== "esporao")
+  .map((p) => p.d);
 
 /* -------------------------------------------------------------------------- */
 /* Serialização em texto (gerador de placeholders, OG, prévias)               */
 /* -------------------------------------------------------------------------- */
 
 export const TILE_COLORS = {
-  cobalto: "#1F3FAE",
-  anil: "#4C6FD8",
-  nevoa: "#E6EDFA",
-  esmalte: "#FBFCFF",
+  marinho: "#15244B",
+  royal: "#0B3270",
+  serenity: "#92A8D1",
+  celeste: "#BBD0EC",
+  relevo: "#F3F9FD",
+  branco: "#FFFFFF",
 } as const;
 
 export interface TileMarkupOptions {
@@ -1187,9 +1375,9 @@ export function tileMarkup(design: TileDesign, opts: TileMarkupOptions = {}): st
   const art = TILE_ART[design];
   const {
     rotate = 0,
-    ink = TILE_COLORS.cobalto,
-    inkSecondary = TILE_COLORS.anil,
-    wash = TILE_COLORS.anil,
+    ink = TILE_COLORS.branco,
+    inkSecondary = TILE_COLORS.serenity,
+    wash = TILE_COLORS.serenity,
     washOpacity = 0.13,
     weight = 1,
   } = opts;
@@ -1207,13 +1395,18 @@ export function tileMarkup(design: TileDesign, opts: TileMarkupOptions = {}): st
   const dots = art.dots
     .map((c) => `<circle cx="${fmt(c.cx)}" cy="${fmt(c.cy)}" r="${fmt(c.r)}"/>`)
     .join("");
-  return `<g${t}>${washes}<g fill="none" stroke="${ink}" stroke-linecap="round" stroke-linejoin="round">${strokes}</g><g fill="${ink}">${dots}</g></g>`;
+  const fills = (art.fills ?? [])
+    .map(
+      (f) =>
+        `<path d="${f.d}"${f.transform ? ` transform="${f.transform}"` : ""}${f.stroke ? ` stroke="${ink}" stroke-width="${f.stroke}" stroke-linejoin="round"` : ""}/>`,
+    )
+    .join("");
+  return `<g${t}>${washes}<g fill="none" stroke="${ink}" stroke-linecap="round" stroke-linejoin="round">${strokes}</g><g fill="${ink}">${dots}${fills}</g></g>`;
 }
 
 /** Monograma grande como texto SVG (conteúdo, sem o elemento `<svg>`). */
-export function monogramMarkup(opts: { ink?: string; weight?: number } = {}): string {
-  const { ink = TILE_COLORS.cobalto, weight = 1 } = opts;
-  return `<g fill="none" stroke="${ink}" stroke-linecap="round" stroke-linejoin="round">${MONOGRAM_ART.strokes
-    .map((s) => `<path d="${s.d}" stroke-width="${strokeWidth(s.w, weight)}"/>`)
-    .join("")}</g>`;
+export function monogramMarkup(opts: { ink?: string; bold?: number } = {}): string {
+  const { ink = TILE_COLORS.marinho, bold = 0 } = opts;
+  const stroke = bold > 0 ? ` stroke="${ink}" stroke-width="${bold}" stroke-linejoin="round"` : "";
+  return `<g fill="${ink}"${stroke}>${MONOGRAM_FILLS.map((d) => `<path d="${d}"/>`).join("")}</g>`;
 }

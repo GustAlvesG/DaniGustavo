@@ -53,6 +53,66 @@ export function formatHour(iso: string, timeZone = WEDDING_TIME_ZONE): string {
   return m === "00" ? `${h}h` : `${h}h${m}`;
 }
 
+/** "10.04.27": a data do selo (dia, mês e ano com dois dígitos, no fuso do casamento). */
+export function formatSealDate(iso: string, timeZone = WEDDING_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("day")}.${get("month")}.${get("year")}`;
+}
+
+/**
+ * Cidade e UF de um endereço no formato dos Correios:
+ * "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770" → "Volta Redonda, RJ".
+ * Vazio quando não reconhece.
+ */
+export function cityFromAddress(address: string): string {
+  for (const part of address.split(",").map((p) => p.trim())) {
+    const m = /^(.+?)\s+-\s+([A-Z]{2})$/.exec(part);
+    if (m) return `${m[1]}, ${m[2]}`;
+  }
+  return "";
+}
+
+export type MonthGrid = {
+  /** "abril" */
+  month: string;
+  year: number;
+  day: number;
+  /** Semanas de domingo a sábado; null fora do mês. */
+  weeks: (number | null)[][];
+};
+
+/** Calendário do mês do casamento (domingo primeiro), como no "save the date" do manual. */
+export function monthGrid(iso: string, timeZone = WEDDING_TIME_ZONE): MonthGrid {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date(iso));
+  const num = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const year = num("year");
+  const monthIndex = num("month") - 1;
+  const day = num("day");
+  const first = new Date(Date.UTC(year, monthIndex, 1)).getUTCDay();
+  const length = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const cells: (number | null)[] = [
+    ...Array.from({ length: first }, () => null),
+    ...Array.from({ length }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
+  const month = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, monthIndex, 15)),
+  );
+  return { month, year, day, weeks };
+}
+
 export function hasAddress(v: Venue): boolean {
   return v.address.trim() !== "";
 }

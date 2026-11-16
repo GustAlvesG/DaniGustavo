@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SITE_FALLBACK } from "@/content/site-fallback";
 import {
+  cityFromAddress,
+  formatSealDate,
+  monthGrid,
   formatHour,
   formatLongDate,
   osmEmbedUrl,
@@ -60,8 +63,33 @@ describe("weddingEvent", () => {
     const e = weddingEvent(SITE_FALLBACK);
     expect(e.uid).toBe("casamento-20270410@dani-e-gustavo");
     expect(e.title).toBe("Casamento de Dani & Gustavo");
-    expect(e.location).toBe("Local a definir");
-    expect(e.description).toContain("15h30");
+    expect(e.location).toBe("Solare Roma, R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770");
+    expect(e.description).toContain("16h");
     expect(new Date(e.end).getTime() - new Date(e.start).getTime()).toBe(8 * 3_600_000);
+  });
+});
+
+describe("selo e calendário", () => {
+  it("data do selo com dois dígitos, no fuso do casamento", () => {
+    expect(formatSealDate("2027-04-10T16:00:00-03:00")).toBe("10.04.27");
+    // 23h30 em São Paulo ainda é dia 10, mesmo já sendo 11 em UTC.
+    expect(formatSealDate("2027-04-10T23:30:00-03:00")).toBe("10.04.27");
+  });
+
+  it("cidade e UF a partir do endereço", () => {
+    expect(cityFromAddress("R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770")).toBe(
+      "Volta Redonda, RJ",
+    );
+    expect(cityFromAddress("Local a definir")).toBe("");
+  });
+
+  it("abril de 2027 começa numa quinta e o dia 10 é sábado", () => {
+    const g = monthGrid("2027-04-10T16:00:00-03:00");
+    expect(g.month).toBe("abril");
+    expect(g.year).toBe(2027);
+    expect(g.day).toBe(10);
+    expect(g.weeks[0]).toEqual([null, null, null, null, 1, 2, 3]);
+    expect(g.weeks[1]![6]).toBe(10);
+    expect(g.weeks.flat().filter(Boolean)).toHaveLength(30);
   });
 });

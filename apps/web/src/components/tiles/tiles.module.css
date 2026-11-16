@@ -1,6 +1,9 @@
 /*
- * Azulejos: <Tile>, <TileBand>, <TileGrid>, <Monogram>.
- * Tokens com fallback (globals.css é de outro dono).
+ * Azulejos: <Tile>, <TileBand>, <TileGrid>.
+ * As cores vêm da superfície em volta (globals.css): --tile-face (campo),
+ * --tile-ink (linha), --tile-ink-2 (traço leve), --tile-wash (aguada),
+ * --tile-joint (junta) e --tile-back (verso). No marinho: linha branca e
+ * verso royal; no relevo: linha royal e verso azul-claro.
  */
 
 /* Ladrilho ----------------------------------------------------------------- */
@@ -14,31 +17,33 @@
 }
 
 .face {
-  fill: var(--tile-face, var(--color-esmalte, #fbfcff));
-}
-
-.tile[data-face="nevoa"] .face {
-  fill: var(--color-nevoa, #e6edfa);
+  fill: var(--tile-face, #15244b);
 }
 
 .ink {
   fill: none;
-  stroke: var(--tile-ink, var(--color-cobalto, #1f3fae));
+  stroke: var(--tile-ink, #fff);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.ink [data-tone="anil"] {
-  stroke: var(--tile-ink-2, var(--color-anil, #4c6fd8));
+.ink [data-tone="leve"] {
+  stroke: var(--tile-ink-2, #92a8d1);
 }
 
 .wash {
-  fill: var(--tile-wash, var(--color-anil, #4c6fd8));
-  fill-opacity: 0.13;
+  fill: var(--tile-wash, #92a8d1);
+  fill-opacity: 0.14;
 }
 
-.dots {
-  fill: var(--tile-ink, var(--color-cobalto, #1f3fae));
+.dots,
+.fill {
+  fill: var(--tile-ink, #fff);
+}
+
+.fill {
+  stroke: var(--tile-ink, #fff);
+  stroke-linejoin: round;
 }
 
 /*
@@ -103,8 +108,8 @@
   /* A faixa ocupa a largura do pai e não o empurra (os ladrilhos ocultos não contam). */
   min-width: 0;
   contain: inline-size;
-  background: var(--color-nevoa, #e6edfa);
-  border-block: var(--joint) solid var(--color-nevoa, #e6edfa);
+  background: var(--tile-joint, #2a3a63);
+  border-block: var(--joint) solid var(--tile-joint, #2a3a63);
 }
 
 @media (min-width: 1024px) {
@@ -143,15 +148,15 @@
 
 .back {
   transform: rotateY(180deg);
-  background: var(--color-nevoa, #e6edfa);
+  background: var(--tile-back, #0b3270);
 }
 
-/* Verso: névoa lisa com um filete fino a 8% da borda. */
+/* Verso: esmalte liso (royal no marinho) com um filete fino a 9% da borda. */
 .back::after {
   content: "";
   position: absolute;
   inset: 9%;
-  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-ink, #fff) 24%, transparent);
 }
 
 /*
@@ -213,7 +218,7 @@
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   gap: var(--joint);
-  background: var(--color-nevoa, #e6edfa);
+  background: var(--tile-joint, #2a3a63);
 }
 
 .grid[data-joint="none"] {
@@ -226,13 +231,4 @@
   width: 0;
   height: 0;
   overflow: hidden;
-}
-
-/* Monograma ---------------------------------------------------------------- */
-
-.monogram {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
 }

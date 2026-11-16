@@ -3,7 +3,8 @@ import { TILE_ART, type TileDesign } from "./designs";
 import type { TileRotation } from "@/lib/tiles";
 import styles from "./tiles.module.css";
 
-export type TileFace = "esmalte" | "nevoa" | "none";
+/** Fundo do ladrilho: o campo da superfície (padrão) ou transparente. */
+export type TileFace = "campo" | "none";
 
 export interface TileProps {
   design: TileDesign;
@@ -22,7 +23,7 @@ export interface TileProps {
    * novo com `drawn`) desenha os traços em ordem.
    */
   drawn?: boolean;
-  /** Fundo do ladrilho: esmalte (padrão), névoa ou transparente. */
+  /** Fundo do ladrilho: o campo da superfície em volta (padrão) ou transparente. */
   face?: TileFace;
 }
 
@@ -69,6 +70,17 @@ export function TileArtGroup({
           />
         ))}
       </g>
+      {art.fills?.map((f, i) => (
+        <path
+          key={`f${i}`}
+          d={f.d}
+          transform={f.transform}
+          className={styles.fill}
+          strokeWidth={f.stroke}
+          data-dot=""
+          style={drawable ? ({ "--n": n } as CSSProperties) : undefined}
+        />
+      ))}
       {art.dots.length > 0 && (
         <g className={styles.dots}>
           {art.dots.map((c, i) => (
@@ -88,7 +100,8 @@ export function TileArtGroup({
 }
 
 /**
- * Um ladrilho de azulejo: SVG 1:1, traço cobalto sobre esmalte.
+ * Um ladrilho de azulejo: SVG 1:1. As cores vêm da superfície em volta
+ * (--tile-face, --tile-ink…): linha branca no marinho, royal no relevo.
  * Server Component (sem estado).
  */
 export function Tile({
@@ -99,7 +112,7 @@ export function Tile({
   style,
   title,
   drawn,
-  face = "esmalte",
+  face = "campo",
 }: TileProps) {
   const drawable = drawn !== undefined;
   return (

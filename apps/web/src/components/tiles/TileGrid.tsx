@@ -12,7 +12,7 @@ export interface TileGridProps {
   /** Padrão de rotações; padrão: o do (primeiro) desenho. */
   pattern?: TilePattern;
   joint?: "fina" | "none";
-  face?: "esmalte" | "nevoa";
+  face?: "campo";
   className?: string;
   /** Classe de cada célula (ex.: para a abertura animar a virada). */
   cellClassName?: string;
@@ -29,7 +29,7 @@ export function TileGrid({
   rows,
   pattern,
   joint = "fina",
-  face = "esmalte",
+  face = "campo",
   className,
   cellClassName,
   style,
