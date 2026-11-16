@@ -53,11 +53,11 @@ describe("seed", () => {
   it("lê JSON já convertido em objeto (MariaDB e MySQL)", async () => {
     const [row] = await db.select().from(settings).where(eq(settings.key, "ceremony.venue"));
     expect(row?.value).toEqual({
-      name: "Local a definir",
-      address: "",
+      name: "Solare Roma",
+      address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
       lat: null,
       lng: null,
-      time: "",
+      time: "15h30",
     });
   });
 

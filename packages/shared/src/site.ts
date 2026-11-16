@@ -43,6 +43,44 @@ export const StoryMoment = z.object({
 });
 export type StoryMoment = z.infer<typeof StoryMoment>;
 
+/** Manual dos padrinhos. Os campos depois de `notes` são opcionais (aditivos) e vêm do manual do casal. */
+export const GodparentsManual = z.object({
+  dressCode: z.string(),
+  schedule: z.array(z.object({ time: z.string(), text: z.string() })),
+  palette: z.array(PaletteColor),
+  notes: z.array(z.string()),
+  /** Texto do convite para ser padrinho/madrinha. */
+  invitation: z.string().optional(),
+  bridesmaids: z
+    .object({
+      text: z.string(),
+      /** Cor de inspiração (ex.: azul serenity). */
+      inspiration: PaletteColor,
+    })
+    .optional(),
+  groomsmen: z
+    .object({
+      text: z.string(),
+      /** Resumo do traje em uma linha. */
+      summary: z.string(),
+    })
+    .optional(),
+  missions: z.array(z.object({ title: z.string(), text: z.string() })).optional(),
+  missionsClosing: z.string().optional(),
+  music: z
+    .object({
+      text: z.string(),
+      playlistUrl: z.url().nullable(),
+      albumText: z.string(),
+      albumUrl: z.url().nullable(),
+    })
+    .optional(),
+  /** Orientações "para o grande dia". */
+  bigDay: z.array(z.string()).optional(),
+  verse: z.object({ text: z.string(), reference: z.string() }).optional(),
+});
+export type GodparentsManual = z.infer<typeof GodparentsManual>;
+
 export const GalleryPhoto = z.object({
   src: z.string().startsWith("/"),
   alt: z.string(),
@@ -69,12 +107,7 @@ export const SiteContent = z.object({
   }),
   faq: z.array(FaqItem),
   story: z.array(StoryMoment),
-  godparents: z.object({
-    dressCode: z.string(),
-    schedule: z.array(z.object({ time: z.string(), text: z.string() })),
-    palette: z.array(PaletteColor),
-    notes: z.array(z.string()),
-  }),
+  godparents: GodparentsManual,
   gallery: z.object({
     items: z.array(GalleryPhoto),
     /** true enquanto as fotos oficiais não foram publicadas. */

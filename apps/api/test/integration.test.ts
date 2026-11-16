@@ -15,9 +15,16 @@ describe("GET /api/site", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, max-age=60");
     const body = SiteContent.parse(await res.json());
-    expect(body.wedding.datetime).toBe("2027-05-15T16:00:00-03:00");
-    expect(body.couple.monogram).toBe("D & G");
-    expect(body.ceremony).toMatchObject({ name: "Local a definir", mapsUrl: null, wazeUrl: null });
+    expect(body.wedding.datetime).toBe("2027-04-10T15:30:00-03:00");
+    expect(body.couple.monogram).toBe("DG");
+    expect(body.ceremony).toMatchObject({
+      name: "Solare Roma",
+      mapsUrl:
+        "https://www.google.com/maps/search/?api=1&query=R.%20Papagaio%2C%201800%20-%20Roma%2C%20Volta%20Redonda%20-%20RJ%2C%2027257-770",
+      wazeUrl:
+        "https://waze.com/ul?q=R.%20Papagaio%2C%201800%20-%20Roma%2C%20Volta%20Redonda%20-%20RJ%2C%2027257-770&navigate=yes",
+    });
+    expect(body.godparents.missions).toHaveLength(6);
     expect(body.story).toHaveLength(5);
     expect(body.gallery.items).toHaveLength(8);
     expect(body.faq.length).toBeGreaterThanOrEqual(6);
