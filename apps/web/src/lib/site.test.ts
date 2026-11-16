@@ -58,10 +58,10 @@ describe("links", () => {
 describe("weddingEvent", () => {
   it("monta o evento da agenda a partir do site", () => {
     const e = weddingEvent(SITE_FALLBACK);
-    expect(e.uid).toBe("casamento-20270515@dani-e-gustavo");
+    expect(e.uid).toBe("casamento-20270410@dani-e-gustavo");
     expect(e.title).toBe("Casamento de Dani & Gustavo");
     expect(e.location).toBe("Local a definir");
-    expect(e.description).toContain("16h");
+    expect(e.description).toContain("15h30");
     expect(new Date(e.end).getTime() - new Date(e.start).getTime()).toBe(8 * 3_600_000);
   });
 });

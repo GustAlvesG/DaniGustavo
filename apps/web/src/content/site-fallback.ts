@@ -7,7 +7,7 @@ import type { SiteContent } from "@casamento/shared";
  */
 export const SITE_FALLBACK: SiteContent = {
   couple: { names: "Dani & Gustavo", monogram: "D & G" },
-  wedding: { datetime: "2027-05-15T16:00:00-03:00", timezone: "America/Sao_Paulo" },
+  wedding: { datetime: "2027-04-10T15:30:00-03:00", timezone: "America/Sao_Paulo" },
   ceremony: {
     name: "Local a definir",
     address: "",
