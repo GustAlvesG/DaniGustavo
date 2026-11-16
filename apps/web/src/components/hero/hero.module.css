@@ -1,0 +1,134 @@
+/* Hero da home (docs/PROMPT.md §4.4). */
+
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
+.body {
+  flex: 1;
+  padding-block: clamp(3rem, 10svh, 6rem) clamp(3rem, 8svh, 5rem);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Nomes: Bodoni em tamanho de cartaz, entrelinha 0,9, à esquerda. */
+.names {
+  font-size: var(--text-display-xl);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  font-weight: 400;
+  /* Corte óptico máximo: hastes finas de cartaz. */
+  font-optical-sizing: auto;
+  text-wrap: nowrap;
+  /* Recuo óptico: o "D" e o "&" encostam na margem. */
+  margin-inline-start: -0.04em;
+}
+
+.date {
+  /* Uma linha só no celular (390px). */
+  font-size: min(var(--text-3xl), 8.4vw);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: clamp(1.75rem, 4svh, 2.5rem);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: clamp(2rem, 5svh, 3rem);
+}
+
+.countdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: clamp(3.5rem, 9svh, 5rem);
+}
+
+/* Painel de azulejos: só no desktop. */
+.panel {
+  display: none;
+}
+
+/* Letras do SplitText durante a abertura: a máscara (overflow: clip) ganha
+ * margem para as serifas e o "&" não serem cortados pela entrelinha 0,9. */
+.names :global(.hero-char-mask) {
+  overflow-clip-margin: 0.14em;
+}
+
+@media (width >= 40rem) {
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+@media (width >= 64rem) {
+  .hero {
+    min-height: max(40rem, min(100svh, 62rem));
+  }
+
+  .body {
+    display: grid;
+    padding-block: clamp(4rem, 11svh, 7.5rem) clamp(2.5rem, 6svh, 4rem);
+  }
+
+  .copy {
+    grid-column: 1 / span 8;
+  }
+
+  /* No desktop a contagem assenta no pé do hero. */
+  .countdown {
+    margin-top: auto;
+    padding-top: clamp(2.5rem, 6svh, 4rem);
+  }
+
+  .names {
+    /* Na coluna de texto, "& Gustavo" cabe sem invadir o painel. */
+    font-size: min(13.4vw, 16rem, 24svh);
+  }
+
+  .date {
+    font-size: var(--text-display-sm);
+  }
+
+  .meta {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 2rem;
+  }
+
+  /* O painel começa na coluna 9 e sangra até a borda direita e o topo. */
+  .panel {
+    display: block;
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    /* Início da coluna 9 da page-grid (mesma conta da page-wrap). */
+    --wrap: min(100%, var(--container-max) + 2 * var(--gutter));
+    left: calc(
+      (100% - var(--wrap)) / 2 + var(--gutter) + 8 *
+        (var(--wrap) - 2 * var(--gutter) + var(--grid-gap)) / 12
+    );
+    overflow: hidden;
+    border-left: 1px solid var(--color-nevoa);
+  }
+
+  .panelGrid {
+    width: 100%;
+  }
+}

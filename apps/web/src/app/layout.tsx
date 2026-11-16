@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, Figtree } from "next/font/google";
+import { SmoothScroll } from "@/components/motion";
+import { openingInlineScript } from "@/lib/opening";
 import "./globals.css";
 
 // Bodoni Moda variável com o eixo opsz: o corte óptico acompanha o tamanho
@@ -25,8 +27,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${bodoni.variable} ${figtree.variable}`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+    // suppressHydrationWarning: o script inline pode pôr data-opening no <html>
+    // antes da hidratação (o React aceita o DOM em vez de reclamar).
+    <html
+      lang="pt-BR"
+      className={`${bodoni.variable} ${figtree.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Bloqueante e minúsculo: marca a capa da abertura antes do 1º paint. */}
+        <script dangerouslySetInnerHTML={{ __html: openingInlineScript() }} />
+      </head>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <SmoothScroll />
+      </body>
     </html>
   );
 }
