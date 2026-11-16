@@ -954,6 +954,52 @@ function laco(): TileArt {
   ];
   strokes.push(S(curve(fold), 1.05, "anil"));
   strokes.push(S(curve(mirror(fold)), 1.05, "anil"));
+  // Pontas do laço: duas fitas curtas com corte em V, entre a fita e as
+  // alças (espelhadas na diagonal).
+  const tailOut: Pt[] = [
+    [51.4, 54.2],
+    [55.4, 62.6],
+    [59.4, 71.6],
+    [61.6, 79.4],
+  ];
+  const tailBack: Pt[] = [
+    [69.8, 78.2],
+    [65.8, 70.2],
+    [60.6, 61.6],
+    [54.6, 53.2],
+  ];
+  const tail = (o: Pt[], b: Pt[]) =>
+    curve(
+      o,
+      [
+        [61.6, 79.4],
+        [64.4, 75.6],
+      ],
+      [
+        [64.4, 75.6],
+        [69.8, 78.2],
+      ],
+      b,
+    );
+  strokes.push(S(tail(tailOut, tailBack), 1.5));
+  strokes.push(
+    S(
+      curve(
+        hand(mirror(tailOut), 127, 0.2),
+        mirror([
+          [61.6, 79.4],
+          [64.4, 75.6],
+        ]),
+        mirror([
+          [64.4, 75.6],
+          [69.8, 78.2],
+        ]),
+        hand(mirror(tailBack), 128, 0.2),
+      ),
+      1.5,
+    ),
+  );
+  wash.push(loop(move([...tailOut.slice(1), [64.4, 75.6], ...tailBack.slice(0, -1)], 0.6, 0.5)));
   // Nó no centro.
   const knot = arc(50, 50, 4.6, 0, 330, { wobble: 0, step: 30 }).map(
     ([x, y]) => [50 + (x - 50) * 1.2, 50 + (y - 50) * 0.78] as const,
@@ -963,7 +1009,7 @@ function laco(): TileArt {
   wash.push(loop(move(loopB.slice(1, -1), 0.6, 0.8)));
   return {
     label: "Laço",
-    idea: "Uma fita na diagonal, que afina até os cantos, amarrada num laço; em 2×2 as fitas se cruzam em X e desenham losangos.",
+    idea: "Uma fita na diagonal, que afina até os cantos, amarrada num laço de duas alças e duas pontas; em 2×2 as fitas se cruzam em X e desenham losangos.",
     wash,
     strokes,
     dots: [
