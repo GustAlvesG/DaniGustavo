@@ -1,22 +1,20 @@
 import type { PaletteColor } from "@casamento/shared";
 
-/** Paleta de cores como ladrilhos: quadrado na cor, com o nome embaixo. */
+/**
+ * Paleta como selos: um círculo na cor, com um fio claro por fora (a cor
+ * escura não some no marinho) e o nome embaixo.
+ */
 export function Swatches({ colors, label }: { colors: PaletteColor[]; label: string }) {
   return (
-    <ul
-      aria-label={label}
-      className="grid grid-cols-2 gap-x-[var(--grid-gap)] gap-y-8 sm:grid-cols-4"
-    >
+    <ul aria-label={label} className="grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-4">
       {colors.map((c) => (
-        <li key={c.hex + c.name} className="flex flex-col gap-3">
+        <li key={c.hex + c.name} className="flex flex-col items-center gap-4 text-center">
           <span
             aria-hidden="true"
-            className="relative block aspect-square w-full"
+            className="block aspect-square w-full max-w-[7.5rem] rounded-full outline-1 outline-offset-4 outline-line-soft"
             style={{ backgroundColor: c.hex }}
-          >
-            <span className="absolute inset-[9%] border border-branco/50" />
-          </span>
-          <span className="text-base text-tinta">{c.name}</span>
+          />
+          <span className="text-base text-ink">{c.name}</span>
         </li>
       ))}
     </ul>

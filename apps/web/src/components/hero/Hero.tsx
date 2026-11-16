@@ -1,10 +1,12 @@
 import { useId, ViewTransition } from "react";
+import { MonogramDG, Seal } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
 import { Countdown } from "@/components/countdown";
-import { Monogram, TileBand, TileGrid } from "@/components/tiles";
+import { TileBand, TileGrid } from "@/components/tiles";
 import type { HeroContent } from "@/content/placeholder";
 import { formatWeddingDate } from "@/lib/countdown";
 import { cx } from "@/lib/cx";
+import { formatSealDate } from "@/lib/site";
 import styles from "./hero.module.css";
 
 export type HeroProps = HeroContent & {
@@ -17,14 +19,17 @@ export type HeroProps = HeroContent & {
  * Hero da home (docs/PROMPT.md §4.4). Server Component: o texto vem no HTML
  * estático, visível (é o elemento LCP). A abertura só anima por cima.
  *
- * Celular: faixa de azulejo no topo, nomes em Bodoni de cartaz, data, local,
- * botões empilhados e contagem. ≥1024px: 12 colunas assimétricas, texto à
- * esquerda e um painel de azulejos que sangra até a borda direita.
+ * Campo marinho, nomes brancos em Bodoni de cartaz. Celular: faixa de
+ * azulejo no topo e o selo do casal ao lado de "Dani". ≥1024px: 12 colunas
+ * assimétricas, texto à esquerda e um painel de azulejos que sangra até a
+ * borda direita, com o arco claro do monograma no meio (o cartão do manual).
  */
 export function Hero({
   names,
   dateISO,
-  venueLabel,
+  timeZone,
+  venueName,
+  venueCity,
   rsvpHref,
   giftsHref,
   headingLevel = "h1",
@@ -35,25 +40,26 @@ export function Hero({
   return (
     <section className={cx(styles.hero, className)} aria-labelledby={titleId}>
       <div className="lg:hidden">
-        <TileBand design="ramo" />
+        <TileBand design="rosa" />
       </div>
 
       <div className={styles.panel} aria-hidden="true">
-        <TileGrid design="onda" cols={3} rows={6} className={styles.panelGrid} />
-        {/* Cartela com o monograma: par da View Transition com o cabeçalho
-            das páginas internas (o monograma "voa" entre as páginas). */}
-        <div className={styles.cartela}>
+        <TileGrid design="flor" cols={3} rows={6} className={styles.panelGrid} />
+        {/* Arco do monograma: par da View Transition com o cabeçalho das
+            páginas internas (o monograma "voa" entre as páginas). */}
+        <div className={cx(styles.arch, "surface-relevo card-relevo shape-arch")}>
           <ViewTransition name="monograma" share="monograma" default="none">
-            <span className={styles.cartelaMono}>
-              <Monogram weight={1.8} />
+            <span className={styles.archMono}>
+              <MonogramDG bold={4} />
             </span>
           </ViewTransition>
+          <span className={styles.archDate}>{formatSealDate(dateISO, timeZone)}</span>
         </div>
       </div>
 
       <div className={cx("page-wrap page-grid", styles.body)}>
         <div className={styles.copy}>
-          <Heading id={titleId} className={cx("font-display text-tinta", styles.names)}>
+          <Heading id={titleId} className={cx("font-display text-ink", styles.names)}>
             <span className="block" data-hero-line="">
               {names.first}
             </span>{" "}
@@ -63,10 +69,21 @@ export function Hero({
           </Heading>
 
           <div className={styles.meta}>
-            <p className={cx("font-display text-tinta", styles.date)}>
-              <time dateTime={dateISO}>{formatWeddingDate(dateISO)}</time>
+            <p className={cx("font-display text-ink", styles.date)}>
+              <time dateTime={dateISO}>{formatWeddingDate(dateISO, timeZone)}</time>
             </p>
-            <p className="text-lg text-tinta/75">{venueLabel}</p>
+            <div className={styles.place}>
+              <p className="text-lg text-ink-soft">
+                {venueName}
+                {venueCity ? (
+                  <>
+                    <br />
+                    {venueCity}
+                  </>
+                ) : null}
+              </p>
+              <Seal className={styles.seal} tone="relevo" date={dateISO} timeZone={timeZone} />
+            </div>
           </div>
 
           <div className={styles.actions}>
@@ -79,7 +96,7 @@ export function Hero({
           </div>
 
           <div className={styles.countdown}>
-            <p className="text-base text-tinta/75" aria-hidden="true">
+            <p className="text-base text-ink-soft" aria-hidden="true">
               Faltam
             </p>
             <Countdown target={dateISO} />

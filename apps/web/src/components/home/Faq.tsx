@@ -25,7 +25,7 @@ export function Faq({ items }: { items: FaqItem[] }) {
             const buttonId = `${baseId}-q${i}`;
             const panelId = `${baseId}-a${i}`;
             return (
-              <li key={item.question} className="border-t border-cobalto/20 last:border-b">
+              <li key={item.question} className="border-t border-line-soft last:border-b">
                 <h3>
                   <button
                     type="button"
@@ -33,7 +33,7 @@ export function Faq({ items }: { items: FaqItem[] }) {
                     aria-expanded={expanded}
                     aria-controls={panelId}
                     onClick={() => setOpen(expanded ? null : i)}
-                    className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-6 py-4 text-left text-lg font-medium text-tinta"
+                    className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-6 py-4 text-left text-lg font-medium text-ink"
                   >
                     {item.question}
                     <PlusIcon open={expanded} />
@@ -52,7 +52,7 @@ export function Faq({ items }: { items: FaqItem[] }) {
                       transition={{ duration: 0.32, ease: EASE }}
                       className="overflow-hidden"
                     >
-                      <p className="max-w-[60ch] pb-6 text-base text-tinta/85">{item.answer}</p>
+                      <p className="max-w-[60ch] pb-6 text-base text-ink-soft">{item.answer}</p>
                     </m.div>
                   ) : null}
                 </AnimatePresence>
@@ -71,7 +71,7 @@ function PlusIcon({ open }: { open: boolean }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 20 20"
-      className="size-5 shrink-0 text-cobalto"
+      className="size-5 shrink-0 text-accent"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"

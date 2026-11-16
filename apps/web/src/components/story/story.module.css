@@ -31,7 +31,7 @@
   overflow: visible;
   pointer-events: none;
   fill: none;
-  stroke: var(--color-cobalto);
+  stroke: var(--color-serenity);
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -68,7 +68,7 @@
   top: 0.5rem;
   bottom: 0;
   width: 1.5px;
-  background: var(--color-cobalto);
+  background: var(--color-serenity);
   opacity: 0.6;
 }
 
@@ -92,26 +92,42 @@
   margin: 0;
 }
 
-/* Marco no ano: um losango de azulejo (quadrado a 45°) que a linha atravessa. */
+/* Marco no ano: um pequeno selo (anel branco com miolo serenity) que a linha atravessa. */
 .dot {
   position: absolute;
   top: 50%;
   left: calc(-1 * var(--rail) + var(--rail-x));
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 1rem;
+  height: 1rem;
   translate: -50% -50%;
-  rotate: 45deg;
-  background: var(--color-esmalte);
-  border: 1.5px solid var(--color-cobalto);
+  border-radius: 50%;
+  background: var(--color-serenity);
+  box-shadow: inset 0 0 0 3px var(--surface);
+  border: 1.5px solid var(--color-branco);
   z-index: 1;
 }
 
+/*
+ * Foto num arco (o painel vertical do manual), com um fio serenity por fora.
+ * 4:5 com arco de 40% de altura = semicírculo.
+ */
 .figure {
+  --arch-rise: 40%;
   margin: 0;
-  width: 100%;
-  aspect-ratio: 5 / 4;
+  width: min(100%, 26rem);
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: var(--color-nevoa);
+  background: var(--color-noite);
+  border-radius: 50% 50% 0 0 / var(--arch-rise) var(--arch-rise) 0 0;
+  outline: 1px solid color-mix(in srgb, var(--color-serenity) 60%, transparent);
+  outline-offset: 6px;
+}
+
+/* Alterna a forma: um momento em arco, o seguinte em cápsula deitada. */
+.moment:nth-child(even) .figure {
+  aspect-ratio: 3 / 2;
+  width: min(100%, 30rem);
+  border-radius: 9999px;
 }
 
 .image {
@@ -119,12 +135,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-@media (width >= 40rem) and (width < 64rem) {
-  .figure {
-    width: min(100%, 28rem);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,7 +162,6 @@
 
   .figure {
     grid-column: 2;
-    aspect-ratio: 4 / 3;
   }
 }
 
@@ -230,7 +239,6 @@
   .figure {
     width: auto;
     height: min(44svh, 28rem);
-    aspect-ratio: 4 / 5;
   }
 
   .dot {

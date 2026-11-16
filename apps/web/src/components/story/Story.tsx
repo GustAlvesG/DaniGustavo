@@ -8,7 +8,7 @@ import styles from "./story.module.css";
  * Nossa história (PROMPT §4.6.2). Server Component: os momentos vêm no HTML.
  *
  * - Desktop: a seção fica fixada (pin) e a trilha corre na horizontal; uma
- *   única linha de tinta cobalto se desenha ligando os anos (scrub).
+ *   única linha de tinta serenity se desenha ligando os anos (scrub).
  * - Celular: coluna vertical; a mesma linha desce pela coluna.
  * - Movimento reduzido ou sem JS: vertical, sem pin, linha inteira.
  *
@@ -26,14 +26,14 @@ export function Story({ moments }: { moments: StoryMoment[] }) {
           </svg>
 
           <header className={styles.intro}>
-            <h2 id="historia-titulo" className="font-display text-display-md text-tinta">
+            <h2 id="historia-titulo" className="font-display text-display-md text-ink">
               Nossa história
             </h2>
             {/* TODO(conteudo): frase de abertura escrita pelo casal. */}
-            <p className="mt-6 max-w-[30ch] text-lg text-tinta/80">
+            <p className="mt-6 max-w-[30ch] text-lg text-ink-soft">
               Alguns momentos até aqui. O próximo é com você lá.
             </p>
-            <p className={cx(styles.hint, "text-sm text-tinta/70")} aria-hidden="true">
+            <p className={cx(styles.hint, "text-sm text-ink-soft")} aria-hidden="true">
               Role para seguir a linha
             </p>
           </header>
@@ -54,10 +54,10 @@ export function Story({ moments }: { moments: StoryMoment[] }) {
                 <div className={styles.text}>
                   <p className={styles.year}>
                     <span className={styles.dot} data-story-dot="" aria-hidden="true" />
-                    <span className="font-display text-display-md text-tinta">{m.when}</span>
+                    <span className="font-display text-display-md text-ink">{m.when}</span>
                   </p>
-                  <h3 className="mt-4 text-xl font-medium text-tinta">{m.title}</h3>
-                  <p className="mt-2 max-w-[34ch] text-base text-tinta/80">{m.text}</p>
+                  <h3 className="mt-4 text-xl font-medium text-ink">{m.title}</h3>
+                  <p className="mt-2 max-w-[34ch] text-base text-ink-soft">{m.text}</p>
                 </div>
               </li>
             ))}

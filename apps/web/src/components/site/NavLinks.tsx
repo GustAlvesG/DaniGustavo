@@ -14,13 +14,7 @@ export const NAV_ITEMS = [
  * Links do menu. Ilha cliente só para saber a rota atual (`usePathname`) e
  * marcar `aria-current`; o resto do cabeçalho é Server Component.
  */
-export function NavLinks({
-  tone = "light",
-  className,
-}: {
-  tone?: "light" | "dark";
-  className?: string;
-}) {
+export function NavLinks({ className }: { className?: string }) {
   const pathname = usePathname();
   return (
     <ul className={cx("flex flex-wrap items-center gap-x-5 gap-y-1 sm:gap-x-9", className)}>
@@ -32,12 +26,10 @@ export function NavLinks({
               href={item.href}
               aria-current={current ? "page" : undefined}
               className={cx(
-                "inline-flex min-h-11 items-center rounded-[1px] text-[0.9375rem] underline-offset-[0.35em] sm:text-base",
+                "inline-flex min-h-11 items-center rounded-[2px] text-[0.9375rem] underline-offset-[0.35em] sm:text-base",
                 "decoration-1 transition-[text-decoration-color] duration-micro ease-out",
-                tone === "light"
-                  ? "text-tinta decoration-transparent hover:decoration-cobalto aria-[current=page]:text-cobalto aria-[current=page]:underline aria-[current=page]:decoration-cobalto"
-                  : "text-branco decoration-transparent hover:decoration-branco aria-[current=page]:underline aria-[current=page]:decoration-branco",
-                "hover:underline",
+                "text-ink decoration-transparent hover:underline hover:decoration-accent",
+                "aria-[current=page]:underline aria-[current=page]:decoration-accent",
               )}
             >
               {item.label}
