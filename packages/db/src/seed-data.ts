@@ -162,13 +162,25 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
   // TODO(conteudo): coordenadas (lat/lng) opcionais; os links de mapa saem do endereço.
   {
     key: "ceremony.venue",
-    value: { name: "Solare Roma", address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770", lat: null, lng: null, time: "15h30" },
+    value: {
+      name: "Solare Roma",
+      address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
+      lat: null,
+      lng: null,
+      time: "15h30",
+    },
     isPublic: true,
   },
   // TODO(conteudo): confirmar se a recepção é no mesmo local e o horário de início.
   {
     key: "reception.venue",
-    value: { name: "Solare Roma", address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770", lat: null, lng: null, time: "16h30" },
+    value: {
+      name: "Solare Roma",
+      address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
+      lat: null,
+      lng: null,
+      time: "16h30",
+    },
     isPublic: true,
   },
   // TODO(conteudo): confirmar o prazo final do RSVP.
@@ -342,7 +354,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
         "Organizem previamente o laço da gravata.",
       ],
       invitation:
-        "Existem pessoas que tornam a nossa história ainda mais bonita, e vocês fazem parte dela! Por isso, não conseguiríamos imaginar o nosso \"sim\" sem vocês ao nosso lado. Mais do que testemunhas do nosso amor, queremos vocês caminhando conosco nesse sonho chamado casamento.",
+        'Existem pessoas que tornam a nossa história ainda mais bonita, e vocês fazem parte dela! Por isso, não conseguiríamos imaginar o nosso "sim" sem vocês ao nosso lado. Mais do que testemunhas do nosso amor, queremos vocês caminhando conosco nesse sonho chamado casamento.',
       bridesmaids: {
         text: "Queremos que você se sinta linda e à vontade nesse dia especial! O modelo do vestido fica totalmente a seu critério. Capriche no que mais combina com seu estilo. A única regra é a cor: precisa ser azul serenity, para fechar com a paleta do casamento.",
         inspiration: { name: "Azul serenity", hex: "#92A8D1" },
@@ -353,7 +365,10 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
       },
       missions: [
         { title: "Cuidar da noiva", text: "Ajudar com o vestido, a cauda e os retoques." },
-        { title: "Acalmar o noivo", text: "Manter ele tranquilo (e hidratado) antes da cerimônia." },
+        {
+          title: "Acalmar o noivo",
+          text: "Manter ele tranquilo (e hidratado) antes da cerimônia.",
+        },
         { title: "Animar a pista", text: "Ninguém fica sentado quando a festa começar!" },
         { title: "Reunir as solteiras", text: "Na hora do buquê, ninguém escapa." },
         { title: "Comandar a hora da gravata", text: "Cada pedacinho vale ouro!" },
