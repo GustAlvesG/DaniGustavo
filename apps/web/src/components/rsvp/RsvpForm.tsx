@@ -36,7 +36,7 @@ const STEPS = ["Quem vai", "Detalhes", "Revisão"] as const;
 type StepIndex = 0 | 1 | 2;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const TILE_ROTATION: TileDesign[] = ["flor", "ramo", "estrela", "onda", "moldura", "monograma"];
+const TILE_ROTATION: TileDesign[] = ["rosa", "flor", "estrela", "ramo", "onda", "monograma"];
 
 type Props = { token: string; invitation: Invitation };
 
@@ -163,14 +163,14 @@ export function RsvpForm({ token, invitation }: Props) {
             ) : step === 0 ? (
               <StepShell step={0} focus={navigated}>
                 {hasAnswered(invitation) ? (
-                  <p className="text-base text-tinta/80" data-testid="rsvp-revisit">
+                  <p className="text-base text-ink-soft" data-testid="rsvp-revisit">
                     Você já respondeu. Pode mudar o que quiser até{" "}
                     {formatDayMonth(invitation.deadline)}.
                   </p>
                 ) : null}
                 <div className="flex flex-col">
                   {named.map((g, i) => (
-                    <div key={g.id} className="border-t border-anil/40 py-3 last:border-b">
+                    <div key={g.id} className="border-t border-line-soft py-3 last:border-b">
                       <RadioGroup
                         orientation="horizontal"
                         legend={g.name}
@@ -194,7 +194,7 @@ export function RsvpForm({ token, invitation }: Props) {
                       {...register("plusOneName", { validate: validatePlusOneName })}
                     />
                   ) : attending >= 1 ? (
-                    <p className="text-sm text-tinta/70">
+                    <p className="text-sm text-ink-soft">
                       Este convite tem lugar para {invitation.maxGuests} pessoas, então não há vaga
                       para acompanhante.
                     </p>
@@ -210,7 +210,7 @@ export function RsvpForm({ token, invitation }: Props) {
               <StepShell step={1} focus={navigated}>
                 {attending > 0 ? (
                   <section className="flex flex-col gap-5" aria-label="Restrições alimentares">
-                    <p className="max-w-[56ch] text-sm text-tinta/70">
+                    <p className="max-w-[56ch] text-sm text-ink-soft">
                       Alergias são dados de saúde; usamos só para informar o buffet. Preencher é
                       opcional.
                     </p>
@@ -230,7 +230,7 @@ export function RsvpForm({ token, invitation }: Props) {
                   </section>
                 ) : null}
                 <section className="flex flex-col gap-5" aria-label="Contato">
-                  <p className="max-w-[56ch] text-sm text-tinta/70">
+                  <p className="max-w-[56ch] text-sm text-ink-soft">
                     Contato é opcional. Com e-mail, enviamos a confirmação da sua resposta.
                   </p>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -267,14 +267,14 @@ export function RsvpForm({ token, invitation }: Props) {
             ) : (
               <StepShell step={2} focus={navigated}>
                 <Review invitation={invitation} values={getValues()} />
-                <p className="max-w-[56ch] text-sm text-tinta/70">
+                <p className="max-w-[56ch] text-sm text-ink-soft">
                   Você pode mudar a resposta depois, até {formatDayMonth(invitation.deadline)}.
                 </p>
                 {failure ? (
                   <div
                     role="alert"
                     data-testid="rsvp-error"
-                    className="flex flex-col items-start gap-3 border-l-2 border-erro pl-5 text-base text-tinta"
+                    className="flex flex-col items-start gap-3 border-l-2 border-danger pl-5 text-base text-ink"
                   >
                     <p>{failure.message}</p>
                     {failure.reason === "closed" || failure.reason === "not_found" ? (
@@ -322,7 +322,7 @@ function StepShell({
   return (
     <div className="flex flex-col gap-6" data-step={step + 1}>
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-tinta/70">
+        <p className="text-sm text-ink-soft">
           Etapa {step + 1} de {STEPS.length}
         </p>
         <FocusHeading focus={focus}>{STEPS[step]}</FocusHeading>
@@ -340,7 +340,7 @@ function FocusHeading({ focus, children }: { focus: boolean; children: ReactNode
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <h2 ref={ref} tabIndex={-1} className="font-display text-display-sm text-tinta outline-none">
+    <h2 ref={ref} tabIndex={-1} className="font-display text-display-sm text-ink outline-none">
       {children}
     </h2>
   );
@@ -363,26 +363,26 @@ function Review({ invitation, values }: { invitation: Invitation; values: RsvpFo
         const yes = v?.attending === "yes";
         const notes = yes ? v?.dietaryNotes.trim() : "";
         return (
-          <div key={g.id} className="border-t border-anil/40 py-3">
-            <dt className="text-base font-medium text-tinta">{g.name}</dt>
-            <dd className="text-base text-tinta">
+          <div key={g.id} className="border-t border-line-soft py-3">
+            <dt className="text-base font-medium text-ink">{g.name}</dt>
+            <dd className="text-base text-ink">
               {yes ? "Vai" : "Não vai"}
               {notes ? (
-                <span className="block text-sm text-tinta/70">Restrição: {notes}</span>
+                <span className="block text-sm text-ink-soft">Restrição: {notes}</span>
               ) : null}
             </dd>
           </div>
         );
       })}
       {plusOne ? (
-        <div className="border-t border-anil/40 py-3">
-          <dt className="text-base font-medium text-tinta">{plusOne}</dt>
-          <dd className="text-base text-tinta">Vai, como acompanhante</dd>
+        <div className="border-t border-line-soft py-3">
+          <dt className="text-base font-medium text-ink">{plusOne}</dt>
+          <dd className="text-base text-ink">Vai, como acompanhante</dd>
         </div>
       ) : null}
-      <div className="border-t border-b border-anil/40 py-3">
-        <dt className="text-base font-medium text-tinta">Contato</dt>
-        <dd className="text-base text-tinta">
+      <div className="border-t border-b border-line-soft py-3">
+        <dt className="text-base font-medium text-ink">Contato</dt>
+        <dd className="text-base text-ink">
           {email || phone ? [email, phone].filter(Boolean).join(", ") : "Não informado"}
         </dd>
       </div>
@@ -432,24 +432,28 @@ function DoneStep({
                   delay: reduce ? 0 : 0.5 + i * 0.1,
                 }}
               >
-                <Tile design={TILE_ROTATION[i % TILE_ROTATION.length]!} size={44} />
-                <span className="text-lg text-tinta">{g.name}</span>
+                <Tile
+                  design={TILE_ROTATION[i % TILE_ROTATION.length]!}
+                  size={44}
+                  className="rounded-full outline-1 outline-offset-2 outline-line-soft"
+                />
+                <span className="text-lg text-ink">{g.name}</span>
               </motion.li>
             ))}
           </ul>
           {notGoing.length > 0 ? (
-            <p className="text-base text-tinta/80">
+            <p className="text-base text-ink-soft">
               Não vão: {notGoing.map((g) => g.name).join(", ")}.
             </p>
           ) : null}
-          <p className="max-w-[56ch] text-base text-tinta/80">
+          <p className="max-w-[56ch] text-base text-ink-soft">
             Vai ser uma festa e tanto com vocês lá.{" "}
             {email ? `Enviamos a confirmação para ${email}. ` : ""}
             Se algo mudar, volte aqui até {deadline} e altere a resposta.
           </p>
         </>
       ) : (
-        <p className="max-w-[56ch] text-lg text-tinta">
+        <p className="max-w-[56ch] text-lg text-ink">
           Obrigado por avisar. Vamos sentir a sua falta, e é bom saber agora. Se algo mudar, volte
           aqui até {deadline} e altere a resposta.
         </p>
@@ -472,7 +476,7 @@ function CheckDraw({ instant }: { instant: boolean }) {
   return (
     <svg
       viewBox="0 0 48 48"
-      className="size-12 shrink-0 text-cobalto"
+      className="size-12 shrink-0 text-accent"
       fill="none"
       stroke="currentColor"
       strokeWidth="3"
@@ -481,7 +485,7 @@ function CheckDraw({ instant }: { instant: boolean }) {
       aria-hidden="true"
       data-testid="rsvp-check"
     >
-      <rect x="4" y="4" width="40" height="40" rx="2" strokeWidth="2" />
+      <circle cx="24" cy="24" r="21" strokeWidth="1.75" />
       <motion.path
         d="M13 25.5 21 33 35.5 15.5"
         initial={instant ? false : { pathLength: 0 }}

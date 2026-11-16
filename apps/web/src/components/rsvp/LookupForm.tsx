@@ -63,11 +63,11 @@ export function LookupForm({ contact }: { contact: CoupleContact }) {
       {/* Região viva: o resultado é anunciado sem tirar o foco do formulário. */}
       <div aria-live="polite" role="status" data-testid="lookup-result">
         {state.status === "not_found" ? (
-          <div className="flex flex-col gap-2 border-l-2 border-erro pl-5">
-            <p className="text-lg text-tinta">
+          <div className="flex flex-col gap-2 border-l-2 border-danger pl-5">
+            <p className="text-lg text-ink">
               Não encontramos esse nome. Confira a grafia ou fale com os noivos.
             </p>
-            <p className="text-sm text-tinta/70">
+            <p className="text-sm text-ink-soft">
               Use o nome e o sobrenome como estão no convite. Acentos não fazem diferença.
             </p>
             <ContactLinks contact={contact} />
@@ -75,18 +75,18 @@ export function LookupForm({ contact }: { contact: CoupleContact }) {
         ) : null}
 
         {state.status === "rate_limited" || state.status === "error" ? (
-          <p className="border-l-2 border-erro pl-5 text-lg text-tinta">{state.message}</p>
+          <p className="border-l-2 border-danger pl-5 text-lg text-ink">{state.message}</p>
         ) : null}
 
         {state.status === "choose" ? (
           <div className="flex flex-col gap-3">
-            <p className="text-lg text-tinta">Encontramos mais de um convite. Qual é o seu?</p>
+            <p className="text-lg text-ink">Encontramos mais de um convite. Qual é o seu?</p>
             <ul className="flex flex-col">
               {state.matches.map((m) => (
-                <li key={m.token} className="border-t border-anil/40 last:border-b">
+                <li key={m.token} className="border-t border-line-soft last:border-b">
                   <Link
                     href={`/c/${m.token}`}
-                    className="flex min-h-14 items-center py-2 text-lg text-cobalto underline underline-offset-[0.22em]"
+                    className="flex min-h-14 items-center py-2 text-lg text-accent underline underline-offset-[0.22em]"
                   >
                     {m.label}
                   </Link>
@@ -97,7 +97,7 @@ export function LookupForm({ contact }: { contact: CoupleContact }) {
         ) : null}
       </div>
 
-      <p className="max-w-[56ch] text-sm text-tinta/70">
+      <p className="max-w-[56ch] text-sm text-ink-soft">
         Privacidade: usamos seu nome só para achar o seu convite. Ao confirmar, guardamos presença,
         contato e restrições alimentares apenas para organizar a festa, e apagamos esses dados
         depois do casamento.

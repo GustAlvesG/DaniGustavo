@@ -1,7 +1,7 @@
 import { ContactLinks } from "@/components/rsvp/ContactLinks";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { Tile } from "@/components/tiles";
+import { Seal } from "@/components/brand";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { getSite } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
@@ -17,7 +17,7 @@ export default async function ConviteNaoEncontrado() {
       <main id="conteudo" className="section-space flex-1">
         <div className="page-wrap page-grid gap-y-10">
           <div className="flex flex-col gap-8 lg:col-span-6 lg:col-start-2">
-            <Tile design="ramo" size={72} rotate={90} />
+            <Seal tone="relevo" size="5.5rem" />
             <SectionHeading
               as="h1"
               lead="Esse link não abre nenhum convite. Pode ter faltado um pedaço quando foi copiado. Busque pelo seu nome ou fale com os noivos."

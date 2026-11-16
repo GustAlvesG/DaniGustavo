@@ -14,21 +14,21 @@ export function ClosedSummary({
 }) {
   return (
     <div className="flex flex-col gap-6" data-testid="rsvp-closed">
-      <h2 className="font-display text-display-sm text-tinta">Prazo encerrado</h2>
-      <p className="max-w-[56ch] text-lg text-tinta">
+      <h2 className="font-display text-display-sm text-ink">Prazo encerrado</h2>
+      <p className="max-w-[56ch] text-lg text-ink">
         O prazo para confirmar presença terminou em {formatDayMonth(invitation.deadline)}. Para
         alterar a resposta, fale direto com os noivos.
       </p>
       <ContactLinks contact={contact} />
       <dl className="flex flex-col" aria-label="Resposta registrada">
         {invitation.guests.map((g) => (
-          <div key={g.id} className="border-t border-anil/40 py-3 last:border-b">
-            <dt className="text-base font-medium text-tinta">{g.name}</dt>
-            <dd className="text-base text-tinta">
+          <div key={g.id} className="border-t border-line-soft py-3 last:border-b">
+            <dt className="text-base font-medium text-ink">{g.name}</dt>
+            <dd className="text-base text-ink">
               {STATUS_TEXT[g.rsvpStatus]}
               {g.isPlusOne ? ", como acompanhante" : ""}
               {g.rsvpStatus === "confirmed" && g.dietaryNotes ? (
-                <span className="block text-sm text-tinta/70">Restrição: {g.dietaryNotes}</span>
+                <span className="block text-sm text-ink-soft">Restrição: {g.dietaryNotes}</span>
               ) : null}
             </dd>
           </div>

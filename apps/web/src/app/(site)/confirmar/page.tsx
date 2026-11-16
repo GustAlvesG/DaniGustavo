@@ -1,3 +1,4 @@
+import { FormCard } from "@/components/rsvp/FormCard";
 import { LookupForm } from "@/components/rsvp/LookupForm";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -16,9 +17,9 @@ export default async function ConfirmarPage() {
   return (
     <PageTransition>
       <SiteHeader band="laco" />
-      <main id="conteudo" className="section-space flex-1">
-        <div className="page-wrap page-grid gap-y-10">
-          <div className="lg:col-span-6 lg:col-start-2">
+      <main id="conteudo" className="section-space flex-1" data-rsvp="">
+        <div className="page-wrap page-grid gap-y-12">
+          <div className="lg:col-span-5 lg:pt-16">
             <SectionHeading
               as="h1"
               lead={`Digite seu nome como está no convite. Responda até ${formatDayMonth(site.rsvp.deadline)}.`}
@@ -26,9 +27,9 @@ export default async function ConfirmarPage() {
               Confirmar presença
             </SectionHeading>
           </div>
-          <div className="lg:col-span-6 lg:col-start-2">
+          <FormCard className="lg:col-span-6 lg:col-start-7">
             <LookupForm contact={site.contact} />
-          </div>
+          </FormCard>
         </div>
       </main>
     </PageTransition>

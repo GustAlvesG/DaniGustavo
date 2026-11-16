@@ -33,16 +33,16 @@ export default async function GalleryPage() {
           {/* Colunas CSS: cada foto mantém a proporção. Clicar abre a foto inteira. */}
           <ul
             aria-labelledby="galeria-titulo"
-            className="columns-1 gap-[var(--grid-gap)] sm:columns-2 lg:col-span-12 lg:columns-3"
+            className="columns-1 gap-[calc(var(--grid-gap)+0.5rem)] sm:columns-2 lg:col-span-12 lg:columns-3"
             data-gallery=""
           >
             {gallery.items.map((photo, i) => (
-              <li key={photo.src} className="mb-[var(--grid-gap)] break-inside-avoid">
+              <li key={photo.src} className="mb-[calc(var(--grid-gap)+0.5rem)] break-inside-avoid">
                 <a
                   href={photo.src}
                   target="_blank"
                   rel="noopener"
-                  className="block bg-nevoa"
+                  className="block bg-noite outline-1 outline-offset-[5px] outline-line-soft"
                   aria-label={`${photo.alt} (abre em nova aba)`}
                 >
                   <Image

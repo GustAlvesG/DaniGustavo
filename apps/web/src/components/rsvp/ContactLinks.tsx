@@ -2,7 +2,7 @@ import { whatsappUrl } from "@/lib/site";
 
 export type CoupleContact = { whatsapp: string; email: string };
 
-const link = "inline-flex min-h-11 items-center text-cobalto underline underline-offset-[0.22em]";
+const link = "inline-flex min-h-11 items-center text-accent underline underline-offset-[0.22em]";
 
 /** Links de contato dos noivos (WhatsApp e e-mail), com alvo de toque de 44px. */
 export function ContactLinks({ contact }: { contact: CoupleContact }) {
