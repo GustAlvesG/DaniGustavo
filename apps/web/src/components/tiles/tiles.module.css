@@ -1,0 +1,238 @@
+/*
+ * Azulejos: <Tile>, <TileBand>, <TileGrid>, <Monogram>.
+ * Tokens com fallback (globals.css é de outro dono).
+ */
+
+/* Ladrilho ----------------------------------------------------------------- */
+
+.tile {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.face {
+  fill: var(--tile-face, var(--color-esmalte, #fbfcff));
+}
+
+.tile[data-face="nevoa"] .face {
+  fill: var(--color-nevoa, #e6edfa);
+}
+
+.ink {
+  fill: none;
+  stroke: var(--tile-ink, var(--color-cobalto, #1f3fae));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ink [data-tone="anil"] {
+  stroke: var(--tile-ink-2, var(--color-anil, #4c6fd8));
+}
+
+.wash {
+  fill: var(--tile-wash, var(--color-anil, #4c6fd8));
+  fill-opacity: 0.13;
+}
+
+.dots {
+  fill: var(--tile-ink, var(--color-cobalto, #1f3fae));
+}
+
+/*
+ * Desenho por CSS (prop `drawn`): os traços têm pathLength="1".
+ * Traço de 1 e vão de 2: com deslocamento 1 nada aparece (nem a ponta
+ * redonda); com 0 o traço inteiro aparece. A troca de data-drawn
+ * "false" → "true" anima na ordem dos paths (--i).
+ */
+.drawable [data-draw] {
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 0;
+}
+
+.drawable[data-drawn="false"] [data-draw] {
+  stroke-dashoffset: 1;
+}
+
+.drawable[data-drawn="false"] [data-dot],
+.drawable[data-drawn="false"] [data-wash] {
+  opacity: 0;
+}
+
+.drawable[data-drawn="true"] [data-draw] {
+  transition: stroke-dashoffset var(--tile-draw-duration, 900ms)
+    var(--ease-in-out, cubic-bezier(0.65, 0, 0.35, 1))
+    calc(var(--i, 0) * var(--tile-draw-step, 70ms));
+}
+
+.drawable[data-drawn="true"] [data-dot],
+.drawable[data-drawn="true"] [data-wash] {
+  transition: opacity var(--duration-ui, 320ms) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1))
+    calc(var(--n, 0) * var(--tile-draw-step, 70ms) + var(--tile-draw-duration, 900ms) * 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawable[data-drawn="true"] [data-draw] {
+    transition: none;
+  }
+
+  .drawable[data-drawn="true"] [data-dot],
+  .drawable[data-drawn="true"] [data-wash] {
+    transition: opacity 200ms linear;
+  }
+}
+
+/* Faixa -------------------------------------------------------------------- */
+
+/*
+ * A faixa preenche a largura com ladrilhos inteiros: as colunas cabem
+ * quantas couberem com o tamanho mínimo, e os ladrilhos que sobram caem em
+ * linhas de altura 0 e ficam escondidos pelo overflow.
+ */
+.band {
+  --tile-min: 60px;
+  --joint: 1px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  column-gap: var(--joint);
+  overflow: hidden;
+  /* A faixa ocupa a largura do pai e não o empurra (os ladrilhos ocultos não contam). */
+  min-width: 0;
+  contain: inline-size;
+  background: var(--color-nevoa, #e6edfa);
+  border-block: var(--joint) solid var(--color-nevoa, #e6edfa);
+}
+
+@media (min-width: 1024px) {
+  .band {
+    --tile-min: 84px;
+  }
+}
+
+.band[data-count] {
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+}
+
+.band[data-joint="none"] {
+  --joint: 0px;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  perspective: 640px;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.front,
+.back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.back {
+  transform: rotateY(180deg);
+  background: var(--color-nevoa, #e6edfa);
+}
+
+/* Verso: névoa lisa com um filete fino a 8% da borda. */
+.back::after {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 28%, transparent);
+}
+
+/*
+ * Estado inicial "verso para cima": só quando o navegador vai rodar JS
+ * (sem JS, os ladrilhos aparecem já virados). Como é CSS, vale desde o
+ * primeiro paint — não há flash da face antes da hidratação.
+ */
+@media (scripting: enabled) {
+  .band:not([data-flip="go"], [data-flip="done"]) .card {
+    transform: rotateY(180deg);
+  }
+}
+
+.band[data-flip="go"] .card {
+  transform: none;
+  will-change: transform;
+  transition: transform var(--flip-duration, 600ms) var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1))
+    calc(var(--i, 0) * var(--flip-step, 70ms));
+}
+
+.band[data-flip="go"][data-quick] {
+  --flip-step: 45ms;
+  --flip-duration: 520ms;
+}
+
+/* Movimento reduzido: nada gira; o verso some num crossfade. */
+@media (prefers-reduced-motion: reduce) {
+  .band .card,
+  .band:not([data-flip="go"], [data-flip="done"]) .card,
+  .band[data-flip="go"] .card {
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
+
+  .back {
+    transform: none;
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (scripting: enabled) {
+  .band:not([data-flip="go"], [data-flip="done"]) .back {
+    opacity: 1;
+  }
+
+  .band[data-flip="go"] .back {
+    opacity: 0;
+    transition: opacity var(--duration-ui, 320ms) linear calc(var(--i, 0) * 30ms);
+  }
+}
+
+/* Grade -------------------------------------------------------------------- */
+
+.grid {
+  --joint: 1px;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--joint);
+  background: var(--color-nevoa, #e6edfa);
+}
+
+.grid[data-joint="none"] {
+  --joint: 0px;
+}
+
+/* Símbolos compartilhados (fora do fluxo, mas renderizados). */
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Monograma ---------------------------------------------------------------- */
+
+.monogram {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
