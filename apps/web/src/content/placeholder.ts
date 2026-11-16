@@ -1,7 +1,8 @@
-/**
- * Conteúdo provisório do hero. TODO(conteudo): a Fase 2 troca por
- * `GET /api/site` (settings editáveis no painel); o hero recebe tudo por props.
- */
+import type { SiteContent } from "@casamento/shared";
+import { splitCoupleNames, venueLine } from "@/lib/site";
+import { SITE_FALLBACK } from "./site-fallback";
+
+/** O que o hero precisa; a home monta a partir de `/api/site`. */
 export type HeroContent = {
   names: { first: string; second: string };
   /** Instante da cerimônia, com fuso (ISO 8601). */
@@ -11,10 +12,15 @@ export type HeroContent = {
   giftsHref: string;
 };
 
-export const heroPlaceholder: HeroContent = {
-  names: { first: "Dani", second: "Gustavo" }, // TODO(conteudo)
-  dateISO: "2027-05-15T16:00:00-03:00", // TODO(conteudo)
-  venueLabel: "Local a definir", // TODO(conteudo)
-  rsvpHref: "/confirmar",
-  giftsHref: "/presentes",
-};
+export function heroFromSite(site: SiteContent): HeroContent {
+  return {
+    names: splitCoupleNames(site.couple.names),
+    dateISO: site.wedding.datetime,
+    venueLabel: venueLine(site.ceremony),
+    rsvpHref: "/confirmar",
+    giftsHref: "/presentes",
+  };
+}
+
+/** Prévia do hero na /dev/design (conteúdo de reserva). */
+export const heroPlaceholder: HeroContent = heroFromSite(SITE_FALLBACK);
