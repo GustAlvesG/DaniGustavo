@@ -10,7 +10,7 @@
 
 export const WEDDING_TIME_ZONE = "America/Sao_Paulo";
 
-const MINUTE = 60_000;
+const SECOND = 1_000;
 
 export type Instant = number | Date | string;
 
@@ -18,42 +18,47 @@ export type CountdownParts = {
   days: number;
   hours: number;
   minutes: number;
-  /** Total de minutos restantes (arredondado para cima). */
-  totalMinutes: number;
+  seconds: number;
+  /** Total de segundos restantes (arredondado para cima). */
+  totalSeconds: number;
   /** true quando o alvo já chegou. */
   done: boolean;
 };
 
 export type CountdownPhase = "counting" | "today" | "after";
 
-export type CountdownUnit = "days" | "hours" | "minutes";
+export type CountdownUnit = "days" | "hours" | "minutes" | "seconds";
+
+/** As unidades na ordem em que aparecem. */
+export const COUNTDOWN_UNITS: readonly CountdownUnit[] = ["days", "hours", "minutes", "seconds"];
 
 function toMs(value: Instant): number {
   return typeof value === "number" ? value : new Date(value).getTime();
 }
 
 /**
- * Dias, horas e minutos até o alvo. Os minutos são arredondados para cima:
- * faltando 30 segundos, mostra "1 min"; zera só quando o alvo chega.
+ * Dias, horas, minutos e segundos até o alvo. Os segundos são arredondados
+ * para cima: faltando 0,4 s, mostra "1 s"; zera só quando o alvo chega.
  */
 export function diffParts(now: Instant, target: Instant): CountdownParts {
   const remaining = toMs(target) - toMs(now);
   if (!(remaining > 0)) {
-    return { days: 0, hours: 0, minutes: 0, totalMinutes: 0, done: true };
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, done: true };
   }
-  const totalMinutes = Math.ceil(remaining / MINUTE);
+  const totalSeconds = Math.ceil(remaining / SECOND);
   return {
-    days: Math.floor(totalMinutes / 1440),
-    hours: Math.floor((totalMinutes % 1440) / 60),
-    minutes: totalMinutes % 60,
-    totalMinutes,
+    days: Math.floor(totalSeconds / 86_400),
+    hours: Math.floor((totalSeconds % 86_400) / 3_600),
+    minutes: Math.floor((totalSeconds % 3_600) / 60),
+    seconds: totalSeconds % 60,
+    totalSeconds,
     done: false,
   };
 }
 
-/** Milissegundos até a próxima virada de minuto do relógio. */
-export function msUntilNextMinute(now: number): number {
-  return MINUTE - (((now % MINUTE) + MINUTE) % MINUTE);
+/** Milissegundos até a próxima virada de segundo do relógio. */
+export function msUntilNextSecond(now: number): number {
+  return SECOND - (((now % SECOND) + SECOND) % SECOND);
 }
 
 /** Data do calendário (AAAA-MM-DD) de um instante num fuso. */
@@ -83,6 +88,7 @@ const LABELS: Record<CountdownUnit, { short: [string, string]; long: [string, st
   days: { short: ["dia", "dias"], long: ["dia", "dias"] },
   hours: { short: ["hora", "horas"], long: ["hora", "horas"] },
   minutes: { short: ["min", "min"], long: ["minuto", "minutos"] },
+  seconds: { short: ["seg", "seg"], long: ["segundo", "segundos"] },
 };
 
 /** Rótulo com singular/plural: unitLabel("days", 1) -> "dia". */
@@ -107,10 +113,12 @@ function joinPtBr(items: string[]): string {
 
 /**
  * Frase para leitor de tela: "Faltam 180 dias, 4 horas e 12 minutos".
- * Omite unidades zeradas e concorda o verbo ("Falta 1 minuto").
+ * Sem os segundos (mudariam a cada leitura); omite unidades zeradas e
+ * concorda o verbo ("Falta 1 minuto"). No último minuto, "Falta menos de 1 minuto".
  */
 export function describeCountdown(parts: CountdownParts): string {
   if (parts.done) return "";
+  if (parts.totalSeconds < 60) return "Falta menos de 1 minuto";
   const units: CountdownUnit[] = ["days", "hours", "minutes"];
   const present = units.filter((unit) => parts[unit] > 0);
   const items = present.map((unit) => `${parts[unit]} ${unitLabel(unit, parts[unit], "long")}`);

@@ -5,7 +5,7 @@ import {
   describeCountdown,
   diffParts,
   formatWeddingDate,
-  msUntilNextMinute,
+  msUntilNextSecond,
   pad2,
   unitLabel,
 } from "./countdown";
@@ -17,13 +17,14 @@ const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
 describe("diffParts", () => {
-  it("decompõe dias, horas e minutos", () => {
-    const now = T - (180 * DAY + 4 * HOUR + 12 * MIN);
+  it("decompõe dias, horas, minutos e segundos", () => {
+    const now = T - (180 * DAY + 4 * HOUR + 12 * MIN + 9_000);
     expect(diffParts(now, TARGET)).toEqual({
       days: 180,
       hours: 4,
       minutes: 12,
-      totalMinutes: 180 * 1440 + 4 * 60 + 12,
+      seconds: 9,
+      totalSeconds: (180 * 1440 + 4 * 60 + 12) * 60 + 9,
       done: false,
     });
   });
@@ -46,14 +47,21 @@ describe("diffParts", () => {
     });
   });
 
-  it("arredonda os minutos para cima (30 s restantes = 1 min)", () => {
-    expect(diffParts(T - 30_000, TARGET)).toMatchObject({ days: 0, hours: 0, minutes: 1 });
-    expect(diffParts(T - 1, TARGET)).toMatchObject({ minutes: 1, done: false });
+  it("arredonda os segundos para cima (0,4 s restantes = 1 s)", () => {
+    expect(diffParts(T - 30_000, TARGET)).toMatchObject({ minutes: 0, seconds: 30 });
+    expect(diffParts(T - 400, TARGET)).toMatchObject({ minutes: 0, seconds: 1, done: false });
+    expect(diffParts(T - 60_000, TARGET)).toMatchObject({ minutes: 1, seconds: 0 });
   });
 
   it("vira o dia corretamente", () => {
     expect(diffParts(T - DAY, TARGET)).toMatchObject({ days: 1, hours: 0, minutes: 0 });
     expect(diffParts(T - DAY + MIN, TARGET)).toMatchObject({ days: 0, hours: 23, minutes: 59 });
+    expect(diffParts(T - DAY + 1_000, TARGET)).toMatchObject({
+      days: 0,
+      hours: 23,
+      minutes: 59,
+      seconds: 59,
+    });
   });
 
   it("calcula por instante, independente do fuso em que a data foi escrita", () => {
@@ -68,11 +76,11 @@ describe("diffParts", () => {
   });
 });
 
-describe("msUntilNextMinute", () => {
-  it("mede até a próxima virada", () => {
-    expect(msUntilNextMinute(T)).toBe(MIN);
-    expect(msUntilNextMinute(T + 59_000)).toBe(1_000);
-    expect(msUntilNextMinute(T + 1)).toBe(MIN - 1);
+describe("msUntilNextSecond", () => {
+  it("mede até a próxima virada do segundo", () => {
+    expect(msUntilNextSecond(T)).toBe(1_000);
+    expect(msUntilNextSecond(T + 999)).toBe(1);
+    expect(msUntilNextSecond(T + 1)).toBe(999);
   });
 });
 
@@ -106,6 +114,8 @@ describe("rótulos e texto", () => {
     expect(unitLabel("minutes", 1)).toBe("min");
     expect(unitLabel("minutes", 1, "long")).toBe("minuto");
     expect(unitLabel("minutes", 5, "long")).toBe("minutos");
+    expect(unitLabel("seconds", 5)).toBe("seg");
+    expect(unitLabel("seconds", 1, "long")).toBe("segundo");
   });
 
   it("completa com zero à esquerda", () => {
@@ -122,6 +132,9 @@ describe("rótulos e texto", () => {
     expect(describeCountdown(diffParts(T - HOUR, T))).toBe("Falta 1 hora");
     expect(describeCountdown(diffParts(T - 2 * DAY, T))).toBe("Faltam 2 dias");
     expect(describeCountdown(diffParts(T, T))).toBe("");
+    expect(describeCountdown(diffParts(T - 20_000, T))).toBe("Falta menos de 1 minuto");
+    // Segundos não entram na frase.
+    expect(describeCountdown(diffParts(T - (2 * HOUR + 15_000), T))).toBe("Faltam 2 horas");
   });
 
   it("formata a data do casamento", () => {
