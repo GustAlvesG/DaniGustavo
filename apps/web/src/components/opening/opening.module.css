@@ -1,0 +1,269 @@
+/*
+ * Capa da abertura. A mesma marcação serve de capa estática (antes do JS,
+ * só CSS) e de cena animada (depois que o GSAP chega): não há troca de
+ * elemento, então o primeiro quadro animado é idêntico à capa.
+ *
+ * Visível só com <html data-opening> (posto pelo script inline do <head>)
+ * ou com data-active (replay da /dev/design).
+ */
+
+.root {
+  /* Colunas por folha: igual a doorColumns() em src/lib/opening.ts. */
+  --c: 3;
+  --t: calc(50vw / var(--c));
+  --mono-w: calc(var(--t) * 3.5);
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  perspective: 1600px;
+  touch-action: none;
+  cursor: default;
+  contain: strict;
+}
+
+@media (orientation: portrait) and (min-width: 600px) {
+  .root {
+    --c: 4;
+  }
+}
+
+@media (orientation: landscape) {
+  .root {
+    --c: 5;
+  }
+}
+
+:global(html[data-opening]) .root,
+.root[data-active] {
+  display: block;
+}
+
+/* Rolagem presa enquanto a capa está na tela. */
+:global(html[data-opening]) {
+  overflow: hidden;
+}
+
+/* Folhas de porta ------------------------------------------------------- */
+
+.door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  overflow: hidden;
+  /* Junta entre os ladrilhos (as faces ficam 0,5px para dentro). */
+  background: var(--color-nevoa, #e6edfa);
+  backface-visibility: hidden;
+}
+
+.door[data-door="l"] {
+  left: 0;
+  transform-origin: 0% 50%;
+}
+
+.door[data-door="r"] {
+  right: 0;
+  transform-origin: 100% 50%;
+}
+
+/* Ladrilhos ------------------------------------------------------------- */
+
+.cell {
+  position: absolute;
+  top: calc(50% + var(--j) * var(--t));
+  width: var(--t);
+  height: var(--t);
+}
+
+.door[data-door="l"] .cell {
+  right: calc(var(--k) * var(--t));
+}
+
+.door[data-door="r"] .cell {
+  left: calc(var(--k) * var(--t));
+}
+
+/* Colunas além das que a tela usa não existem para o layout. */
+@media (orientation: portrait) {
+  .cell[data-k="4"] {
+    display: none;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 599px) {
+  .cell[data-k="3"] {
+    display: none;
+  }
+}
+
+/*
+ * Cada ladrilho é um só elemento que gira: o verso vai de 0° a 90° (de
+ * lado), a face troca e volta de -90° a 0°. Sem preserve-3d nem
+ * backface-visibility: só os ladrilhos em pleno giro viram camada, o que
+ * mantém o compositor leve (Layerize era o gargalo com CPU 4× mais lenta).
+ * Em repouso não há transform: a capa estática é o verso, sem 3D.
+ */
+.card {
+  position: absolute;
+  inset: 0.5px;
+}
+
+.face,
+.back {
+  position: absolute;
+  inset: 0;
+}
+
+.face {
+  display: none;
+}
+
+.card[data-front] .face {
+  display: block;
+}
+
+.card[data-front] .back {
+  display: none;
+}
+
+/* Verso: névoa com um filete anil fino a 9% da borda (como o da TileBand). */
+.back {
+  background: var(--color-nevoa, #e6edfa);
+}
+
+.back::after {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 26%, transparent);
+}
+
+/* Ladrilhos fora da tela não participam (menos DOM no layout e na pintura). */
+.cell[data-off] {
+  display: none;
+}
+
+/* Campo liso do monograma: esmalte sem desenho. */
+.blank {
+  background: var(--color-esmalte, #fbfcff);
+}
+
+/* Monograma ------------------------------------------------------------- */
+
+/*
+ * Uma cópia em cada folha, centrada na junta: cada folha recorta a sua
+ * metade, e o monograma se parte ao meio quando as portas abrem.
+ */
+.mono {
+  position: absolute;
+  top: 50%;
+  width: var(--mono-w);
+  translate: 0 -50%;
+  /* Escondido até o JS zerar o traço (DrawSVG). */
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.door[data-door="l"] .mono {
+  right: calc(var(--mono-w) / -2);
+}
+
+.door[data-door="r"] .mono {
+  left: calc(var(--mono-w) / -2);
+}
+
+/* Duas espessuras: o traço não pode sumir no celular nem pesar no desktop. */
+.monoLg {
+  display: none;
+}
+
+@media (orientation: landscape), (min-width: 600px) {
+  .monoSm {
+    display: none;
+  }
+
+  .monoLg {
+    display: block;
+  }
+}
+
+.root[data-drawing] .mono {
+  visibility: visible;
+}
+
+/*
+ * Movimento reduzido: a capa já mostra a face e o monograma pronto; o JS só
+ * faz o fade de 200 ms (data-motion="keep" escapa da regra global).
+ */
+@media (prefers-reduced-motion: reduce) {
+  .face {
+    display: block;
+  }
+
+  .back {
+    display: none;
+  }
+
+  .mono {
+    visibility: visible;
+  }
+}
+
+.root[data-leaving] {
+  opacity: 0;
+  transition: opacity var(--leave-duration, 200ms) linear;
+  pointer-events: none;
+}
+
+/*
+ * Cartela: filete duplo cobalto em volta do campo do monograma. Cada folha
+ * tem a sua metade (sem a borda da junta); o JS a revela da junta para fora.
+ */
+.frame {
+  --inset: max(6px, calc(var(--t) * 0.07));
+  position: absolute;
+  top: calc(50% - var(--t) * 2 / 2 + var(--inset));
+  height: calc(var(--t) * 2 - 2 * var(--inset));
+  width: calc(var(--t) * 2 - var(--inset));
+  border: 1.5px solid var(--color-cobalto, #1f3fae);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.frame::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-anil, #4c6fd8) 70%, transparent);
+}
+
+.door[data-door="l"] .frame {
+  right: 0;
+  border-right: 0;
+}
+
+.door[data-door="l"] .frame::after {
+  right: 0;
+  border-right: 0;
+}
+
+.door[data-door="r"] .frame {
+  left: 0;
+  border-left: 0;
+}
+
+.door[data-door="r"] .frame::after {
+  left: 0;
+  border-left: 0;
+}
+
+.root[data-drawing] .frame {
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    visibility: visible;
+  }
+}
