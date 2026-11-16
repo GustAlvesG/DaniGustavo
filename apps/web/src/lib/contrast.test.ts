@@ -30,11 +30,9 @@ describe("contrastRatio", () => {
     expect(contrastRatio("#1f3fae", "#1f3fae")).toBe(1);
   });
 
-  it("confere os pares da paleta (PROMPT §4.2)", () => {
-    expect(contrastRatio("#0e1f4d", "#fbfcff")).toBeCloseTo(15.5, 0);
-    expect(contrastRatio("#1f3fae", "#fbfcff")).toBeGreaterThan(8.5);
-    expect(contrastRatio("#ffffff", "#1f3fae")).toBeGreaterThan(8.7);
-    expect(contrastRatio("#4c6fd8", "#fbfcff")).toBeGreaterThan(4.3);
+  it("confere pares da paleta do casal", () => {
+    expect(contrastRatio("#ffffff", "#15244b")).toBeCloseTo(15.15, 1);
+    expect(contrastRatio("#15244b", "#f3f9fd")).toBeCloseTo(14.27, 1);
   });
 });
 

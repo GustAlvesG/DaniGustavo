@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
 /*
- * Design system "Azulejo" (docs/PROMPT.md §4).
+ * Design system "Azulejo" (docs/PROMPT.md §4), com a identidade do casal
+ * (docs/marca): azul-marinho dominante, branco e azul-claro como detalhe.
  *
  * `@theme static` emite todas as variáveis no :root mesmo que nenhuma classe
  * as use: outros componentes (GSAP, Motion, CSS próprio) leem `var(--…)`.
  */
 @theme static {
-  /* Paleta (4.2) */
-  --color-tinta: #0e1f4d;
-  --color-cobalto: #1f3fae;
-  --color-anil: #4c6fd8;
-  --color-nevoa: #e6edfa;
-  --color-esmalte: #fbfcff;
+  /* Paleta nomeada (contraste conferido em src/lib/palette.test.ts) */
+  --color-marinho: #15244b; /* campo dominante: fundo da página e dos cartões escuros */
+  --color-noite: #0f1a38; /* marinho mais fundo: juntas, rodapé da abertura */
+  --color-royal: #0b3270; /* moldura grossa dos cartões; tinta e foco sobre o claro */
+  --color-serenity: #92a8d1; /* azul serenity: destaque e traços sobre o marinho */
+  --color-celeste: #bbd0ec; /* azul-claro: texto secundário sobre o marinho */
+  --color-relevo: #f3f9fd; /* superfície clara de relevo (cartões, formulários) */
   --color-branco: #ffffff;
-  --color-erro: #b3261e;
+  --color-lousa: #3d4f7a; /* texto secundário sobre o claro */
+  --color-erro: #b3261e; /* erro sobre o claro */
+  --color-coral: #ffb3a7; /* erro sobre o marinho */
 
   /* Curvas (4.6.5) → utilitários `ease-out`, `ease-in-out` */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -133,8 +137,98 @@
  * no elemento, onde a classe do next/font já está aplicada).
  */
 @theme inline {
+  /*
+   * Cores semânticas: resolvidas no próprio elemento (inline), então mudam
+   * com a superfície em volta. `text-ink` é branco no marinho e marinho no
+   * relevo; `bg-ink text-on-ink` é o botão primário de qualquer superfície.
+   */
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-on-ink: var(--on-ink);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-danger: var(--danger);
+  --color-field: var(--field);
+
   --font-display: var(--font-bodoni), "Bodoni Moda", Didot, "Bodoni 72", Georgia, serif;
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+}
+
+/*
+ * Superfícies. Cada uma define o mesmo conjunto de papéis; o :root é o
+ * marinho (a cor dominante do site). Pares de texto e fundo conferidos em
+ * src/lib/palette.test.ts (WCAG 2.2 AA; elementos não textuais ≥ 3:1).
+ */
+@layer base {
+  :root,
+  .surface-marinho,
+  .surface-royal,
+  .surface-noite {
+    --surface: var(--color-marinho);
+    --ink: var(--color-branco); /* 15,2:1 */
+    --ink-soft: var(--color-celeste); /* 9,6:1 */
+    --on-ink: var(--color-marinho);
+    --accent: var(--color-serenity); /* 6,3:1 */
+    --line: var(--color-serenity); /* bordas funcionais, 6,3:1 */
+    --line-soft: color-mix(in srgb, var(--color-serenity) 34%, transparent);
+    --danger: var(--color-coral); /* 8,9:1 */
+    --focus: var(--color-branco);
+    --field: var(--color-noite);
+    /* Azulejo sobre o marinho: linha branca, traço secundário serenity. */
+    --tile-face: var(--surface);
+    --tile-ink: var(--color-branco);
+    --tile-ink-2: var(--color-serenity);
+    --tile-wash: var(--color-serenity);
+    --tile-joint: color-mix(in srgb, var(--color-serenity) 18%, var(--surface));
+    --tile-back: var(--color-royal);
+  }
+
+  .surface-royal {
+    --surface: var(--color-royal); /* branco 12,3:1; celeste 7,8:1; serenity 5,1:1 */
+    --on-ink: var(--color-royal);
+    --field: var(--color-marinho);
+    --tile-back: var(--color-marinho);
+  }
+
+  .surface-noite {
+    --surface: var(--color-noite);
+    --on-ink: var(--color-noite);
+  }
+
+  .surface-relevo,
+  .surface-branco {
+    color-scheme: light;
+    --surface: var(--color-relevo);
+    --ink: var(--color-marinho); /* 14,3:1 */
+    --ink-soft: var(--color-lousa); /* 7,6:1 */
+    --on-ink: var(--color-relevo);
+    --accent: var(--color-royal); /* 11,6:1 */
+    --line: var(--color-royal);
+    --line-soft: color-mix(in srgb, var(--color-royal) 20%, transparent);
+    --danger: var(--color-erro); /* 6,2:1 */
+    --focus: var(--color-royal);
+    --field: var(--color-branco);
+    /* Valor explícito: o Lightning CSS descarta um segundo "var(--surface)" aqui. */
+    --tile-face: var(--color-relevo);
+    --tile-ink: var(--color-royal);
+    --tile-ink-2: color-mix(in srgb, var(--color-serenity) 70%, var(--color-royal));
+    --tile-wash: var(--color-serenity);
+    --tile-joint: color-mix(in srgb, var(--color-serenity) 35%, var(--surface));
+    --tile-back: var(--color-celeste);
+  }
+
+  .surface-branco {
+    --surface: var(--color-branco);
+    --on-ink: var(--color-branco);
+    --tile-face: var(--color-branco);
+  }
+
+  :where(.surface-marinho, .surface-royal, .surface-noite, .surface-relevo, .surface-branco) {
+    background-color: var(--surface);
+    color: var(--ink);
+  }
 }
 
 :root {
@@ -198,12 +292,44 @@
   padding-block: var(--section-space);
 }
 
-/* Anel de foco branco para conteúdo sobre fundo cobalto/tinta. */
-@utility focus-on-dark {
-  & :focus-visible,
-  &:focus-visible {
-    outline-color: var(--color-branco);
-  }
+/* ---------- Formas da identidade (docs/marca) ---------- */
+
+/*
+ * Arco: topo em semicírculo (ou elipse baixa) e base reta, como os painéis
+ * verticais do manual. `--arch-rise` é a altura do arco; o padrão faz um
+ * semicírculo em molduras 4:5.
+ */
+@utility shape-arch {
+  border-radius: 50% 50% var(--arch-foot, 0) var(--arch-foot, 0) / var(--arch-rise, 40%)
+    var(--arch-rise, 40%) var(--arch-foot, 0) var(--arch-foot, 0);
+}
+
+/* Cápsula (estádio): pontas em semicírculo. */
+@utility shape-pill {
+  border-radius: 9999px;
+}
+
+/* Selo: círculo. */
+@utility shape-seal {
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+/*
+ * Cartão de relevo do manual: campo claro, moldura royal grossa e um fio
+ * serenity por fora. Combine com uma forma (arch, pill).
+ */
+@utility card-relevo {
+  border: var(--card-border, 5px) solid var(--color-royal);
+  outline: 1px solid color-mix(in srgb, var(--color-serenity) 55%, transparent);
+  outline-offset: var(--card-ring, 5px);
+}
+
+/* Cartão escuro: campo marinho com fio duplo claro por dentro. */
+@utility card-marinho {
+  border: 1.5px solid var(--color-branco);
+  outline: 1px solid color-mix(in srgb, var(--color-serenity) 60%, transparent);
+  outline-offset: calc(-1 * var(--card-ring, 7px) - 1.5px);
 }
 
 /* ---------- Base ---------- */
@@ -217,8 +343,8 @@
   }
 
   body {
-    background-color: var(--color-esmalte);
-    color: var(--color-tinta);
+    background-color: var(--surface);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: 1.6;
@@ -238,18 +364,24 @@
     text-wrap: pretty;
   }
 
+  html {
+    background-color: var(--color-marinho);
+    color-scheme: dark;
+  }
+
   /* Bodoni Moda escolhe o corte óptico (eixo opsz) pelo tamanho do texto. */
   .font-display {
     font-optical-sizing: auto;
   }
 
   ::selection {
-    background-color: var(--color-cobalto);
-    color: var(--color-branco);
+    background-color: var(--color-serenity);
+    color: var(--color-marinho);
   }
 
+  /* Foco: branco sobre o marinho, royal sobre o claro (var(--focus)). */
   :focus-visible {
-    outline: 2px solid var(--color-cobalto);
+    outline: 2px solid var(--focus);
     outline-offset: 3px;
   }
 
