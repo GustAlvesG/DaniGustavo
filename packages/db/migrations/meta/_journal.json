@@ -36,6 +36,13 @@
       "when": 1794945772143,
       "tag": "0004_asaas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794948159409,
+      "tag": "0005_lembretes_rsvp",
+      "breakpoints": true
     }
   ]
 }

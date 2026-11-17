@@ -7,6 +7,7 @@ import {
   mysqlEnum,
   mysqlTable,
   text,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 import { createdAt, json, timestamps, utcDatetime } from "./columns.ts";
@@ -194,6 +195,23 @@ export const messages = mysqlTable(
     ...timestamps(),
   },
   (t) => [index("messages_approved_idx").on(t.approved)],
+);
+
+/**
+ * Lembretes de RSVP já enviados. A chave única (convite, tipo) impede o mesmo lembrete de
+ * sair duas vezes: o tipo é "auto:14" (14 dias antes do prazo) ou "manual:2027-02-20".
+ */
+export const rsvpReminders = mysqlTable(
+  "rsvp_reminders",
+  {
+    id: pk(),
+    invitationId: fk("invitation_id")
+      .notNull()
+      .references(() => invitations.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 32 }).notNull(),
+    sentAt: createdAt(),
+  },
+  (t) => [uniqueIndex("rsvp_reminders_invitation_kind_idx").on(t.invitationId, t.kind)],
 );
 
 export const settings = mysqlTable("settings", {
