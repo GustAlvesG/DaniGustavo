@@ -29,6 +29,13 @@
       "when": 1794943517168,
       "tag": "0003_presentes_pagamento",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794945772143,
+      "tag": "0004_asaas",
+      "breakpoints": true
     }
   ]
 }

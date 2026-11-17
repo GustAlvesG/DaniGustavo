@@ -185,7 +185,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
   },
   // TODO(conteudo): confirmar o prazo final do RSVP.
   { key: "rsvp.deadline", value: "2027-03-10T23:59:59-03:00", isPublic: true },
-  // TODO(conteudo): percentual real da tarifa de cartão no Mercado Pago. É o que soma ao valor
+  // TODO(conteudo): percentual real da tarifa de cartão no Asaas. É o que soma ao valor
   // quando o convidado marca "Quero cobrir a taxa" no pagamento com cartão.
   { key: "payments.card_fee_percent", value: 4.98, isPublic: true },
   // Nomes das categorias da lista de presentes (o filtro de /presentes segue esta ordem).

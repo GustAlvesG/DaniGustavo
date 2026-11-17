@@ -16,8 +16,8 @@ export const RSVP_STATUSES = ["pending", "confirmed", "declined"] as const;
 export const AGE_RANGES = ["0-2", "3-7", "8-12"] as const;
 export const ORDER_STATUSES = ["pending", "paid", "expired", "failed", "refunded"] as const;
 export const PAYMENT_METHODS = ["pix", "card"] as const;
-/** Provedor de pagamento: "simulado" em dev (sem credenciais) ou "mercadopago". */
-export const PAYMENT_PROVIDERS = ["simulado", "mercadopago"] as const;
+/** Provedor de pagamento: "simulado" em dev (sem credenciais) ou "asaas". */
+export const PAYMENT_PROVIDERS = ["simulado", "asaas"] as const;
 
 export type Side = (typeof SIDES)[number];
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
@@ -126,13 +126,13 @@ export const giftOrders = mysqlTable(
     /** Forma de pagamento atual: começa em Pix e vira "card" se o cartão for aprovado. */
     method: mysqlEnum("method", PAYMENT_METHODS).notNull().default("pix"),
     provider: mysqlEnum("provider", PAYMENT_PROVIDERS).notNull().default("simulado"),
-    /** Id da cobrança no provedor (order do Mercado Pago): a do Pix, ou a do cartão aprovado. */
+    /** Id da cobrança no provedor (pay_… no Asaas): a do Pix, ou a do cartão aprovado. */
     providerOrderId: varchar("provider_order_id", { length: 128 }).unique(),
     /** Status detalhado do provedor (ex.: waiting_transfer, accredited, expired). */
     statusDetail: varchar("status_detail", { length: 64 }),
     /** Pix copia e cola. */
     pixCode: text("pix_code"),
-    /** Imagem do QR em PNG base64 (o Mercado Pago gera; no simulado fica vazia). */
+    /** Imagem do QR em PNG base64 (o Asaas gera; no simulado fica vazia). */
     pixQrBase64: mediumtext("pix_qr_base64"),
     pixTicketUrl: varchar("pix_ticket_url", { length: 255 }),
     buyerName: varchar("buyer_name", { length: 191 }).notNull(),
@@ -157,7 +157,7 @@ export const payments = mysqlTable(
     orderId: fk("order_id")
       .notNull()
       .references(() => giftOrders.id, { onDelete: "restrict" }),
-    gateway: varchar("gateway", { length: 32 }).notNull().default("mercadopago"),
+    gateway: varchar("gateway", { length: 32 }).notNull().default("simulado"),
     gatewayId: varchar("gateway_id", { length: 128 }).notNull().unique(),
     method: mysqlEnum("method", PAYMENT_METHODS).notNull(),
     /** Status bruto do gateway (ex.: approved, pending, rejected). */
@@ -173,7 +173,7 @@ export const payments = mysqlTable(
 
 export const webhookEvents = mysqlTable("webhook_events", {
   id: pk(),
-  gateway: varchar("gateway", { length: 32 }).notNull().default("mercadopago"),
+  gateway: varchar("gateway", { length: 32 }).notNull().default("simulado"),
   eventId: varchar("event_id", { length: 128 }).notNull().unique(),
   payload: json<unknown>("payload").notNull(),
   processedAt: utcDatetime("processed_at"),
