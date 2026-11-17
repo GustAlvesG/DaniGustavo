@@ -1,10 +1,9 @@
-import { createHmac } from "node:crypto";
 import type { PaymentMethod, PaymentProviderName } from "@casamento/shared";
 import { safeEqual } from "../middleware/web-key.ts";
 
 /*
  * Abstração do provedor de pagamento. O resto da API só conhece esta interface:
- * trocar "simulado" por "mercadopago" é só configuração (.env), sem mexer nas rotas.
+ * trocar "simulado" por "asaas" é só configuração (.env), sem mexer nas rotas.
  */
 
 /** Situação normalizada de uma cobrança no provedor. */
@@ -18,18 +17,20 @@ export type ProviderStatus =
 
 /** Foto de uma cobrança no provedor, já no nosso vocabulário. */
 export interface ChargeSnapshot {
-  /** Id da cobrança no provedor (order do Mercado Pago). */
+  /** Id da cobrança no provedor (pay_… no Asaas). */
   providerOrderId: string;
-  /** Nosso publicId, enviado como external_reference. */
+  /** Nosso publicId, enviado como externalReference. */
   externalReference: string;
   status: ProviderStatus;
   statusDetail: string | null;
   method: PaymentMethod;
-  /** Id do pagamento dentro da cobrança (vai para payments.gateway_id). */
+  /** Id do pagamento (vai para payments.gateway_id). */
   paymentId: string | null;
   amountCents: number;
   /** Só no Pix pendente. */
   pix: { code: string; qrImageBase64: string | null; ticketUrl: string | null } | null;
+  /** Página hospedada do provedor onde a pessoa paga (fatura do Asaas), se houver. */
+  checkoutUrl?: string | null;
   raw: unknown;
 }
 
@@ -39,7 +40,9 @@ export interface PixChargeInput {
   description: string;
   payerEmail: string;
   payerName: string;
-  /** Minutos até o Pix vencer (mínimo 30 no Mercado Pago). */
+  /** Só dígitos. Exigido pelo Asaas; nunca vai para o banco nem para os logs. */
+  payerCpf?: string;
+  /** Minutos até o pedido vencer (a API cancela a cobrança no provedor depois disso). */
   expiresInMinutes: number;
 }
 
@@ -52,10 +55,20 @@ export interface CardChargeInput {
   paymentMethodId: string;
   paymentType: "credit_card" | "debit_card";
   installments: number;
-  identification?: { type: string; number: string };
 }
 
-/** Pedaços da requisição do webhook que entram na validação da assinatura. */
+/** Cartão na página hospedada do provedor: os dados do cartão nunca passam por nós. */
+export interface CardCheckoutInput {
+  publicId: string;
+  amountCents: number;
+  description: string;
+  /** Cobrança Pix do pedido: o Asaas reaproveita o cliente (e o CPF) dela. */
+  baseChargeId: string | null;
+  /** Para onde o provedor manda a pessoa depois de pagar (null: sem redirecionamento). */
+  successUrl: string | null;
+}
+
+/** Pedaços da requisição do webhook que entram na validação. */
 export interface WebhookRequest {
   header(name: string): string | undefined;
   query(name: string): string | undefined;
@@ -73,17 +86,26 @@ export interface WebhookNotice {
 
 export interface PaymentProvider {
   readonly name: PaymentProviderName;
-  /** Chave pública para tokenizar o cartão no navegador (null no simulado). */
+  /** Chave pública para tokenizar o cartão no navegador (nenhum provedor atual usa: null). */
   readonly publicKey: string | null;
+  /** O provedor exige o CPF de quem paga para gerar a cobrança (Asaas). */
+  readonly requiresCpf?: boolean;
   createPix(input: PixChargeInput): Promise<ChargeSnapshot>;
   createCard(input: CardChargeInput): Promise<ChargeSnapshot>;
+  /**
+   * Cobrança de cartão paga na página hospedada do provedor. Quem implementa não aceita
+   * `createCard` (o cartão nunca passa pela API).
+   */
+  createCardCheckout?(input: CardCheckoutInput): Promise<ChargeSnapshot & { checkoutUrl: string }>;
+  /** Todas as cobranças de um pedido (Pix e cartão), pelo nosso publicId. */
+  listCharges?(externalReference: string): Promise<ChargeSnapshot[]>;
   getCharge(providerOrderId: string): Promise<ChargeSnapshot>;
   refund(providerOrderId: string): Promise<ChargeSnapshot>;
   /** Cancela uma cobrança pendente (ex.: o Pix, quando o cartão foi aprovado). */
   cancel(providerOrderId: string): Promise<void>;
-  /** Assinatura do webhook confere? (false → a rota responde 401) */
+  /** O webhook veio mesmo do provedor? (false → a rota responde 401) */
   verifyWebhook(req: WebhookRequest): boolean;
-  /** Extrai o aviso do corpo/URL do webhook; null se não for um aviso de cobrança. */
+  /** Extrai o aviso do corpo do webhook; null se não for um aviso que interessa. */
   parseWebhook(req: WebhookRequest): WebhookNotice | null;
 }
 
@@ -100,86 +122,56 @@ export class PaymentProviderError extends Error {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Assinatura no formato do Mercado Pago (usada também pelo simulado)        */
+/* Webhook no formato do Asaas (usado também pelo simulado)                  */
 /* ------------------------------------------------------------------------ */
 
-/**
- * Manifesto assinado pelo Mercado Pago: `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`.
- * Pares sem valor ficam de fora (regra da documentação).
- */
-export function signatureManifest(parts: {
-  dataId?: string;
-  requestId?: string;
-  ts?: string;
-}): string {
-  let manifest = "";
-  if (parts.dataId) manifest += `id:${parts.dataId};`;
-  if (parts.requestId) manifest += `request-id:${parts.requestId};`;
-  if (parts.ts) manifest += `ts:${parts.ts};`;
-  return manifest;
-}
+/** Header em que o Asaas manda o token cadastrado junto com o webhook. */
+export const WEBHOOK_TOKEN_HEADER = "asaas-access-token";
 
-/** Monta o header x-signature (`ts=...,v1=...`): usado pelo simulado e pelos testes. */
-export function signWebhook(
-  secret: string,
-  parts: { dataId: string; requestId: string; ts: string },
-): string {
-  const v1 = createHmac("sha256", secret).update(signatureManifest(parts)).digest("hex");
-  return `ts=${parts.ts},v1=${v1}`;
+/** Confere o token do webhook em tempo constante. Token vazio nunca confere. */
+export function verifyWebhookToken(expected: string, req: WebhookRequest): boolean {
+  const got = req.header(WEBHOOK_TOKEN_HEADER);
+  if (!expected || !got) return false;
+  return safeEqual(got, expected);
 }
 
 /**
- * Valida x-signature: HMAC-SHA256 hex do manifesto com o segredo do webhook. Versões da
- * documentação pedem o data.id em minúsculas quando é alfanumérico; aceitamos as duas formas.
+ * Eventos de cobrança que podem mudar o pedido. Os outros (criada, visualizada, split…)
+ * são respondidos com 200 e ignorados, sem consultar o provedor.
  */
-export function verifySignature(secret: string, req: WebhookRequest): boolean {
-  const header = req.header("x-signature");
-  if (!secret || !header) return false;
-  let ts: string | undefined;
-  let v1: string | undefined;
-  for (const part of header.split(",")) {
-    const [k, v] = part.split("=", 2).map((x) => x.trim());
-    if (k === "ts") ts = v;
-    if (k === "v1") v1 = v;
-  }
-  if (!ts || !v1) return false;
-  const requestId = req.header("x-request-id");
-  const dataId = req.query("data.id") ?? bodyDataId(req.body);
-  const candidates = new Set([dataId, dataId?.toLowerCase()]);
-  for (const id of candidates) {
-    const expected = createHmac("sha256", secret)
-      .update(signatureManifest({ dataId: id, requestId, ts }))
-      .digest("hex");
-    if (safeEqual(expected, v1)) return true;
-  }
-  return false;
+export const HANDLED_PAYMENT_EVENTS = new Set([
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_RECEIVED",
+  "PAYMENT_OVERDUE",
+  "PAYMENT_DELETED",
+  "PAYMENT_RESTORED",
+  "PAYMENT_REFUNDED",
+  "PAYMENT_PARTIALLY_REFUNDED",
+  "PAYMENT_REFUND_IN_PROGRESS",
+  "PAYMENT_REFUND_DENIED",
+  "PAYMENT_RECEIVED_IN_CASH_UNDONE",
+  "PAYMENT_CHARGEBACK_REQUESTED",
+  "PAYMENT_AWAITING_RISK_ANALYSIS",
+  "PAYMENT_APPROVED_BY_RISK_ANALYSIS",
+  "PAYMENT_REPROVED_BY_RISK_ANALYSIS",
+  "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+]);
+
+/**
+ * Lê o aviso no formato do Asaas: `{ id: "evt_…", event: "PAYMENT_RECEIVED", payment: { id } }`.
+ * O `id` do evento é a chave de idempotência (a entrega é "pelo menos uma vez").
+ */
+export function parsePaymentEvent(req: WebhookRequest): WebhookNotice | null {
+  if (typeof req.body !== "object" || req.body === null) return null;
+  const body = req.body as { id?: unknown; event?: unknown; payment?: { id?: unknown } };
+  const eventId = typeof body.id === "string" ? body.id : "";
+  const type = typeof body.event === "string" ? body.event : "";
+  const paymentId = typeof body.payment?.id === "string" ? body.payment.id : "";
+  if (!eventId || !paymentId || !HANDLED_PAYMENT_EVENTS.has(type)) return null;
+  return { eventId: eventId.slice(0, 128), providerOrderId: paymentId, type };
 }
 
-export function bodyDataId(body: unknown): string | undefined {
-  if (typeof body !== "object" || body === null) return undefined;
-  const data = (body as { data?: { id?: unknown } }).data;
-  const id = data?.id;
-  return typeof id === "string" || typeof id === "number" ? String(id) : undefined;
-}
-
-/** Reais com 2 casas, como o Mercado Pago espera ("50.00"). */
-export const toAmount = (cents: number) => (cents / 100).toFixed(2);
-/** "50.00" → 5000 */
+/** Reais como número, como o Asaas espera (5000 → 50). */
+export const toAmount = (cents: number) => Math.round(cents) / 100;
+/** 50 ou "50.00" → 5000 */
 export const fromAmount = (value: unknown) => Math.round(Number(value ?? 0) * 100);
-
-/** Lê o aviso no formato do Mercado Pago (tópico "order"), usado pelos dois provedores. */
-export function parseOrderNotice(req: WebhookRequest): WebhookNotice | null {
-  const body = (typeof req.body === "object" && req.body !== null ? req.body : {}) as {
-    type?: unknown;
-    action?: unknown;
-    data?: { status_detail?: unknown };
-  };
-  const type = String(body.type ?? req.query("type") ?? "");
-  const providerOrderId = req.query("data.id") ?? bodyDataId(req.body);
-  if (type !== "order" || !providerOrderId) return null;
-  const action = typeof body.action === "string" ? body.action : "";
-  const detail = typeof body.data?.status_detail === "string" ? body.data.status_detail : "";
-  // Reenvios do mesmo aviso caem no mesmo id; mudanças de status geram ids novos.
-  const eventId = `${type}:${providerOrderId}:${action}:${detail}`.slice(0, 128);
-  return { eventId, providerOrderId, type };
-}

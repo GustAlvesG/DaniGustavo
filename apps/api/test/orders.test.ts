@@ -13,7 +13,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { MailMessage, Mailer } from "../src/mailer.ts";
 import type { Notifier } from "../src/orders/notify.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
-import { createSimulatedProvider, signWebhook } from "../src/payments/index.ts";
+import { createSimulatedProvider } from "../src/payments/index.ts";
 import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
 // Usa o banco de DATABASE_URL já migrado e com seed. Cria presentes próprios (slugs únicos)
@@ -91,6 +91,15 @@ async function quotaSold(id: number) {
   return g!.quotaSold;
 }
 
+/** Ids dos eventos de webhook entregues pelos testes (apagados no fim). */
+const hookEvents = new Set<string>();
+const realApprove = provider.approve.bind(provider);
+provider.approve = (id) => {
+  const hook = realApprove(id);
+  hookEvents.add((hook.body as { id: string }).id);
+  return hook;
+};
+
 const flush = () => new Promise((r) => setTimeout(r, 20));
 
 beforeEach(() => {
@@ -111,11 +120,8 @@ afterAll(async () => {
       await db.delete(messages).where(inArray(messages.giftOrderId, ids));
       await db.delete(giftOrders).where(inArray(giftOrders.id, ids));
     }
-    const providerIds = orders.flatMap((o) => (o.providerOrderId ? [o.providerOrderId] : []));
-    for (const pid of providerIds) {
-      await db
-        .delete(webhookEvents)
-        .where(eq(webhookEvents.eventId, `order:${pid}:order.processed:accredited`));
+    for (const eventId of hookEvents) {
+      await db.delete(webhookEvents).where(eq(webhookEvents.eventId, eventId));
     }
     await db.delete(gifts).where(inArray(gifts.id, createdGifts));
   }
@@ -268,7 +274,7 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     expect(await quotaSold(gift.id)).toBe(1);
   });
 
-  it("webhook com assinatura inválida recebe 401 e não muda nada", async () => {
+  it("webhook com token inválido recebe 401 e não muda nada", async () => {
     const gift = await makeGift(db, { quotaTotal: 1 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
     const [row] = await db
@@ -276,16 +282,12 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
       .from(giftOrders)
       .where(eq(giftOrders.publicId, created.publicId));
     const id = row!.providerOrderId!;
-    const body = JSON.stringify({ type: "order", action: "order.processed", data: { id } });
-    const path = `/api/webhooks/payments?data.id=${id}&type=order`;
+    const body = JSON.stringify({ id: "evt_falso", event: "PAYMENT_RECEIVED", payment: { id } });
+    const path = "/api/webhooks/payments";
 
     const forged = await app.request(path, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-request-id": "req-1",
-        "x-signature": signWebhook("segredo-errado", { dataId: id, requestId: "req-1", ts: "1" }),
-      },
+      headers: { "content-type": "application/json", "asaas-access-token": "token-errado" },
       body,
     });
     expect(forged.status).toBe(401);

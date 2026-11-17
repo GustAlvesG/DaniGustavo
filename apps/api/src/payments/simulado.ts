@@ -1,9 +1,9 @@
 import { ulid } from "ulid";
 import {
-  parseOrderNotice,
+  parsePaymentEvent,
   PaymentProviderError,
-  signWebhook,
-  verifySignature,
+  verifyWebhookToken,
+  WEBHOOK_TOKEN_HEADER,
   type CardChargeInput,
   type ChargeSnapshot,
   type PaymentProvider,
@@ -12,9 +12,10 @@ import {
 } from "./provider.ts";
 
 /*
- * Provedor de mentira para desenvolver sem conta no Mercado Pago. Guarda as cobranças em
- * memória (somem ao reiniciar a API: o pedido continua pendente até expirar) e usa o mesmo
- * formato de webhook e de assinatura do Mercado Pago, então o caminho do código é o mesmo.
+ * Provedor de mentira para desenvolver sem conta no Asaas. Guarda as cobranças em memória
+ * (somem ao reiniciar a API: o pedido continua pendente até expirar) e usa o mesmo formato
+ * de webhook do Asaas (evento + token no header asaas-access-token), então o caminho do
+ * código é o mesmo.
  *
  * Cartões de teste (o navegador manda só os 4 últimos dígitos no "token"):
  *   final 0002 → recusado; qualquer outro → aprovado.
@@ -27,7 +28,7 @@ export const SIMULATED_CARDS = {
 
 export interface SimulatedProvider extends PaymentProvider {
   readonly name: "simulado";
-  /** Marca a cobrança como paga (Pix) e devolve os headers/corpo de um webhook assinado. */
+  /** Marca a cobrança como paga (Pix) e devolve os headers/corpo de um webhook autenticado. */
   approve(providerOrderId: string): {
     path: string;
     headers: Record<string, string>;
@@ -135,10 +136,10 @@ export function createSimulatedProvider(opts: { webhookSecret: string }): Simula
     },
 
     verifyWebhook(req: WebhookRequest) {
-      return verifySignature(opts.webhookSecret, req);
+      return verifyWebhookToken(opts.webhookSecret, req);
     },
 
-    parseWebhook: parseOrderNotice,
+    parseWebhook: parsePaymentEvent,
 
     approve(id) {
       const charge = get(id);
@@ -147,20 +148,22 @@ export function createSimulatedProvider(opts: { webhookSecret: string }): Simula
         charge.statusDetail = "accredited";
         charge.pix = null;
       }
-      const requestId = ulid();
-      const ts = String(Date.now());
       return {
-        path: `/api/webhooks/payments?data.id=${encodeURIComponent(id)}&type=order`,
+        path: "/api/webhooks/payments",
         headers: {
           "content-type": "application/json",
-          "x-request-id": requestId,
-          "x-signature": signWebhook(opts.webhookSecret, { dataId: id, requestId, ts }),
+          [WEBHOOK_TOKEN_HEADER]: opts.webhookSecret,
         },
         body: {
-          action: "order.processed",
-          type: "order",
-          live_mode: false,
-          data: { id, status: "processed", status_detail: charge.statusDetail },
+          id: `evt_sim_${ulid()}`,
+          event: charge.status === "approved" ? "PAYMENT_RECEIVED" : "PAYMENT_UPDATED",
+          dateCreated: new Date().toISOString(),
+          payment: {
+            object: "payment",
+            id,
+            status: "RECEIVED",
+            externalReference: charge.externalReference,
+          },
         },
       };
     },

@@ -1,15 +1,22 @@
 import { eq, webhookEvents } from "@casamento/db";
-import { CreateOrderRequest, ERROR_CODES, PayWithCardRequest } from "@casamento/shared";
+import {
+  CardCheckoutRequest,
+  CreateOrderRequest,
+  ERROR_CODES,
+  PayWithCardRequest,
+} from "@casamento/shared";
 import { Hono, type Context } from "hono";
 import { apiError } from "../errors.ts";
 import {
   applyCharge,
+  checkOrderCharges,
   createOrder,
   expireOrder,
   listGifts,
   loadOrder,
   orderView,
   payWithCard,
+  startCardCheckout,
   type Failure,
   type OrderDeps,
 } from "../orders/service.ts";
@@ -18,6 +25,8 @@ import type { RateLimiter } from "../rate-limit.ts";
 import { clientIp } from "./invitations.ts";
 
 const MINUTE = 60_000;
+/** Intervalo mínimo entre consultas ao provedor para o mesmo pedido (a tela pergunta a cada 3 s). */
+export const PROVIDER_CHECK_MS = 15_000;
 export const ORDER_LIMIT = 10;
 
 async function readJson(c: Context): Promise<unknown> {
@@ -47,15 +56,17 @@ export function giftRoutes(deps: OrderDeps) {
   const app = new Hono();
   app.get("/", async (c) => {
     c.header("Cache-Control", "public, max-age=15");
-    return c.json(await listGifts(deps.db));
+    return c.json({ ...(await listGifts(deps.db)), requiresCpf: !!deps.provider.requiresCpf });
   });
   return app;
 }
 
 /** /api/orders */
 export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
-  const { db, limiter, now } = deps;
+  const { db, limiter, now, provider } = deps;
   const app = new Hono();
+  // Última consulta ao provedor por pedido (memória do processo; some ao reiniciar).
+  const lastCheck = new Map<string, number>();
 
   app.post("/", async (c) => {
     const blocked = limited(c, limiter, "orders");
@@ -91,6 +102,16 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
     if (order.status === "pending" && now() > order.expiresAt) {
       await expireOrder(deps, order);
       ({ order, gift } = (await loadOrder(db, order.publicId))!);
+    } else if (order.status === "pending" && provider.listCharges) {
+      // Sem webhook (dev sem túnel, webhook atrasado): confere no provedor de tempos em
+      // tempos, assim o Pix e a volta do cartão aparecem pagos mesmo assim.
+      const t = now().getTime();
+      if (t - (lastCheck.get(order.publicId) ?? 0) >= PROVIDER_CHECK_MS) {
+        lastCheck.set(order.publicId, t);
+        if (lastCheck.size > 1000) lastCheck.delete(lastCheck.keys().next().value!);
+        const checked = await checkOrderCharges(deps, order.publicId).catch(() => null);
+        if (checked?.paid) ({ order, gift } = (await loadOrder(db, order.publicId))!);
+      }
     }
     return c.json(await orderView(deps, order, gift));
   });
@@ -113,14 +134,28 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
     return c.json({ outcome: result.outcome, message: result.message, order: result.order });
   });
 
+  /** Cartão na página do provedor (Asaas): devolve o link da fatura. */
+  app.post("/:publicId/card-checkout", async (c) => {
+    const blocked = limited(c, limiter, "card");
+    if (blocked) return blocked;
+    c.header("Cache-Control", "no-store");
+    const parsed = CardCheckoutRequest.safeParse((await readJson(c)) ?? {});
+    if (!parsed.success) {
+      return apiError(c, 422, ERROR_CODES.invalidRequest, "Corpo da requisição inválido.");
+    }
+    const result = await startCardCheckout(deps, c.req.param("publicId"), parsed.data.coverFee);
+    if (!result.ok) return failure(c, result);
+    return c.json({ url: result.url });
+  });
+
   return app;
 }
 
 /**
- * POST /api/webhooks/payments. Valida a assinatura (401 se inválida), registra o evento
- * (idempotente por event_id) e consulta o status no provedor: o corpo do aviso nunca é
- * usado como verdade. Processa na própria requisição (leva milissegundos; o Mercado Pago
- * espera até 22 s) e responde 500 em falha para o provedor reenviar.
+ * POST /api/webhooks/payments. Confere o token do header `asaas-access-token` (401 se não
+ * bater), registra o evento (idempotente pelo id do evento) e consulta o status no
+ * provedor: o corpo do aviso nunca é usado como verdade. Processa na própria requisição
+ * (milissegundos) e responde 500 em falha para o provedor reenviar.
  */
 export function webhookRoutes(deps: OrderDeps) {
   const { db, provider, now } = deps;
@@ -134,7 +169,7 @@ export function webhookRoutes(deps: OrderDeps) {
       body,
     };
     if (!provider.verifyWebhook(req)) {
-      return apiError(c, 401, ERROR_CODES.unauthorized, "Assinatura do webhook inválida.");
+      return apiError(c, 401, ERROR_CODES.unauthorized, "Token do webhook inválido.");
     }
     const notice = provider.parseWebhook(req);
     if (!notice) return c.json({ ok: true, ignored: true });
@@ -153,7 +188,7 @@ export function webhookRoutes(deps: OrderDeps) {
     try {
       charge = await provider.getCharge(notice.providerOrderId);
     } catch (err) {
-      // Cobrança que não existe (ex.: o teste de notificação do painel do Mercado Pago).
+      // Cobrança que não existe (ex.: de outra integração ou de um teste do painel).
       if (err instanceof PaymentProviderError && err.status === 404) {
         return c.json({ ok: true, ignored: true });
       }

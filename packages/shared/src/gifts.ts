@@ -14,7 +14,7 @@ export const PAYMENT_METHODS = ["pix", "card"] as const;
 export const PaymentMethod = z.enum(PAYMENT_METHODS);
 export type PaymentMethod = z.infer<typeof PaymentMethod>;
 
-export const PAYMENT_PROVIDERS = ["simulado", "mercadopago"] as const;
+export const PAYMENT_PROVIDERS = ["simulado", "asaas"] as const;
 export const PaymentProviderName = z.enum(PAYMENT_PROVIDERS);
 export type PaymentProviderName = z.infer<typeof PaymentProviderName>;
 
@@ -25,6 +25,22 @@ export const OPEN_AMOUNT_MAX_CENTS = 1_000_000;
 export const MAX_QUANTITY = 20;
 /** Minutos que um pedido pendente segura as cotas (o Pix expira junto). */
 export const ORDER_HOLD_MINUTES = 30;
+
+/** Só os dígitos do CPF ("123.456.789-09" → "12345678909"). */
+export const cpfDigits = (value: string) => value.replace(/\D/g, "");
+
+/** CPF válido pelos dígitos verificadores (rejeita sequências como 111.111.111-11). */
+export function isValidCpf(value: string): boolean {
+  const d = cpfDigits(value);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const check = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(d[i]) * (len + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return check(9) === Number(d[9]) && check(10) === Number(d[10]);
+}
 
 /** Taxa do cartão em centavos para um valor e um percentual (arredonda para cima). */
 export function cardFeeCents(amountCents: number, percent: number): number {
@@ -57,27 +73,25 @@ export const GiftsResponse = z.object({
   gifts: z.array(Gift),
   categories: z.array(GiftCategory),
   cardFeePercent: z.number().nonnegative(),
+  /** O provedor exige o CPF de quem paga (Asaas): o formulário pede o campo. */
+  requiresCpf: z.boolean().default(false),
 });
 export type GiftsResponse = z.infer<typeof GiftsResponse>;
 
 const emptyToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
-/** Dados do cartão já tokenizado no navegador. O número do cartão nunca chega aqui. */
+/**
+ * Cartão do modo simulado: o navegador manda um "token" com os 4 últimos dígitos, nunca o
+ * número. No Asaas o cartão é digitado na fatura hospedada (veja CardCheckoutRequest).
+ */
 export const CardPayment = z.object({
   token: z.string().min(1, { error: "Cartão sem token. Preencha os dados de novo." }).max(255),
-  /** Bandeira (ex.: "visa", "master"), devolvida pelo SDK do Mercado Pago. */
+  /** Bandeira (ex.: "visa", "master"). */
   paymentMethodId: z.string().min(1).max(40),
   paymentType: z.enum(["credit_card", "debit_card"]).default("credit_card"),
   installments: z.number().int().min(1).max(12).default(1),
   /** Soma a taxa do cartão ao valor ("Quero cobrir a taxa"). */
   coverFee: z.boolean().default(false),
-  /** Documento do titular (CPF), exigido pelo Mercado Pago. */
-  identification: z
-    .object({
-      type: z.string().min(1).max(10),
-      number: z.string().regex(/^\d{11,14}$/, { error: "CPF inválido. Use só os 11 números." }),
-    })
-    .optional(),
 });
 export type CardPayment = z.infer<typeof CardPayment>;
 
@@ -109,6 +123,14 @@ export const CreateOrderRequest = z.object({
     emptyToUndefined,
     z.string().trim().max(500, { error: "Recado: use até 500 caracteres." }).optional(),
   ),
+  /**
+   * CPF de quem paga. O Asaas exige o documento para gerar a cobrança; a API repassa ao
+   * Asaas e não guarda no banco nem nos logs. Opcional no modo simulado.
+   */
+  buyerCpf: z.preprocess(
+    (v) => (typeof v === "string" ? (cpfDigits(v) === "" ? undefined : cpfDigits(v)) : v),
+    z.string().refine(isValidCpf, { error: "CPF inválido. Confira os 11 números." }).optional(),
+  ),
   /** Autoriza o recado a ir para o mural (depois da aprovação dos noivos). */
   showOnWall: z.boolean().default(false),
   /** Pix gera a cobrança na hora; cartão exige `card` (dados tokenizados). */
@@ -122,7 +144,7 @@ export type CreateOrderRequest = z.input<typeof CreateOrderRequest>;
 export const PixCharge = z.object({
   /** Código copia e cola. */
   code: z.string(),
-  /** PNG do QR em base64 (Mercado Pago); null no modo simulado. */
+  /** PNG do QR em base64 (Asaas); null no modo simulado. */
   qrImageBase64: z.string().nullable(),
   ticketUrl: z.string().nullable(),
 });
@@ -147,9 +169,14 @@ export const OrderView = z.object({
   /** Cobrança Pix enquanto o pedido está pendente. */
   pix: PixCharge.nullable(),
   card: z.object({
-    /** Chave pública do Mercado Pago para tokenizar no navegador; null no simulado. */
+    /** Chave pública para tokenizar no navegador (nenhum provedor atual usa: sempre null). */
     publicKey: z.string().nullable(),
     feePercent: z.number().nonnegative(),
+    /**
+     * "form": formulário na nossa tela (simulado). "hosted": o cartão é digitado na página
+     * segura do provedor (fatura do Asaas) e os dados nunca passam pelo nosso servidor.
+     */
+    checkout: z.enum(["form", "hosted"]).default("form"),
   }),
 });
 export type OrderView = z.infer<typeof OrderView>;
@@ -166,3 +193,14 @@ export const PayWithCardResponse = z.object({
   order: OrderView,
 });
 export type PayWithCardResponse = z.infer<typeof PayWithCardResponse>;
+
+/** Corpo de POST /api/orders/{publicId}/card-checkout (cartão na página do provedor). */
+export const CardCheckoutRequest = z.object({
+  /** Soma a taxa do cartão ao valor ("Quero cobrir a taxa"). */
+  coverFee: z.boolean().default(false),
+});
+export type CardCheckoutRequest = z.input<typeof CardCheckoutRequest>;
+
+/** Resposta: para onde mandar a pessoa digitar o cartão. */
+export const CardCheckoutResponse = z.object({ url: z.url() });
+export type CardCheckoutResponse = z.infer<typeof CardCheckoutResponse>;

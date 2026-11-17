@@ -46,7 +46,7 @@ describe("middleware X-Web-Key", () => {
   });
 
   it("isenta os webhooks", async () => {
-    const res = await app.request("/api/webhooks/mercadopago", { method: "POST" });
+    const res = await app.request("/api/webhooks/qualquer", { method: "POST" });
     expect(res.status).not.toBe(401);
   });
 });

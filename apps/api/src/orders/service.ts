@@ -82,7 +82,7 @@ export const cardFeePercent = (db: Database) =>
 /* Lista de presentes                                                        */
 /* ------------------------------------------------------------------------ */
 
-export async function listGifts(db: Database): Promise<GiftsResponse> {
+export async function listGifts(db: Database): Promise<Omit<GiftsResponse, "requiresCpf">> {
   const [rows, categories, feePercent] = await Promise.all([
     db.select().from(gifts).where(eq(gifts.active, true)).orderBy(asc(gifts.sort), asc(gifts.id)),
     setting<GiftCategory[]>(db, "gifts.categories", []),
@@ -146,7 +146,11 @@ export async function orderView(
           ticketUrl: order.pixTicketUrl,
         }
       : null,
-    card: { publicKey: deps.provider.publicKey, feePercent: await cardFeePercent(deps.db) },
+    card: {
+      publicKey: deps.provider.publicKey,
+      feePercent: await cardFeePercent(deps.db),
+      checkout: deps.provider.createCardCheckout ? "hosted" : "form",
+    },
   });
 }
 
@@ -182,6 +186,13 @@ export async function createOrder(
   }
   if (req.method === "card" && !req.card) {
     return fail(422, ERROR_CODES.invalidRequest, "Envie os dados do cartão para pagar com cartão.");
+  }
+  if (provider.requiresCpf && !req.buyerCpf) {
+    return fail(
+      422,
+      ERROR_CODES.invalidRequest,
+      "Informe o seu CPF: o processador de pagamento exige o documento de quem paga.",
+    );
   }
 
   let quantity = req.quantity;
@@ -256,6 +267,8 @@ export async function createOrder(
       description: `Presente: ${gift.title}`,
       payerEmail: loaded.order.buyerEmail,
       payerName: loaded.order.buyerName,
+      // Só repassado ao provedor: o CPF não é gravado no pedido.
+      payerCpf: req.buyerCpf,
       expiresInMinutes: ORDER_HOLD_MINUTES,
     });
     await db
@@ -269,7 +282,7 @@ export async function createOrder(
       })
       .where(eq(giftOrders.id, loaded.order.id));
   } catch (err) {
-    console.error(`[pedidos] Falha ao gerar o Pix do pedido ${publicId}:`, err);
+    console.error(`[pedidos] Falha ao gerar o Pix do pedido ${publicId}:`, describeError(err));
     await db.transaction(async (tx) => {
       const [o] = await tx
         .select()
@@ -358,10 +371,9 @@ export async function payWithCard(
       paymentMethodId: card.paymentMethodId,
       paymentType: card.paymentType,
       installments: card.installments,
-      identification: card.identification,
     });
   } catch (err) {
-    console.error(`[pedidos] Falha no cartão do pedido ${publicId}:`, err);
+    console.error(`[pedidos] Falha no cartão do pedido ${publicId}:`, describeError(err));
     return fail(
       502,
       ERROR_CODES.paymentFailed,
@@ -393,6 +405,78 @@ export async function payWithCard(
 
   const fresh = await loadOrder(db, publicId);
   return { ok: true, outcome, message, order: await orderView(deps, fresh!.order, fresh!.gift) };
+}
+
+/**
+ * Cartão na página hospedada do provedor (Asaas): cria (ou reaproveita) a cobrança de cartão
+ * do pedido e devolve o link. A taxa escolhida fica no pedido; se no fim a pessoa pagar
+ * com Pix, `applyCharge` zera a taxa.
+ */
+export async function startCardCheckout(
+  deps: OrderDeps,
+  publicId: string,
+  coverFee: boolean,
+): Promise<Result<{ url: string }>> {
+  const { db, provider, now, env } = deps;
+  if (!provider.createCardCheckout) {
+    return fail(422, ERROR_CODES.invalidRequest, "Este pagamento usa o formulário de cartão.");
+  }
+  const loaded = await loadOrder(db, publicId);
+  if (!loaded) return fail(404, ERROR_CODES.notFound, "Pedido não encontrado.");
+  let { order } = loaded;
+  if (order.status === "pending" && now() > order.expiresAt) {
+    await expireOrder(deps, order);
+    order = (await loadOrder(db, publicId))!.order;
+  }
+  if (order.status !== "pending") {
+    return fail(
+      409,
+      ERROR_CODES.orderNotPending,
+      order.status === "paid"
+        ? "Este presente já foi pago. Obrigado!"
+        : "Este pedido expirou. Volte à lista de presentes e escolha de novo.",
+    );
+  }
+  const feeCents = coverFee ? cardFeeCents(order.amountCents, await cardFeePercent(db)) : 0;
+  try {
+    const charge = await provider.createCardCheckout({
+      publicId,
+      amountCents: order.amountCents + feeCents,
+      description: `Presente: ${loaded.gift.title}`,
+      baseChargeId: order.providerOrderId,
+      successUrl: hostedReturnUrl(env.SITE_URL, publicId),
+    });
+    await db
+      .update(giftOrders)
+      .set({ feeCents, feeCovered: coverFee })
+      .where(and(eq(giftOrders.id, order.id), eq(giftOrders.status, "pending")));
+    return { ok: true, url: charge.checkoutUrl };
+  } catch (err) {
+    console.error(`[pedidos] Falha ao abrir o cartão do pedido ${publicId}:`, describeError(err));
+    return fail(
+      502,
+      ERROR_CODES.paymentFailed,
+      "Não conseguimos abrir o pagamento com cartão agora. Tente de novo em alguns minutos ou pague com Pix.",
+    );
+  }
+}
+
+/**
+ * Para onde o provedor devolve a pessoa depois de pagar o cartão. O Asaas só aceita o
+ * domínio cadastrado na conta, então em localhost não mandamos (a pessoa volta pela fatura).
+ */
+export function hostedReturnUrl(siteUrl: string, publicId: string): string | null {
+  const url = new URL(`/presentes/obrigado/${publicId}`, siteUrl);
+  if (url.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(url.hostname)) return null;
+  return url.toString();
+}
+
+/** Erro para o log sem dados de quem paga (o corpo de erro do provedor fica resumido). */
+function describeError(err: unknown) {
+  if (err instanceof PaymentProviderError) {
+    return { message: err.message, status: err.status, details: err.details };
+  }
+  return err;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -441,6 +525,8 @@ export async function applyCharge(
             status: "paid",
             paidAt: now(),
             method: charge.method,
+            // A taxa é só do cartão: escolheu no cartão e pagou no Pix, não há taxa.
+            ...(charge.method === "pix" ? { feeCents: 0, feeCovered: false } : {}),
             providerOrderId: charge.providerOrderId,
             statusDetail: charge.statusDetail,
             pixCode: null,
@@ -448,7 +534,8 @@ export async function applyCharge(
             pixTicketUrl: null,
           })
           .where(eq(giftOrders.id, order.id));
-        const gross = charge.amountCents || order.amountCents + order.feeCents;
+        const gross =
+          charge.amountCents || order.amountCents + (charge.method === "pix" ? 0 : order.feeCents);
         await tx
           .insert(payments)
           .ignore()
@@ -506,7 +593,22 @@ export async function applyCharge(
     return { order, changedTo, previousCharge };
   });
 
-  if (result.previousCharge) {
+  if (result.changedTo === "paid" && result.order && deps.provider.listCharges) {
+    // Pago por um caminho: apaga as outras cobranças abertas do pedido (o Pix, ou a fatura
+    // do cartão), para ninguém pagar duas vezes.
+    const others = await deps.provider
+      .listCharges(result.order.publicId)
+      .catch(() => [] as ChargeSnapshot[]);
+    for (const other of others) {
+      if (other.providerOrderId === charge.providerOrderId || other.status !== "pending") continue;
+      await deps.provider.cancel(other.providerOrderId).catch((err: unknown) => {
+        console.warn(
+          `[pedidos] Não deu para cancelar a cobrança ${other.providerOrderId}:`,
+          describeError(err),
+        );
+      });
+    }
+  } else if (result.previousCharge) {
     // Pagou com cartão: cancela o Pix que ainda estava aberto.
     await deps.provider.cancel(result.previousCharge).catch((err: unknown) => {
       console.warn(`[pedidos] Não deu para cancelar o Pix ${result.previousCharge}:`, err);
@@ -529,8 +631,53 @@ export async function applyCharge(
 /* Expiração                                                                 */
 /* ------------------------------------------------------------------------ */
 
+/**
+ * Confere no provedor todas as cobranças do pedido (Pix e cartão hospedado). Se alguma foi
+ * paga, aplica e devolve `paid: true`; senão devolve as pendentes. Só para provedores com
+ * `listCharges` (Asaas); null nos outros.
+ */
+export async function checkOrderCharges(
+  deps: OrderDeps,
+  publicId: string,
+): Promise<{ paid: boolean; pending: string[] } | null> {
+  if (!deps.provider.listCharges) return null;
+  const charges = await deps.provider.listCharges(publicId);
+  const approved = charges.find((c) => c.status === "approved");
+  if (approved) {
+    await applyCharge(deps, { ...approved, externalReference: publicId });
+    return { paid: true, pending: [] };
+  }
+  return {
+    paid: false,
+    pending: charges.filter((c) => c.status === "pending").map((c) => c.providerOrderId),
+  };
+}
+
 /** Expira um pedido pendente e devolve as cotas. Antes, confere se não foi pago. */
 export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
+  if (deps.provider.listCharges) {
+    let pending: string[];
+    try {
+      const checked = await checkOrderCharges(deps, order.publicId);
+      if (checked?.paid) return "paid";
+      pending = checked?.pending ?? [];
+    } catch (err) {
+      // Sem resposta do provedor: não expira às cegas; a próxima rodada tenta de novo.
+      console.warn(
+        `[pedidos] Não deu para consultar o pedido ${order.publicId}:`,
+        describeError(err),
+      );
+      return "pending";
+    }
+    const status = await expireLocally(deps, order);
+    // O QR do Asaas valeria por meses: apaga as cobranças abertas para ninguém pagar depois.
+    for (const id of pending) {
+      await deps.provider.cancel(id).catch((err: unknown) => {
+        console.warn(`[pedidos] Não deu para cancelar a cobrança ${id}:`, describeError(err));
+      });
+    }
+    return status;
+  }
   if (order.providerOrderId) {
     try {
       const charge = await deps.provider.getCharge(order.providerOrderId);
@@ -544,6 +691,10 @@ export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<Ord
       }
     }
   }
+  return expireLocally(deps, order);
+}
+
+function expireLocally(deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
   return deps.db.transaction(async (tx) => {
     const [o] = await tx.select().from(giftOrders).where(eq(giftOrders.id, order.id)).for("update");
     if (!o || o.status !== "pending") return o?.status ?? "expired";
