@@ -16,3 +16,4 @@ next-env.d.ts
 
 # Imagens enviadas pelo painel (UPLOAD_DIR padrão)
 apps/api/storage/
+.next-*

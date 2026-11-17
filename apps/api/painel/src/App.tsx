@@ -5,6 +5,7 @@ import { Configuracoes } from "./pages/Configuracoes.tsx";
 import { Conta } from "./pages/Conta.tsx";
 import { ConviteDetalhe, ConviteForm, Convites } from "./pages/Convites.tsx";
 import { Dashboard } from "./pages/Dashboard.tsx";
+import { Lembretes } from "./pages/Lembretes.tsx";
 import { Pedidos } from "./pages/Pedidos.tsx";
 import { Presentes } from "./pages/Presentes.tsx";
 import { Recados } from "./pages/Recados.tsx";
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/presentes", label: "Presentes" },
   { href: "/pedidos", label: "Pedidos" },
   { href: "/recados", label: "Recados" },
+  { href: "/lembretes", label: "Lembretes" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
@@ -54,6 +56,8 @@ function Page({ path }: { path: string }) {
       return <Pedidos openId={id} />;
     case "recados":
       return <Recados />;
+    case "lembretes":
+      return <Lembretes />;
     case "configuracoes":
       return <Configuracoes />;
     case "conta":

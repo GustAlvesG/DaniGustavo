@@ -26,6 +26,9 @@ function loadRootEnv(): void {
 loadRootEnv();
 
 const nextConfig: NextConfig = {
+  // Pasta de build alternativa (ex.: NEXT_DIST_DIR=.next-e2e): permite um segundo `next dev`
+  // ao lado do que já está aberto, sem brigar pelo lock nem pelo cache de .next.
+  distDir: process.env.NEXT_DIST_DIR || undefined,
   cacheComponents: true,
   partialPrefetching: true,
   // O pacote do workspace exporta .ts cru (sem build). O Turbopack já o
@@ -36,6 +39,15 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const api = process.env.API_URL?.replace(/\/+$/, "");
     return api ? [{ source: "/uploads/:file", destination: `${api}/uploads/:file` }] : [];
+  },
+  // O service worker nunca fica em cache do navegador: uma versão nova vale na hora.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+      },
+    ];
   },
   turbopack: {
     rules: {

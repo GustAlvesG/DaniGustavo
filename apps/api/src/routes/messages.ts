@@ -19,8 +19,12 @@ export interface MessageDeps {
 
 /** Tira caracteres de controle (menos quebra de linha) e limita linhas em branco seguidas. */
 export function cleanText(value: string): string {
-  return value
-    .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, "")
+  const kept = [...value].filter((ch) => {
+    const code = ch.charCodeAt(0);
+    return ch === "\n" || (code >= 32 && code !== 127);
+  });
+  return kept
+    .join("")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

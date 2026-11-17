@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Jost, Pinyon_Script } from "next/font/google";
-import { SmoothScroll } from "@/components/motion";
+import { RegistrarSw, SmoothScroll } from "@/components/motion";
 import { getSite } from "@/lib/api/site";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -63,6 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {children}
         <SmoothScroll />
+        <RegistrarSw />
       </body>
     </html>
   );
