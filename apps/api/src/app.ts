@@ -34,7 +34,7 @@ export interface AppDeps {
   rateLimiter?: RateLimiter;
   /** Relógio injetável, para testar o prazo do RSVP e a expiração dos pedidos. */
   now?: () => Date;
-  /** Provedor de pagamento (padrão: pelo .env, simulado sem credenciais do Mercado Pago). */
+  /** Provedor de pagamento (padrão: pelo .env, PAYMENT_PROVIDER; simulado se vazio). */
   provider?: PaymentProvider;
   /** Avisos no Telegram (padrão: Bot API, se configurado no .env). */
   notifier?: Notifier;
@@ -78,8 +78,8 @@ export function createApp({
   app.route("/api/webhooks", webhookRoutes(orderDeps));
 
   // Só no modo simulado e fora de produção: "Simular pagamento aprovado". Marca o Pix como
-  // pago no provedor de mentira e entrega um webhook assinado à rota real, pelo mesmo
-  // caminho que o Mercado Pago usaria. Exige X-Web-Key (é uma escrita em /api/*).
+  // pago no provedor de mentira e entrega à rota real um webhook no formato do Asaas
+  // (token no header asaas-access-token), pelo mesmo caminho do provedor de verdade. Exige X-Web-Key (é uma escrita em /api/*).
   if (isSimulated(provider) && env.NODE_ENV !== "production") {
     app.post("/api/dev/orders/:publicId/approve", async (c) => {
       const [row] = await db
