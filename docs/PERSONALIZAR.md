@@ -8,19 +8,19 @@ http://localhost:3000 aberto: a maioria das mudanças aparece sozinha ao salvar 
 Tudo que é "apresentação" da home fica em **`apps/web/src/content/home.ts`**, com comentários em
 cada campo:
 
-| O que                                      | Onde em `home.ts`                              |
-| ------------------------------------------ | ---------------------------------------------- |
-| Ordem das seções / esconder uma seção      | `secoes` (mude a ordem ou apague)              |
-| Foto de fundo do topo (computador/celular) | `hero.fotoDesktop`, `hero.fotoCelular`         |
-| "Vamos nos casar", título da contagem      | `hero.chamada`, `hero.contador`                |
-| Nossa história (polaroids)                 | `historia.momentos` (ano, título, texto, foto) |
-| Galeria "Do nosso álbum"                   | `album.fotos` (foto + legenda)                 |
-| Foto e legenda do casamento                | `casamento.foto`, `casamento.legendaFoto`      |
-| Versículo sobre a foto                     | `versiculo.linhas`, `versiculo.referencia`     |
-| Títulos e frases de cada seção             | `rotulo`, `titulo`, `lead` de cada seção       |
-| Presentes (texto, botões)                  | `presentes` (com `botoes: []` aparece o aviso) |
-| Cartão-resposta (confirmação)              | `rsvp.cartao`                                  |
-| Menu do topo e links do rodapé             | `menu`, `rodape`                               |
+| O que                                      | Onde em `home.ts`                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| Ordem das seções / esconder uma seção      | `secoes` (mude a ordem ou apague)                                            |
+| Foto de fundo do topo (computador/celular) | `hero.fotoDesktop`, `hero.fotoCelular`                                       |
+| "Vamos nos casar", título da contagem      | `hero.chamada`, `hero.contador`                                              |
+| Nossa história (polaroids)                 | `historia.momentos` (ano, título, texto, foto)                               |
+| Galeria "Do nosso álbum"                   | `album.fotos` (foto + legenda)                                               |
+| Foto e legenda do casamento                | `casamento.foto`, `casamento.legendaFoto`                                    |
+| Versículo sobre a foto                     | `versiculo.linhas`, `versiculo.referencia`                                   |
+| Títulos e frases de cada seção             | `rotulo`, `titulo`, `lead` de cada seção                                     |
+| Presentes (texto, botões)                  | `presentes` (com `botoes: []` aparece o aviso; a lista em si está no item 5) |
+| Cartão-resposta (confirmação)              | `rsvp.cartao`                                                                |
+| Menu do topo e links do rodapé             | `menu`, `rodape`                                                             |
 
 Convenções:
 
@@ -87,3 +87,78 @@ do ar; mantenha-o parecido com o seed.
   `apps/web/src/components/home/home.module.css`.
 - Imagem de prévia do link (WhatsApp): `apps/web/src/app/opengraph-image.tsx` (usa a foto
   `hero.fotoCelular`).
+
+## 5. Lista de presentes
+
+Os presentes ficam na tabela `gifts` do banco e aparecem em `/presentes` (o site guarda a lista
+em cache por 30 segundos). Até o painel ganhar a tela de presentes (Fase 5), edite pelo
+**Drizzle Studio**: `pnpm --filter @casamento/db exec drizzle-kit studio` → tabela `gifts`.
+
+| Coluna        | O que é                                                               |
+| ------------- | --------------------------------------------------------------------- |
+| `slug`        | Identificador na URL, sem acento nem espaço (ex.: `jantar-em-lisboa`) |
+| `title`       | Nome do presente                                                      |
+| `description` | Frase curta abaixo do nome                                            |
+| `price_cents` | Preço de **uma cota**, em centavos (R$ 450,00 = `45000`)              |
+| `quota_total` | Quantas cotas existem (1 = presente único)                            |
+| `quota_sold`  | Cotas vendidas **ou reservadas** por Pix em aberto. Não mexa à mão    |
+| `open_amount` | `1` no item de valor livre (o convidado escolhe; mínimo R$ 10,00)     |
+| `category`    | Um dos `slug` de `gifts.categories` (filtro da página)                |
+| `active`      | `0` esconde o presente sem apagar os pedidos                          |
+| `sort`        | Ordem na lista (menor primeiro)                                       |
+
+- **Novo presente**: no Studio, "Add record" com os campos acima (`tile_design` pode ficar
+  `flor`; não é mais usado). O desenho do cartão é escolhido pelo nome (jantar, barco, panela,
+  café, cama, planta, noite/estrela); sem acerto, aparece um pacote de presente.
+- **Não apague** presente que já tem pedido: marque `active = 0`.
+- **Categorias**: chave `gifts.categories` em `settings` (lista de `{ slug, label }`).
+- **Taxa do cartão** ("Quero cobrir a taxa"): chave `payments.card_fee_percent` em `settings`
+  (ex.: `4.98`). Coloque o percentual real do seu plano no Mercado Pago.
+- Pedido em aberto segura as cotas por **30 minutos**; depois disso a API expira o pedido
+  sozinha (rotina a cada 5 minutos) e devolve as cotas.
+- Quando um presente é pago, a API manda o comprovante ao convidado e avisa os noivos por e-mail
+  (`ADMIN_EMAIL_1` e `ADMIN_EMAIL_2`) e, se configurado, no Telegram (`TELEGRAM_BOT_TOKEN` e
+  `TELEGRAM_CHAT_ID`). O recado, se a pessoa autorizar, entra em `messages` aguardando
+  aprovação (a moderação chega com o painel).
+
+## 6. Pagamentos: modo simulado e Mercado Pago
+
+Sem credenciais do Mercado Pago no `.env`, a API usa o **modo simulado**: o Pix mostra um QR
+ilustrativo marcado "Simulação" e um código que nenhum banco aceita, e a tela de pagamento tem o
+botão **"Simular pagamento aprovado"**, que entrega à API um webhook assinado pelo mesmo caminho
+do Mercado Pago. Cartões de teste do simulado: `4111 1111 1111 1111` aprova,
+`4000 0000 0000 0002` recusa (qualquer nome, validade futura e CVV). O log da API mostra
+`Pagamentos: provedor "simulado"` ao subir.
+
+### Ativar o Mercado Pago de verdade
+
+1. Crie a conta (de preferência como pessoa física no nome de quem vai receber) em
+   mercadopago.com.br e entre em **Seu negócio → Configurações → Suas integrações**
+   (developers.mercadopago.com.br/panel). Crie uma aplicação do tipo **Checkout Transparente /
+   Pagamentos online**.
+2. Em **Credenciais de teste**, copie a _Public Key_ e o _Access Token_ (começam com
+   `APP_USR-` ou `TEST-`). No `.env` da raiz:
+   ```
+   PAYMENT_PROVIDER=mercadopago
+   MP_ACCESS_TOKEN=APP_USR-...   # nunca no front
+   MP_PUBLIC_KEY=APP_USR-...     # vai para o navegador, para tokenizar o cartão
+   ```
+3. Em **Webhooks → Configurar notificações**, cadastre a URL
+   `https://SEU-DOMINIO-DA-API/api/webhooks/payments` e marque o evento **Order (Mercado
+   Pago)**. Salve e copie a **assinatura secreta** para `MP_WEBHOOK_SECRET=` no `.env`. Em
+   desenvolvimento, o Mercado Pago precisa alcançar a sua máquina: use um túnel (ex.:
+   `cloudflared tunnel --url http://localhost:3333`) e cadastre a URL do túnel. Sem webhook, o
+   pedido ainda é conferido no Mercado Pago quando a rotina de expiração passa.
+4. Reinicie a API (`pnpm dev`). O log deve dizer `Pagamentos: provedor "mercadopago"`. Se faltar
+   alguma das três variáveis, a API não sobe e diz qual falta.
+5. Teste no ambiente de testes: faça um Pix (o QR vem do Mercado Pago) e um cartão com os
+   **cartões de teste** da documentação (developers.mercadopago.com.br → Checkout API → Cartões
+   de teste; o nome do titular `APRO` aprova e `OTHE` recusa). Use o botão "Simular
+   notificação" do painel de webhooks para conferir a assinatura (a API responde 401 se o
+   segredo estiver errado).
+6. Para receber de verdade, troque pelas **Credenciais de produção** (e o segredo do webhook de
+   produção) e faça um Pix de R$ 1 para conferir. O reembolso pela API já existe
+   (`refund` no provedor); o botão no painel chega na Fase 5.
+
+A integração usa a **Orders API** (`/v1/orders`) do Checkout Transparente, a que a documentação
+indica para integrações novas. Código em `apps/api/src/payments/`.

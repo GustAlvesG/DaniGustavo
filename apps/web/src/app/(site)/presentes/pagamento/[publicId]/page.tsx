@@ -26,11 +26,13 @@ export default async function PagamentoRoute({
   return (
     <PageTransition>
       <SiteNav site={site} current="/presentes" />
-      <main id="conteudo" className="below-nav section-space flex-1" data-payment="">
-        {/* O pedido é dado de requisição: fica em <Suspense> (cacheComponents). */}
-        <Suspense fallback={<Loading />}>
-          <Pagamento params={params} timezone={site.wedding.timezone} />
-        </Suspense>
+      <main id="conteudo" className="below-nav flex-1" data-payment="">
+        <div className="section-space">
+          {/* O pedido é dado de requisição: fica em <Suspense> (cacheComponents). */}
+          <Suspense fallback={<Loading />}>
+            <Pagamento params={params} timezone={site.wedding.timezone} />
+          </Suspense>
+        </div>
       </main>
     </PageTransition>
   );

@@ -51,7 +51,10 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 - Sem PHP: Laravel/Filament/Pest/dx-php foram trocados por `apps/api` (Hono + Better Auth, cadastro desativado, sem 2FA por decisão do casal) e `packages/db` (Drizzle).
 - Painel próprio em React+Vite servido em `/painel`; em dev: `vite build --watch` + `node --watch`, sem HMR (atualizar a página).
-- Mercado Pago via SDK oficial para Node (confirmar na Fase 4).
+- Pagamentos atrás da interface `PaymentProvider` (`apps/api/src/payments/`): `simulado` (padrão sem credenciais; Pix fictício, cartões 4111…1111 aprova / 4000…0002 recusa, botão "Simular pagamento aprovado" que chama `POST /api/dev/orders/:id/approve`, só fora de produção, e entrega um webhook assinado à rota real) e `mercadopago` (Checkout Transparente via **Orders API** `/v1/orders` com `fetch`, sem o SDK de Node; SDK JS v2 carregado de sdk.mercadopago.com só para tokenizar o cartão). `PAYMENT_PROVIDER`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_WEBHOOK_SECRET` no `.env`; passo a passo em `docs/PERSONALIZAR.md` §6.
+- Pedidos: `gifts.quota_sold` conta vendidas + reservadas; reserva com `SELECT … FOR UPDATE` na transação; pendente segura 30 min; rotina de expiração a cada 5 min dentro do processo da API (`src/jobs.ts`, `setInterval`), que antes confere no provedor se o Pix não foi pago. Webhook `/api/webhooks/payments` valida `x-signature` (401), é idempotente (`webhook_events.event_id`, `payments.gateway_id`) e processa na própria requisição. `applyCharge` em `src/orders/service.ts` é o único lugar que marca pedido como pago.
+- Status do Pix no navegador: Route Handler `/api/pedidos/[publicId]` do Next consultado a cada 3 s.
+- Login do painel só com e-mail e senha (2FA removido a pedido do casal); rate limit do Better Auth ligado em todos os ambientes (5 tentativas/min por IP em `/sign-in/email`).
 - Sem Docker local: dev usa MariaDB do XAMPP; `docker-compose.yml` é opcional; CI usa MySQL 8.
 - Schema compatível com MariaDB 10.4 e MySQL 8: sem `serial`, coluna JSON customizada (parse na leitura), DATETIME(3) em UTC preenchido pelo app, varchar indexado ≤191.
 - Projeto em `C:\dev\casamento` (fora do OneDrive).
@@ -61,11 +64,14 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 ## Fases
 
-- Fase 0 (fundação): concluída, aguardando revisão.
-- Próxima: Fase 1 (design e site público).
+- Fases 0 a 3: concluídas. Fase 4 (presentes e pagamento): concluída no modo simulado, aguardando revisão; Mercado Pago real depende da conta do casal.
+- Próxima: Fase 5 (painel).
 
 ## Pendências
 
 - O CI nunca rodou no GitHub (ainda sem remote).
 - `gsap` e `@gsap/react` ficaram sem uso depois do design "Álbum" (Lenis roda sozinho): remover com o ok do usuário.
-- Lista de presentes ainda sem página pública: a seção da home mostra um aviso (`home.presentes.botoes` vazio).
+- Mercado Pago real sem teste em sandbox (sem conta): validar Pix, cartão e webhook com as credenciais de teste antes de publicar.
+- Conciliação diária com o Mercado Pago (PROMPT §6) e botão de reembolso: Fase 5 (o `refund` já existe no provedor).
+- CSP compatível com o SDK do Mercado Pago (PROMPT §9): Fase 7.
+- E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
