@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   int,
+  mediumtext,
   mysqlEnum,
   mysqlTable,
   text,
@@ -15,12 +16,15 @@ export const RSVP_STATUSES = ["pending", "confirmed", "declined"] as const;
 export const AGE_RANGES = ["0-2", "3-7", "8-12"] as const;
 export const ORDER_STATUSES = ["pending", "paid", "expired", "failed", "refunded"] as const;
 export const PAYMENT_METHODS = ["pix", "card"] as const;
+/** Provedor de pagamento: "simulado" em dev (sem credenciais) ou "mercadopago". */
+export const PAYMENT_PROVIDERS = ["simulado", "mercadopago"] as const;
 
 export type Side = (typeof SIDES)[number];
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 export type AgeRange = (typeof AGE_RANGES)[number];
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
 // Chave primária BIGINT UNSIGNED AUTO_INCREMENT. Não usamos `serial`: o drizzle-kit gera
 // "serial AUTO_INCREMENT", que o MariaDB 10.4 rejeita.
@@ -114,9 +118,23 @@ export const giftOrders = mysqlTable(
       .notNull()
       .references(() => gifts.id, { onDelete: "restrict" }),
     quantity: int("quantity").notNull().default(1),
+    /** Valor do presente (cotas × preço, ou o valor livre), sem a taxa. */
     amountCents: int("amount_cents").notNull(),
+    /** Taxa do cartão somada ao valor quando o convidado escolhe cobri-la. */
     feeCents: int("fee_cents").notNull().default(0),
     feeCovered: boolean("fee_covered").notNull().default(false),
+    /** Forma de pagamento atual: começa em Pix e vira "card" se o cartão for aprovado. */
+    method: mysqlEnum("method", PAYMENT_METHODS).notNull().default("pix"),
+    provider: mysqlEnum("provider", PAYMENT_PROVIDERS).notNull().default("simulado"),
+    /** Id da cobrança no provedor (order do Mercado Pago): a do Pix, ou a do cartão aprovado. */
+    providerOrderId: varchar("provider_order_id", { length: 128 }).unique(),
+    /** Status detalhado do provedor (ex.: waiting_transfer, accredited, expired). */
+    statusDetail: varchar("status_detail", { length: 64 }),
+    /** Pix copia e cola. */
+    pixCode: text("pix_code"),
+    /** Imagem do QR em PNG base64 (o Mercado Pago gera; no simulado fica vazia). */
+    pixQrBase64: mediumtext("pix_qr_base64"),
+    pixTicketUrl: varchar("pix_ticket_url", { length: 255 }),
     buyerName: varchar("buyer_name", { length: 191 }).notNull(),
     buyerEmail: varchar("buyer_email", { length: 191 }).notNull(),
     message: text("message"),
@@ -169,6 +187,10 @@ export const messages = mysqlTable(
     author: varchar("author", { length: 120 }).notNull(),
     body: text("body").notNull(),
     approved: boolean("approved").notNull().default(false),
+    /** Recado que veio junto de um presente pago (vazio quando escrito no mural). */
+    giftOrderId: fk("gift_order_id")
+      .unique()
+      .references(() => giftOrders.id, { onDelete: "set null" }),
     ...timestamps(),
   },
   (t) => [index("messages_approved_idx").on(t.approved)],

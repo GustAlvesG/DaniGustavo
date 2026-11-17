@@ -22,6 +22,13 @@
       "when": 1794943474808,
       "tag": "0002_remove_2fa",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794943517168,
+      "tag": "0003_presentes_pagamento",
+      "breakpoints": true
     }
   ]
 }
