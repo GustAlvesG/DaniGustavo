@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { SITE_FALLBACK } from "@/content/site-fallback";
 import {
   cityFromAddress,
-  formatSealDate,
+  formatDotDate,
+  mapsLink,
+  weddingHeadline,
   monthGrid,
   formatHour,
   formatLongDate,
@@ -69,11 +71,26 @@ describe("weddingEvent", () => {
   });
 });
 
-describe("selo e calendário", () => {
-  it("data do selo com dois dígitos, no fuso do casamento", () => {
-    expect(formatSealDate("2027-04-10T16:00:00-03:00")).toBe("10.04.27");
+describe("datas, mapa e calendário", () => {
+  it("data com pontos, longa e curta, no fuso do casamento", () => {
+    expect(formatDotDate("2027-04-10T16:00:00-03:00")).toBe("10 · 04 · 2027");
+    expect(formatDotDate("2027-04-10T16:00:00-03:00", undefined, { short: true })).toBe("10·04·27");
     // 23h30 em São Paulo ainda é dia 10, mesmo já sendo 11 em UTC.
-    expect(formatSealDate("2027-04-10T23:30:00-03:00")).toBe("10.04.27");
+    expect(formatDotDate("2027-04-10T23:30:00-03:00", undefined, { short: true })).toBe("10·04·27");
+  });
+
+  it("título do casamento com dia e mês em ênfase", () => {
+    expect(weddingHeadline("2027-04-10T16:00:00-03:00")).toBe("Sábado, *10 de abril* de 2027");
+  });
+
+  it("link do mapa: o do banco ou uma busca pelo endereço", () => {
+    const venue = SITE_FALLBACK.ceremony;
+    expect(mapsLink({ ...venue, mapsUrl: "https://maps.app.goo.gl/x" })).toBe(
+      "https://maps.app.goo.gl/x",
+    );
+    expect(mapsLink(venue)).toMatch(
+      /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=Solare/,
+    );
   });
 
   it("cidade e UF a partir do endereço", () => {

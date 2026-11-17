@@ -1,8 +1,8 @@
 import type { PaletteColor } from "@casamento/shared";
 
 /**
- * Paleta como selos: um círculo na cor, com um fio claro por fora (a cor
- * escura não some no marinho) e o nome embaixo.
+ * Paleta como amostras redondas (as do traje na home): o círculo na cor, com
+ * fio fino e sombra de papel, e o nome embaixo.
  */
 export function Swatches({ colors, label }: { colors: PaletteColor[]; label: string }) {
   return (
@@ -11,10 +11,10 @@ export function Swatches({ colors, label }: { colors: PaletteColor[]; label: str
         <li key={c.hex + c.name} className="flex flex-col items-center gap-4 text-center">
           <span
             aria-hidden="true"
-            className="block aspect-square w-full max-w-[7.5rem] rounded-full outline-1 outline-offset-4 outline-line-soft"
+            className="block aspect-square w-full max-w-[92px] rounded-full shadow-[inset_0_0_0_1px_rgb(27_42_74/0.2),0_10px_20px_-12px_rgb(20_33_61/0.5)]"
             style={{ backgroundColor: c.hex }}
           />
-          <span className="text-base text-ink">{c.name}</span>
+          <span className="text-lg leading-tight font-medium text-ink">{c.name}</span>
         </li>
       ))}
     </ul>

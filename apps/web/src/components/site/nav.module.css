@@ -1,0 +1,210 @@
+/*
+ * Menu do topo: fixo, sempre com 72px (--nav-h). Nada encolhe ao rolar; só o
+ * fundo (na home) e a data mudam, sem mexer no tamanho.
+ */
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
+  height: var(--nav-h);
+  background: rgb(20 33 61 / 0.96);
+  color: #fff;
+  /* Mesmos papéis de cor da superfície marinho (foco, links). */
+  --focus: var(--color-serenity);
+}
+
+.inner {
+  max-width: 1240px;
+  height: var(--nav-h);
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  flex: none;
+  color: #fff;
+}
+
+.mono {
+  width: 52px;
+}
+
+/* ---------- data ---------- */
+
+.date {
+  margin: 0 auto 0 4px;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-nevoa);
+  opacity: 0;
+  translate: 0 8px;
+  pointer-events: none;
+  transition:
+    opacity 0.45s var(--ease-out),
+    translate 0.45s var(--ease-out);
+}
+
+.date[data-shown] {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.dateShort {
+  display: none;
+}
+
+/* ---------- links (computador) ---------- */
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.links a {
+  display: block;
+  padding: 14px 9px;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  opacity: 0.92;
+  white-space: nowrap;
+}
+
+.links a:hover,
+.links a[aria-current="page"] {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.links a.cta {
+  margin-left: 8px;
+  padding: 12px 18px;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 999px;
+}
+
+.links a.cta:hover {
+  background: #fff;
+  color: var(--color-marinho);
+  text-decoration: none;
+}
+
+/* ---------- celular e telas médias ---------- */
+
+.menuButton {
+  display: none;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.mobilePanel {
+  position: absolute;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  max-height: calc(100svh - var(--nav-h));
+  overflow-y: auto;
+  padding: 8px 16px 28px;
+  background: var(--color-marinho);
+  border-top: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.mobilePanel a {
+  display: block;
+  padding: 10px 4px;
+  font-size: 1.6rem;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.mobilePanel a.mobileCta {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 999px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1199px) {
+  .desktop {
+    display: none;
+  }
+  .menuButton {
+    display: flex;
+  }
+  /* A data encosta no botão do menu. */
+  .date {
+    margin: 0 4px 0 auto;
+  }
+}
+
+@media (min-width: 1200px) {
+  .mobilePanel {
+    display: none !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .date {
+    font-size: 0.8rem;
+    letter-spacing: 0.16em;
+  }
+  .dateLong {
+    display: none;
+  }
+  .dateShort {
+    display: inline;
+  }
+}
+
+/* ---------- home: fundo entra conforme o hero sai ---------- */
+
+@keyframes nav-fundo {
+  from {
+    background-color: rgb(20 33 61 / 0);
+  }
+  to {
+    background-color: rgb(20 33 61 / 0.96);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .navHome {
+      animation: nav-fundo linear both;
+      animation-timeline: --hero;
+      animation-range: exit 0% exit 35%;
+    }
+  }
+}

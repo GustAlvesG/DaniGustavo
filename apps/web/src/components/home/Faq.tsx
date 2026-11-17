@@ -26,14 +26,14 @@ export function Faq({ items }: { items: FaqItem[] }) {
             const panelId = `${baseId}-a${i}`;
             return (
               <li key={item.question} className="border-t border-line-soft last:border-b">
-                <h3>
+                <h3 className="font-normal">
                   <button
                     type="button"
                     id={buttonId}
                     aria-expanded={expanded}
                     aria-controls={panelId}
                     onClick={() => setOpen(expanded ? null : i)}
-                    className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-6 py-4 text-left text-lg font-medium text-ink"
+                    className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-[18px] px-1 py-[22px] text-left text-[clamp(1.25rem,2.4vw,1.5rem)] leading-snug text-ink"
                   >
                     {item.question}
                     <PlusIcon open={expanded} />
@@ -52,7 +52,7 @@ export function Faq({ items }: { items: FaqItem[] }) {
                       transition={{ duration: 0.32, ease: EASE }}
                       className="overflow-hidden"
                     >
-                      <p className="max-w-[60ch] pb-6 text-base text-ink-soft">{item.answer}</p>
+                      <p className="max-w-[680px] px-1 pb-6 text-ink-soft">{item.answer}</p>
                     </m.div>
                   ) : null}
                 </AnimatePresence>
@@ -65,26 +65,21 @@ export function Faq({ items }: { items: FaqItem[] }) {
   );
 }
 
-/** Mais que vira menos: a haste vertical gira até deitar. */
+/** O mais gira 45° e vira um x. */
 function PlusIcon({ open }: { open: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="size-5 shrink-0 text-accent"
+      viewBox="0 0 24 24"
+      className={cx(
+        "size-[26px] shrink-0 text-ink transition-[rotate] duration-ui ease-out",
+        open && "rotate-45",
+      )}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
+      strokeWidth="1.3"
     >
-      <path d="M3 10h14" />
-      <path
-        d="M10 3v14"
-        className={cx(
-          "origin-center transition-transform duration-ui ease-out",
-          open && "rotate-90",
-        )}
-      />
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }

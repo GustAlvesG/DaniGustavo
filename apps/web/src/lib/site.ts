@@ -53,16 +53,41 @@ export function formatHour(iso: string, timeZone = WEDDING_TIME_ZONE): string {
   return m === "00" ? `${h}h` : `${h}h${m}`;
 }
 
-/** "10.04.27": a data do selo (dia, mês e ano com dois dígitos, no fuso do casamento). */
-export function formatSealDate(iso: string, timeZone = WEDDING_TIME_ZONE): string {
+/**
+ * Data em números com pontos: "10 · 04 · 2027" (longa, hero e rodapé) ou
+ * "10·04·27" (curta, menu no celular), no fuso do casamento.
+ */
+export function formatDotDate(
+  iso: string,
+  timeZone = WEDDING_TIME_ZONE,
+  { short = false }: { short?: boolean } = {},
+): string {
   const parts = new Intl.DateTimeFormat("pt-BR", {
     timeZone,
     day: "2-digit",
     month: "2-digit",
-    year: "2-digit",
+    year: short ? "2-digit" : "numeric",
   }).formatToParts(new Date(iso));
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${get("day")}.${get("month")}.${get("year")}`;
+  return [get("day"), get("month"), get("year")].join(short ? "·" : " · ");
+}
+
+/**
+ * Título da seção do casamento, com o dia e o mês em ênfase (asteriscos,
+ * ver lib/texto): "Sábado, *10 de abril* de 2027".
+ */
+export function weddingHeadline(iso: string, timeZone = WEDDING_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const weekday = get("weekday");
+  const day = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return `${day}, *${get("day")} de ${get("month")}* de ${get("year")}`;
 }
 
 /**
@@ -141,6 +166,13 @@ export function venueBlocks(site: SiteContent): VenueBlock[] {
 /** Rótulo do local no hero: nome e, se houver, o endereço. */
 export function venueLine(v: Venue): string {
   return hasAddress(v) ? `${v.name}, ${v.address}` : v.name;
+}
+
+/** Link do Google Maps: o do banco, ou uma busca pelo nome e endereço do local. */
+export function mapsLink(v: Venue): string {
+  if (v.mapsUrl) return v.mapsUrl;
+  const query = hasAddress(v) ? `${v.name}, ${v.address}` : v.name;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 /** Iframe do OpenStreetMap centrado nas coordenadas, com marcador. */
