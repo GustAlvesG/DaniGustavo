@@ -34,7 +34,11 @@ export default async function PresentesPage() {
           </SectionHeading>
 
           {list.available ? (
-            <GiftList gifts={list.gifts} categories={list.categories} />
+            <GiftList
+              gifts={list.gifts}
+              categories={list.categories}
+              requiresCpf={list.requiresCpf}
+            />
           ) : (
             <div
               className="mx-auto flex max-w-[56ch] flex-col items-center gap-4 text-center"

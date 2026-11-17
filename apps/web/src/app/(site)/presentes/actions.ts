@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { updateTag } from "next/cache";
 import {
+  CardCheckoutRequest,
+  CardCheckoutResponse,
   CreateOrderRequest,
   ERROR_CODES,
   OrderView,
@@ -26,7 +28,7 @@ export type OrderFormState =
       status: "error";
       message: string;
       /** Campo que causou o erro, para marcar no formulário. */
-      field?: "amount" | "quantity" | "buyerName" | "buyerEmail" | "message";
+      field?: "amount" | "quantity" | "buyerName" | "buyerEmail" | "buyerCpf" | "message";
       /** Presente esgotado: o formulário oferece voltar à lista. */
       soldOut?: boolean;
     };
@@ -39,6 +41,7 @@ const FIELD_BY_PATH: Record<
   quantity: "quantity",
   buyerName: "buyerName",
   buyerEmail: "buyerEmail",
+  buyerCpf: "buyerCpf",
   message: "message",
 };
 
@@ -60,6 +63,8 @@ export async function createOrderAction(
     amountCents: valor ? (parseReais(valor) ?? -1) : undefined,
     buyerName: text("buyerName"),
     buyerEmail: text("buyerEmail").trim(),
+    // Só existe no formulário quando o provedor exige (Asaas); vai direto para a API.
+    buyerCpf: text("buyerCpf") || undefined,
     message: text("message"),
     showOnWall: form.get("showOnWall") === "on",
     method: "pix" as const,
@@ -93,7 +98,10 @@ export async function createOrderAction(
       updateTag(CACHE_TAGS.gifts);
       return { status: "error", message: error.message, soldOut: true };
     }
-    if (status === 422) return { status: "error", message: error.message };
+    if (status === 422) {
+      const field = /CPF/.test(error.message) ? ("buyerCpf" as const) : undefined;
+      return { status: "error", message: error.message, field };
+    }
     if (error.code === "unavailable") {
       return {
         status: "error",
@@ -115,7 +123,33 @@ export type CardActionResult =
   | { ok: true; outcome: "approved" | "rejected" | "pending"; message: string; order: Order }
   | { ok: false; message: string; expired?: boolean };
 
-/** Paga o pedido com o cartão já tokenizado no navegador (o número nunca passa aqui). */
+/**
+ * Cartão na página segura do provedor (Asaas): pede à API o link da fatura e o navegador
+ * vai para lá. Os dados do cartão nunca passam pelo site nem pela API.
+ */
+export async function startCardCheckoutAction(
+  publicId: string,
+  body: CardCheckoutRequest,
+): Promise<{ ok: true; url: string } | { ok: false; message: string; expired?: boolean }> {
+  const parsed = CardCheckoutRequest.safeParse(body);
+  if (!parsed.success) return { ok: false, message: "Dados inválidos. Recarregue a página." };
+  const result = await apiWrite(
+    "POST",
+    `/api/orders/${encodeURIComponent(publicId)}/card-checkout`,
+    parsed.data,
+    { clientIp: clientIpFrom(await headers()), schema: CardCheckoutResponse },
+  );
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: result.error.message,
+      expired: result.error.code === ERROR_CODES.orderNotPending,
+    };
+  }
+  return { ok: true, url: result.data.url };
+}
+
+/** Modo simulado: paga com o "token" do formulário de teste (o número nunca passa aqui). */
 export async function payWithCardAction(
   publicId: string,
   card: CardBody,

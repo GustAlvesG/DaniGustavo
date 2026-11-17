@@ -4,7 +4,7 @@ import { prepare } from "./support/rsvp";
 
 /*
  * Fase 4: lista de presentes e pagamento no modo simulado (sem conta no
- * Mercado Pago). Os pedidos usam um e-mail próprio por projeto e são apagados
+ * Asaas). Os pedidos usam um e-mail próprio por projeto e são apagados
  * no fim, com as cotas devolvidas, então a suíte é repetível.
  */
 

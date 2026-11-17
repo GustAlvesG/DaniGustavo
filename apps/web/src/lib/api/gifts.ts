@@ -21,5 +21,5 @@ export async function getGifts(): Promise<GiftList> {
   console.warn(
     `[presentes] /api/gifts indisponível (${result.status} ${result.error.code}). ${result.error.message}`,
   );
-  return { gifts: [], categories: [], cardFeePercent: 0, available: false };
+  return { gifts: [], categories: [], cardFeePercent: 0, requiresCpf: false, available: false };
 }

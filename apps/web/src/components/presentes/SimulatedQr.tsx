@@ -1,8 +1,8 @@
 /*
  * QR ilustrativo do modo simulado: tem cara de QR (três marcadores nos cantos
  * e módulos espalhados a partir do código), mas não é lido por nenhum banco.
- * Gerar um QR de verdade exigiria uma dependência nova; no Mercado Pago real
- * a imagem vem pronta da API.
+ * Gerar um QR de verdade exigiria uma dependência nova; no Asaas a imagem
+ * vem pronta da API.
  */
 
 const SIZE = 29;

@@ -10,7 +10,6 @@ export type CardSubmit = {
   paymentMethodId: string;
   paymentType: "credit_card" | "debit_card";
   installments: number;
-  identification?: { type: string; number: string };
 };
 
 const luhn = (digits: string) => {

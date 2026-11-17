@@ -6,6 +6,7 @@ import { cardFeeCents, type OrderStatus, type OrderView } from "@casamento/share
 import {
   payWithCardAction,
   simulateApprovalAction,
+  startCardCheckoutAction,
   type CardActionResult,
 } from "@/app/(site)/presentes/actions";
 import { MonogramDG } from "@/components/brand";
@@ -13,13 +14,13 @@ import { Button, ButtonLink, Checkbox, TextField } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { formatBRL } from "@/lib/format";
 import { timeLeft } from "@/lib/presentes";
-import { CardMercadoPago } from "./CardMercadoPago";
 import { CardSimulado, type CardSubmit } from "./CardSimulado";
 import { SimulatedQr } from "./SimulatedQr";
 import styles from "./pagamento.module.css";
 
 /*
- * Painel de pagamento: Pix primeiro e já selecionado; cartão na outra aba.
+ * Painel de pagamento: Pix primeiro e já selecionado; cartão na outra aba (no
+ * Asaas, o cartão é digitado na fatura segura do Asaas, fora do site).
  * Enquanto o Pix está aberto, o navegador pergunta o status ao Route Handler
  * /api/pedidos/{id} a cada 3 s (pausa com a aba escondida). Pago, o carimbo é
  * batido sobre o QR e a pessoa segue para o agradecimento.
@@ -234,7 +235,7 @@ function PixPanel({
           <span className="canto c" aria-hidden="true" />
           <span className="canto d" aria-hidden="true" />
           {pix?.qrImageBase64 ? (
-            // eslint-disable-next-line @next/next/no-img-element -- imagem em data URI vinda do Mercado Pago
+            // eslint-disable-next-line @next/next/no-img-element -- imagem em data URI vinda do Asaas
             <img
               src={`data:image/png;base64,${pix.qrImageBase64}`}
               alt="QR code do Pix"
@@ -285,8 +286,8 @@ function PixPanel({
       {order.provider === "simulado" && !paid ? (
         <div className={styles.dev}>
           <p>
-            Modo de simulação: ainda não há conta no Mercado Pago, então nenhum dinheiro de verdade
-            é cobrado. O botão abaixo faz o papel do banco e aprova este Pix.
+            Modo de simulação: o site ainda não está ligado ao Asaas, então nenhum dinheiro de
+            verdade é cobrado. O botão abaixo faz o papel do banco e aprova este Pix.
           </p>
           {simError ? <p className="text-danger">{simError}</p> : null}
           <div>
@@ -342,12 +343,12 @@ function CardPanel({
         </strong>
       </p>
 
-      {order.card.publicKey ? (
-        <CardMercadoPago
-          publicKey={order.card.publicKey}
+      {order.card.checkout === "hosted" ? (
+        <HostedCard
+          publicId={order.publicId}
+          coverFee={coverFee}
           totalCents={total}
           disabled={paid}
-          onSubmit={submit}
         />
       ) : (
         <CardSimulado totalCents={total} disabled={paid} onSubmit={submit} />
@@ -369,6 +370,54 @@ function CardPanel({
         Os dados do cartão vão direto para o processador de pagamento; o número não passa pelo nosso
         servidor. Parcelas com juros do cartão por conta de quem paga.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Cartão no Asaas: o botão pede o link da fatura e leva a pessoa para a página
+ * segura do Asaas. Depois de pagar, o Asaas devolve para o agradecimento (em
+ * produção) e o webhook confirma; esta tela também segue conferindo o status.
+ */
+function HostedCard({
+  publicId,
+  coverFee,
+  totalCents,
+  disabled,
+}: {
+  publicId: string;
+  coverFee: boolean;
+  totalCents: number;
+  disabled?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function go() {
+    setBusy(true);
+    setError(null);
+    const r = await startCardCheckoutAction(publicId, { coverFee });
+    if (r.ok) {
+      window.location.assign(r.url);
+      return; // continua "carregando" até a página do Asaas abrir
+    }
+    setBusy(false);
+    setError(r.message);
+  }
+
+  return (
+    <div className="flex flex-col gap-5" data-testid="card-hosted">
+      <p className="text-lg">
+        Você vai para a página segura do Asaas, que processa o pagamento, para digitar os dados do
+        cartão e escolher as parcelas. Ao terminar, volte para esta página: o presente aparece como
+        enviado assim que o pagamento for aprovado.
+      </p>
+      <Button size="lg" block onClick={go} loading={busy} disabled={disabled}>
+        Pagar {formatBRL(totalCents)} com cartão
+      </Button>
+      <div role="alert" aria-live="assertive">
+        {error ? <p className="border-l-2 border-danger pl-5 text-lg">{error}</p> : null}
+      </div>
     </div>
   );
 }

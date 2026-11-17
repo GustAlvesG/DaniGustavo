@@ -22,7 +22,16 @@ import styles from "./presentes.module.css";
  * num <dialog> nativo, que já cuida do foco, do Esc e do fundo inerte.
  */
 
-export function GiftList({ gifts, categories }: { gifts: Gift[]; categories: GiftCategory[] }) {
+export function GiftList({
+  gifts,
+  categories,
+  requiresCpf = false,
+}: {
+  gifts: Gift[];
+  categories: GiftCategory[];
+  /** O provedor (Asaas) exige o CPF de quem paga: o formulário pede o campo. */
+  requiresCpf?: boolean;
+}) {
   const [category, setCategory] = useState("todos");
   const [range, setRange] = useState("todos");
   const [chosen, setChosen] = useState<Gift | null>(null);
@@ -102,7 +111,12 @@ export function GiftList({ gifts, categories }: { gifts: Gift[]; categories: Gif
         }}
       >
         {chosen ? (
-          <OrderForm key={chosen.slug} gift={chosen} onClose={() => dialogRef.current?.close()} />
+          <OrderForm
+            key={chosen.slug}
+            gift={chosen}
+            requiresCpf={requiresCpf}
+            onClose={() => dialogRef.current?.close()}
+          />
         ) : null}
       </dialog>
     </>
@@ -206,13 +220,31 @@ function OpenAmountCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }
 
 const idle: OrderFormState = { status: "idle" };
 
-function OrderForm({ gift, onClose }: { gift: Gift; onClose: () => void }) {
+/** "52998224725" → "529.982.247-25", enquanto a pessoa digita. */
+const maskCpf = (v: string) =>
+  v
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+
+function OrderForm({
+  gift,
+  onClose,
+  requiresCpf,
+}: {
+  gift: Gift;
+  onClose: () => void;
+  requiresCpf: boolean;
+}) {
   const [state, action, pending] = useActionState(createOrderAction, idle);
   // Campos controlados: continuam preenchidos se a ação devolver um erro.
   const [quantity, setQuantity] = useState(1);
   const [valor, setValor] = useState(String(gift.priceCents / 100).replace(".", ","));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [message, setMessage] = useState("");
   const [wall, setWall] = useState(true);
 
@@ -355,6 +387,20 @@ function OrderForm({ gift, onClose }: { gift: Gift; onClose: () => void }) {
           error={fieldError("buyerEmail")}
           required
         />
+        {requiresCpf ? (
+          <TextField
+            label="Seu CPF"
+            hint="O Asaas, que processa o pagamento, exige o CPF de quem paga. Nós só repassamos ao Asaas: o CPF não fica guardado no site."
+            name="buyerCpf"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(e) => setCpf(maskCpf(e.target.value))}
+            error={fieldError("buyerCpf")}
+            required
+          />
+        ) : null}
         <TextArea
           label="Recado para os noivos"
           optional
@@ -406,6 +452,7 @@ function OrderForm({ gift, onClose }: { gift: Gift; onClose: () => void }) {
         <p className="text-sm text-ink-soft">
           Na próxima tela você paga com Pix ou cartão. As cotas ficam reservadas para você por 30
           minutos. Usamos seu nome e e-mail só para o comprovante e para os noivos agradecerem.
+          {requiresCpf ? " O CPF vai só para o processador de pagamento." : ""}
         </p>
       </form>
     </div>
