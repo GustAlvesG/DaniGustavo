@@ -4,7 +4,21 @@
  * @casamento/db). Uso: node db-cli.mts <comando> [argumento JSON].
  * Responde uma linha de JSON no stdout.
  */
-import { db, eq, guests, invitations, newPublicId, settings } from "@casamento/db";
+import {
+  and,
+  db,
+  eq,
+  giftOrders,
+  gifts,
+  guests,
+  inArray,
+  invitations,
+  messages,
+  newPublicId,
+  payments,
+  settings,
+  sql,
+} from "@casamento/db";
 
 type NewInvitation = {
   label: string;
@@ -52,6 +66,32 @@ async function main(): Promise<unknown> {
         .set({ value: String(arg) })
         .where(eq(settings.key, "rsvp.deadline"));
       return { ok: true };
+    case "cleanup-orders": {
+      // Apaga os pedidos de teste (pelo e-mail do comprador) e recalcula as cotas vendidas
+      // dos presentes afetados a partir dos pedidos que sobraram (pendentes e pagos).
+      const email = String(arg);
+      const rows = await db.select().from(giftOrders).where(eq(giftOrders.buyerEmail, email));
+      const ids = rows.map((r) => r.id);
+      const giftIds = [...new Set(rows.map((r) => r.giftId))];
+      if (ids.length) {
+        await db.delete(payments).where(inArray(payments.orderId, ids));
+        await db.delete(messages).where(inArray(messages.giftOrderId, ids));
+        await db.delete(giftOrders).where(inArray(giftOrders.id, ids));
+      }
+      for (const giftId of giftIds) {
+        const [sum] = await db
+          .select({ n: sql<number>`COALESCE(SUM(${giftOrders.quantity}), 0)` })
+          .from(giftOrders)
+          .where(
+            and(eq(giftOrders.giftId, giftId), inArray(giftOrders.status, ["pending", "paid"])),
+          );
+        await db
+          .update(gifts)
+          .set({ quotaSold: Number(sum?.n ?? 0) })
+          .where(and(eq(gifts.id, giftId), eq(gifts.openAmount, false)));
+      }
+      return { deleted: ids.length };
+    }
     default:
       throw new Error(`Comando desconhecido: ${command}`);
   }

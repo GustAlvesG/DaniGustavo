@@ -18,12 +18,13 @@ export const SECAO_ID: Record<SecaoHome, string> = {
 /**
  * Itens do menu: as seções da home que têm `menu` em content/home.ts, na
  * ordem da página, mais os links extras (páginas internas). Os links são
- * "/#secao" para funcionarem também fora da home.
+ * "/#secao" para funcionarem também fora da home, ou o `menuLink` da seção
+ * (Presentes leva direto a /presentes).
  */
 export function navItems(): NavItem[] {
   const secoes = home.secoes.flatMap((s) => {
-    const label = (home[s] as { menu?: string }).menu;
-    return label ? [{ href: `/#${SECAO_ID[s]}`, label }] : [];
+    const { menu: label, menuLink } = home[s] as { menu?: string; menuLink?: string };
+    return label ? [{ href: menuLink ?? `/#${SECAO_ID[s]}`, label }] : [];
   });
   return [...secoes, ...home.menu.extras.map((e) => ({ href: e.link, label: e.texto }))];
 }

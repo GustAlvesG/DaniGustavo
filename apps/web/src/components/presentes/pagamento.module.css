@@ -1,0 +1,240 @@
+/*
+ * Tela de pagamento. O QR do Pix fica numa moldura de papel com cantoneiras
+ * (a mesma das fotos do álbum); ao aprovar, as cantoneiras assentam e um
+ * carimbo "Presente enviado" é batido por cima, em menos de 1,5 s.
+ */
+
+.abas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 28px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.aba {
+  min-height: 44px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-micro) var(--ease-out),
+    color var(--duration-micro) var(--ease-out);
+}
+
+.aba[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.aba:not([aria-selected="true"]):hover {
+  background: rgb(27 42 74 / 0.06);
+}
+
+/* ---------- Pix ---------- */
+.qrBox {
+  position: relative;
+  width: min(100%, 300px);
+  margin: 8px auto 28px;
+}
+
+.qrBox :global(.canto) {
+  transition:
+    translate var(--duration-ui) var(--ease-out),
+    background-color var(--duration-ui) var(--ease-out);
+}
+
+/* Aguardando: as cantoneiras ficam um pouco soltas; pago, assentam no canto. */
+.qrBox[data-estado="pending"] :global(.canto.a) {
+  translate: -4px -4px;
+}
+.qrBox[data-estado="pending"] :global(.canto.b) {
+  translate: 4px -4px;
+}
+.qrBox[data-estado="pending"] :global(.canto.c) {
+  translate: -4px 4px;
+}
+.qrBox[data-estado="pending"] :global(.canto.d) {
+  translate: 4px 4px;
+}
+
+.qrBox[data-estado="paid"] :global(.canto) {
+  background: var(--color-enfase);
+}
+
+.qr {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.qrPago {
+  opacity: 0.18;
+  transition: opacity var(--duration-ui) var(--ease-out);
+}
+
+.simulacao {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-erro);
+}
+
+.codigo {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace !important;
+  font-size: 0.85rem !important;
+  text-overflow: ellipsis;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-soft);
+}
+
+/* Ponto que respira enquanto espera o banco. */
+.ponto {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--color-serenity);
+  animation: respira 1.8s var(--ease-in-out) infinite;
+}
+
+@keyframes respira {
+  50% {
+    scale: 0.55;
+    opacity: 0.45;
+  }
+}
+
+.dev {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 18px 20px;
+  border: 1px dashed rgb(138 31 43 / 0.5);
+  border-radius: 4px;
+  font-size: var(--text-sm);
+}
+
+/* ---------- carimbo ---------- */
+.carimbo {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.carimbo > div {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  color: var(--color-enfase);
+  background: rgb(255 255 255 / 0.9);
+  box-shadow:
+    inset 0 0 0 2px currentColor,
+    inset 0 0 0 7px rgb(255 255 255 / 0.9),
+    inset 0 0 0 8px currentColor;
+  rotate: -9deg;
+  animation: carimba 560ms var(--ease-out) both;
+  text-align: center;
+}
+
+.carimbo span {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+@keyframes carimba {
+  0% {
+    opacity: 0;
+    scale: 1.7;
+    rotate: -24deg;
+  }
+  70% {
+    opacity: 1;
+    scale: 0.96;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    rotate: -9deg;
+  }
+}
+
+/* ---------- cartão ---------- */
+.mpCampo {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--field);
+  transition: border-color var(--duration-micro) var(--ease-out);
+}
+
+.mpCampo:hover {
+  border-color: var(--ink);
+}
+
+.mpCampo[data-invalido="true"] {
+  border-color: var(--danger);
+}
+
+.resumo {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.resumo div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resumo dt {
+  color: var(--color-suave);
+}
+
+.resumo dd {
+  margin: 0;
+  text-align: right;
+}
+
+.resumoTotal {
+  border-top: 1px solid rgb(27 42 74 / 0.18);
+  padding-top: 12px;
+}
+
+.resumoTotal dd {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.6rem;
+  line-height: 1.1;
+}

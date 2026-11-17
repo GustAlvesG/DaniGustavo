@@ -46,6 +46,8 @@ export type SecaoHome =
 type Cabecalho = {
   /** Texto do item no menu do topo. Sem ele, a seção não aparece no menu. */
   menu?: string;
+  /** Destino do item do menu (padrão: a âncora da seção na home). */
+  menuLink?: string;
   /** Rótulo pequeno acima do título (sai como "Página 1 · Nossa história"). */
   rotulo: string;
   /** Título grande. *Palavra* sai em itálico azul. */
@@ -254,22 +256,25 @@ export const home = {
   },
 
   // --------------------------------------------------------------------------
-  // Presentes. Enquanto a lista não abre, `botoes` fica vazio e aparece o aviso.
+  // Presentes: a chamada para a lista em /presentes. Com `botoes` vazio, aparece o aviso.
   // --------------------------------------------------------------------------
   presentes: {
     menu: "Presentes",
+    /** O item do menu leva direto à lista, não à seção da home. */
+    menuLink: "/presentes",
     rotulo: "Presentes",
     titulo: "Presença é o que *mais importa*",
     texto:
-      "Se quiser nos presentear, a lista vai ficar aqui no site. Você escolhe um item para a casa nova ou para a lua de mel, ou contribui com o valor que quiser.",
+      "Se quiser nos presentear, a lista está aqui no site. Você escolhe um item para a casa nova ou para a lua de mel, ou contribui com o valor que quiser, no Pix ou no cartão.",
     foto: {
       arquivo: "dsc06230.jpg",
       alt: "Abraço testa com testa na luz dourada",
     } satisfies Foto,
     legendaFoto: "Obrigado por fazer parte",
-    // TODO(conteudo): quando a lista de presentes existir, troque por
-    // [{ texto: "Ver a lista de presentes", link: "/presentes" }].
-    botoes: [] as { texto: string; link: string }[],
+    botoes: [{ texto: "Ver a lista de presentes", link: "/presentes" }] as {
+      texto: string;
+      link: string;
+    }[],
     aviso: "A lista de presentes abre em breve, aqui mesmo.",
   },
 
@@ -316,6 +321,7 @@ export const home = {
     frase: "“…que a mão do Senhor fez isto.” Isaías 41:20",
     links: [
       { texto: "Galeria", link: "/galeria" },
+      { texto: "Lista de presentes", link: "/presentes" },
       { texto: "Manual dos padrinhos", link: "/padrinhos" },
       { texto: "Confirmar presença", link: "/confirmar" },
     ],

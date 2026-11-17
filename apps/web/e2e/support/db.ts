@@ -44,3 +44,8 @@ export async function getDeadline(): Promise<string> {
 export async function setDeadline(iso: string): Promise<void> {
   run("set-deadline", iso);
 }
+
+/** Apaga os pedidos de presente feitos com este e-mail e devolve as cotas. */
+export async function cleanupOrders(buyerEmail: string): Promise<void> {
+  run("cleanup-orders", buyerEmail);
+}
