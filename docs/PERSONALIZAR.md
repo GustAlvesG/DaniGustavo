@@ -57,10 +57,11 @@ versões em WebP/AVIF no tamanho de cada tela. A largura e a altura são lidas d
 
 Data e hora, local e endereço, programação, traje (cores e "evite"), hospedagem, perguntas
 frequentes, contato, prazo da confirmação, manual dos padrinhos e textos de SEO ficam na tabela
-`settings` do banco e chegam ao site por `GET /api/site`. O site guarda essa resposta em cache
-por 60 segundos: depois de mudar, espere um minuto (ou reinicie o `pnpm dev`).
+`settings` do banco e chegam ao site por `GET /api/site`. **O jeito normal de editar é o painel**,
+em **Configurações** (passo a passo na seção 7): salvar valida os dados e avisa o site na hora.
+Editado fora do painel, o site guarda a resposta em cache por 60 segundos.
 
-Para editar:
+Outras formas (para quem desenvolve):
 
 - **Drizzle Studio** (planilha no navegador, sem apagar nada):
   `pnpm --filter @casamento/db exec drizzle-kit studio` → tabela `settings` → coluna `value`
@@ -90,9 +91,10 @@ do ar; mantenha-o parecido com o seed.
 
 ## 5. Lista de presentes
 
-Os presentes ficam na tabela `gifts` do banco e aparecem em `/presentes` (o site guarda a lista
-em cache por 30 segundos). Até o painel ganhar a tela de presentes (Fase 5), edite pelo
-**Drizzle Studio**: `pnpm --filter @casamento/db exec drizzle-kit studio` → tabela `gifts`.
+Os presentes ficam na tabela `gifts` do banco e aparecem em `/presentes`. Edite pelo **painel**,
+em **Presentes** (seção 7): nome, descrição, categoria, preço, cotas, foto, ordem e
+mostrar/ocultar. A tabela abaixo é a referência das colunas (para o Drizzle Studio:
+`pnpm --filter @casamento/db exec drizzle-kit studio` → tabela `gifts`).
 
 | Coluna        | O que é                                                               |
 | ------------- | --------------------------------------------------------------------- |
@@ -119,7 +121,7 @@ em cache por 30 segundos). Até o painel ganhar a tela de presentes (Fase 5), ed
 - Quando um presente é pago, a API manda o comprovante ao convidado e avisa os noivos por e-mail
   (`ADMIN_EMAIL_1` e `ADMIN_EMAIL_2`) e, se configurado, no Telegram (`TELEGRAM_BOT_TOKEN` e
   `TELEGRAM_CHAT_ID`). O recado, se a pessoa autorizar, entra em `messages` aguardando
-  aprovação (a moderação chega com o painel).
+  aprovação no painel (**Recados**).
 
 ## 6. Pagamentos: modo simulado e Asaas
 
@@ -194,3 +196,89 @@ uma cobrança real (a API avisa no log). Para testar, use a chave do sandbox.
 
 A integração usa a API v3 do Asaas com `fetch` (sem SDK). Código em `apps/api/src/payments/`
 (`asaas.ts`, `simulado.ts`, `provider.ts`).
+
+## 7. Administrar pelo painel
+
+O painel é o "admin" dos noivos: fica em **http://localhost:3333/painel/** em desenvolvimento
+(em produção, `https://<endereço da API>/painel/`). Funciona no celular; vale salvar o endereço
+na tela inicial.
+
+### Acesso
+
+1. Entre com o seu e-mail (`ADMIN_EMAIL_1` ou `ADMIN_EMAIL_2` do `.env`) e a senha inicial
+   (`ADMIN_PASSWORD_INICIAL`), criados pelo `pnpm db:seed`.
+2. No primeiro acesso, toque no seu nome (canto de cima) → **Trocar senha**. Marque "Sair dos
+   outros aparelhos" se suspeitar que alguém viu a senha.
+3. **Sair** fica no canto de cima. Depois de 5 senhas erradas em um minuto, o login espera um
+   minuto.
+
+### Criar convites e enviar os links
+
+1. **Convites → Novo convite**. Preencha o nome do convite (como aparece para o convidado, ex.:
+   "Família Silva"), o lado (Dani ou Gustavo), o máximo de pessoas e o telefone com DDD.
+2. Adicione cada pessoa em **+ Adicionar convidado** (marque "Criança" e a faixa etária quando
+   for o caso). Marque "Pode levar acompanhante" se o convite aceita +1: o convidado digita o
+   nome ao confirmar.
+3. Salve. Na página do convite:
+   - **Enviar no WhatsApp** abre a conversa (com o telefone do convite, se houver) já com a
+     mensagem e o link; **Copiar** copia só o link. Os dois marcam o convite como "enviado".
+   - **Gerar link novo** invalida o link antigo (use se ele foi parar com a pessoa errada).
+4. Para mudar nomes, pessoas ou corrigir uma resposta recebida por telefone, use **Editar** e
+   mude a "Resposta" de cada convidado.
+
+### Acompanhar as confirmações
+
+- **Início** mostra convites e pessoas confirmados, pendentes e que não vão, quantos adultos e
+  crianças (por faixa) vêm, o total arrecadado e o prazo do RSVP.
+- **Convites** tem busca por nome (do convite ou de quem está nele) e filtro por situação. Na
+  página de cada convite aparecem as respostas recebidas pelo site, com data e restrições
+  alimentares.
+- **Exportar confirmados (CSV)** (em Convites, ou "Baixar lista do buffet" no Início) baixa a
+  planilha das pessoas confirmadas com restrições alimentares, pronta para buffet, cerimonial e
+  portaria. Abre direto no Excel. Restrição alimentar é dado de saúde: compartilhe só com o
+  buffet.
+
+### Presentes
+
+- **Presentes → Novo presente** ou **Editar**: nome, descrição, categoria, preço da cota (em
+  reais, ex.: `150,00`), total de cotas (1 = presente inteiro) e foto (JPG, PNG ou WebP até
+  2 MB, guardada em `UPLOAD_DIR` no servidor). "Valor livre" deixa o convidado escolher quanto
+  dar.
+- Cada linha mostra cotas **pagas**, **reservadas** (Pix aguardando, seguram a cota por 30 min) e
+  livres. O total de cotas não pode ficar abaixo de pagas + reservadas.
+- As setas ↑ ↓ mudam a ordem da lista no site. **Ocultar** tira o presente do site sem apagar;
+  **Excluir** só aparece para presentes que nunca tiveram pedido.
+- O site atualiza na hora ao salvar (a API avisa o site para limpar o cache).
+
+### Pedidos e reembolso
+
+- **Pedidos** lista os presentes comprados, com filtros por situação (aguardando, pago,
+  expirado, falhou, reembolsado), forma (Pix ou cartão) e busca por nome, e-mail ou presente.
+  Toque num pedido para ver os detalhes e o recado.
+- **Reembolsar** (só em pedidos pagos) pede a devolução ao provedor de pagamento, depois de
+  confirmar: o pedido vira "Reembolsado", as cotas voltam para a lista e o recado sai do mural.
+  No modo simulado nada é cobrado nem devolvido de verdade.
+- **Conferir com o provedor** consulta os pedidos em aberto e os dos últimos 3 dias e corrige
+  divergências (ex.: um Pix pago cujo aviso se perdeu). A API faz essa conferência sozinha uma
+  vez por dia.
+
+### Recados
+
+- **Recados → Aguardando** lista os recados novos (os que vêm junto com presentes, quando o
+  convidado autoriza). **Aprovar** libera para aparecer no site; **Ocultar** tira de novo.
+  Recado não aprovado nunca aparece publicamente.
+
+### Configurações
+
+Cada bloco tem o próprio botão de salvar e é validado antes de ir para o site:
+
+- **Casal e datas**: nomes, monograma, data e hora do casamento e **prazo para confirmar
+  presença** (depois dele o site não aceita respostas e mostra o contato de vocês).
+- **Locais**: cerimônia e recepção (nome, horário, endereço, link do mapa opcional, latitude e
+  longitude). Sem link, o site monta o do Google Maps pelo endereço.
+- **Contato**: WhatsApp (só números, com 55 e DDD), e-mail e frase.
+- **Presentes e pagamento**: taxa do cartão (%) e categorias da lista.
+- **Programação**, **Traje** (texto, paleta e o que evitar), **Hospedagem**, **Dúvidas** e
+  **Compartilhamento** (título e descrição do link).
+- **Avançado**: nossa história, galeria e manual dos padrinhos (este em JSON). As fotos em si
+  continuam na pasta do site (seção 2).
