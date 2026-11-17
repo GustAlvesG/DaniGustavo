@@ -42,9 +42,7 @@ export function rawDataModules(version: number): number {
 
 /** Codewords de dados (sem correção) que cabem na versão, nível M. */
 export function dataCodewords(version: number): number {
-  return (
-    Math.floor(rawDataModules(version) / 8) - ECC_PER_BLOCK_M[version]! * BLOCKS_M[version]!
-  );
+  return Math.floor(rawDataModules(version) / 8) - ECC_PER_BLOCK_M[version]! * BLOCKS_M[version]!;
 }
 
 /** Centros dos padrões de alinhamento da versão. */
@@ -76,7 +74,7 @@ function rsDivisor(degree: number): number[] {
   for (let i = 0; i < degree; i++) {
     for (let j = 0; j < degree; j++) {
       result[j] = gfMul(result[j]!, root);
-      if (j + 1 < degree) result[j] ^= result[j + 1]!;
+      if (j + 1 < degree) result[j] = result[j]! ^ result[j + 1]!;
     }
     root = gfMul(root, 0x02);
   }
@@ -90,7 +88,7 @@ export function rsRemainder(data: readonly number[], degree: number): number[] {
   for (const b of data) {
     const factor = b ^ result.shift()!;
     result.push(0);
-    divisor.forEach((coef, i) => (result[i] ^= gfMul(coef, factor)));
+    divisor.forEach((coef, i) => (result[i] = result[i]! ^ gfMul(coef, factor)));
   }
   return result;
 }
@@ -166,9 +164,7 @@ type Grid = boolean[][];
 function functionPatterns(version: number) {
   const size = version * 4 + 17;
   const modules: Grid = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
-  const isFunction: Grid = Array.from({ length: size }, () =>
-    new Array<boolean>(size).fill(false),
-  );
+  const isFunction: Grid = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
   const set = (x: number, y: number, dark: boolean) => {
     modules[y]![x] = dark;
     isFunction[y]![x] = true;
