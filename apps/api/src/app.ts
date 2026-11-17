@@ -8,6 +8,7 @@ import { apiError } from "./errors.ts";
 import { createMailer, type Mailer } from "./mailer.ts";
 import { createRateLimiter, type RateLimiter } from "./rate-limit.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
+import { messageRoutes } from "./routes/messages.ts";
 import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
 import type { Notifier } from "./orders/notify.ts";
 import type { OrderDeps } from "./orders/service.ts";
@@ -71,6 +72,8 @@ export function createApp({
   });
 
   app.route("/api/invitations", invitationRoutes({ env, db, mailer, limiter: rateLimiter, now }));
+
+  app.route("/api/messages", messageRoutes({ db, limiter: rateLimiter }));
 
   const orderDeps: OrderDeps = { env, db, provider, mailer, notifier, now };
   app.route("/api/gifts", giftRoutes(orderDeps));

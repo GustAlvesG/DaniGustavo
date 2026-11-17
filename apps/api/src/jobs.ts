@@ -1,5 +1,6 @@
 import { expirePendingOrders, type OrderDeps } from "./orders/service.ts";
 import { reconcileOrders } from "./orders/reconcile.ts";
+import { runAutoReminders, type ReminderDeps } from "./reminders.ts";
 
 /** A cada 5 minutos (PROMPT §6). */
 export const EXPIRY_INTERVAL_MS = 5 * 60_000;
@@ -53,6 +54,39 @@ export function startReconcileJob(deps: OrderDeps, intervalMs = RECONCILE_INTERV
       running = false;
     }
   };
+  const timer = setInterval(() => void tick(), intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
+/** De hora em hora: o lembrete é por dias antes do prazo, não precisa de mais precisão. */
+export const REMINDER_INTERVAL_MS = 60 * 60_000;
+
+/**
+ * Lembretes automáticos de RSVP (veja reminders.ts). Roda uma vez ao subir e depois a cada
+ * hora; o registro em rsvp_reminders garante que reinícios e rodadas repetidas não duplicam
+ * e-mails. Desligado no painel, a rodada não faz nada.
+ */
+export function startReminderJob(
+  deps: ReminderDeps,
+  intervalMs = REMINDER_INTERVAL_MS,
+): () => void {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await runAutoReminders(deps);
+      if (r.sent > 0 || r.failed > 0) {
+        console.log(`[lembretes] ${r.sent} lembrete(s) enviado(s), ${r.failed} falha(s).`);
+      }
+    } catch (err) {
+      console.error("[lembretes] Falha na rotina de lembretes:", err);
+    } finally {
+      running = false;
+    }
+  };
+  void tick();
   const timer = setInterval(() => void tick(), intervalMs);
   timer.unref();
   return () => clearInterval(timer);

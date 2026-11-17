@@ -4,6 +4,7 @@ import { requireSession, sameOrigin, type AdminDeps, type AdminEnv } from "./con
 import { adminGiftRoutes, adminUploadRoutes } from "./gifts.ts";
 import { adminInvitationRoutes } from "./invitations.ts";
 import { adminOrderRoutes } from "./orders.ts";
+import { adminReminderRoutes } from "./reminders.ts";
 
 export { uploadFileRoutes } from "./gifts.ts";
 export { createWebRevalidator, type CacheTag, type Revalidate } from "./revalidate.ts";
@@ -27,5 +28,6 @@ export function adminRoutes(deps: AdminDeps) {
   app.route("/orders", adminOrderRoutes(deps));
   app.route("/messages", adminMessageRoutes(deps));
   app.route("/settings", adminSettingsRoutes(deps));
+  app.route("/reminders", adminReminderRoutes(deps));
   return app;
 }
