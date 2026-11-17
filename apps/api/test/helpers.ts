@@ -6,7 +6,7 @@ import { parseEnv } from "../src/env.ts";
 export const TEST_WEB_KEY = "chave-de-teste-com-mais-de-32-caracteres";
 
 /** Ambiente válido de teste; DATABASE_URL vem do .env/CI (o pool só conecta na primeira query). */
-export function testEnv() {
+export function testEnv(extra: Record<string, string> = {}) {
   loadRootEnv();
   return parseEnv({
     NODE_ENV: "test",
@@ -15,11 +15,12 @@ export function testEnv() {
     WEB_KEY: TEST_WEB_KEY,
     BETTER_AUTH_SECRET: "segredo-de-teste-com-mais-de-32-caracteres",
     BETTER_AUTH_URL: "http://localhost:3333",
+    ...extra,
   });
 }
 
-export function testApp(overrides: Partial<AppDeps> = {}) {
-  const env = testEnv();
+export function testApp(overrides: Partial<AppDeps> = {}, extraEnv: Record<string, string> = {}) {
+  const env = testEnv(extraEnv);
   const db = createDb(env.DATABASE_URL);
   const app = createApp({ env, db, auth: createAuth(env, db), ...overrides });
   return { app, db, env };

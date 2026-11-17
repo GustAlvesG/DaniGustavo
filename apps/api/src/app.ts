@@ -1,4 +1,4 @@
-import type { Database } from "@casamento/db";
+import { eq, giftOrders, type Database } from "@casamento/db";
 import { ERROR_CODES } from "@casamento/shared";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
@@ -8,6 +8,10 @@ import { apiError } from "./errors.ts";
 import { createMailer, type Mailer } from "./mailer.ts";
 import { createRateLimiter, type RateLimiter } from "./rate-limit.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
+import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
+import type { Notifier } from "./orders/notify.ts";
+import type { OrderDeps } from "./orders/service.ts";
+import { createPaymentProvider, isSimulated, type PaymentProvider } from "./payments/index.ts";
 import { buildSiteContent, readPublicSettings } from "./site-content.ts";
 import { webKey } from "./middleware/web-key.ts";
 import { painelRoutes } from "./painel.ts";
@@ -22,8 +26,12 @@ export interface AppDeps {
   mailer?: Mailer;
   /** Limitador de tentativas (padrão: em memória, por processo). */
   rateLimiter?: RateLimiter;
-  /** Relógio injetável, para testar o prazo do RSVP. */
+  /** Relógio injetável, para testar o prazo do RSVP e a expiração dos pedidos. */
   now?: () => Date;
+  /** Provedor de pagamento (padrão: pelo .env, simulado sem credenciais do Mercado Pago). */
+  provider?: PaymentProvider;
+  /** Avisos no Telegram (padrão: Bot API, se configurado no .env). */
+  notifier?: Notifier;
 }
 
 /** Monta a aplicação sem abrir porta: o servidor fica em server.ts e os testes usam app.request(). */
@@ -35,6 +43,8 @@ export function createApp({
   mailer = createMailer(env),
   rateLimiter = createRateLimiter(),
   now = () => new Date(),
+  provider = createPaymentProvider(env),
+  notifier,
 }: AppDeps) {
   const app = new Hono();
 
@@ -52,6 +62,33 @@ export function createApp({
   });
 
   app.route("/api/invitations", invitationRoutes({ env, db, mailer, limiter: rateLimiter, now }));
+
+  const orderDeps: OrderDeps = { env, db, provider, mailer, notifier, now };
+  app.route("/api/gifts", giftRoutes(orderDeps));
+  app.route("/api/orders", orderRoutes({ ...orderDeps, limiter: rateLimiter }));
+  app.route("/api/webhooks", webhookRoutes(orderDeps));
+
+  // Só no modo simulado e fora de produção: "Simular pagamento aprovado". Marca o Pix como
+  // pago no provedor de mentira e entrega um webhook assinado à rota real, pelo mesmo
+  // caminho que o Mercado Pago usaria. Exige X-Web-Key (é uma escrita em /api/*).
+  if (isSimulated(provider) && env.NODE_ENV !== "production") {
+    app.post("/api/dev/orders/:publicId/approve", async (c) => {
+      const [row] = await db
+        .select({ providerOrderId: giftOrders.providerOrderId })
+        .from(giftOrders)
+        .where(eq(giftOrders.publicId, c.req.param("publicId")));
+      if (!row?.providerOrderId) {
+        return apiError(c, 404, ERROR_CODES.notFound, "Pedido sem Pix simulado.");
+      }
+      const hook = provider.approve(row.providerOrderId);
+      const res = await app.request(hook.path, {
+        method: "POST",
+        headers: hook.headers,
+        body: JSON.stringify(hook.body),
+      });
+      return c.json({ ok: res.ok, webhookStatus: res.status }, res.ok ? 200 : 502);
+    });
+  }
 
   app.route("/", painelRoutes(painelDist));
 
