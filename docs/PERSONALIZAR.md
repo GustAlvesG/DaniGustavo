@@ -113,7 +113,7 @@ em cache por 30 segundos). Até o painel ganhar a tela de presentes (Fase 5), ed
 - **Não apague** presente que já tem pedido: marque `active = 0`.
 - **Categorias**: chave `gifts.categories` em `settings` (lista de `{ slug, label }`).
 - **Taxa do cartão** ("Quero cobrir a taxa"): chave `payments.card_fee_percent` em `settings`
-  (ex.: `4.98`). Coloque o percentual real do seu plano no Mercado Pago.
+  (ex.: `4.98`). Coloque o percentual real do seu plano no Asaas.
 - Pedido em aberto segura as cotas por **30 minutos**; depois disso a API expira o pedido
   sozinha (rotina a cada 5 minutos) e devolve as cotas.
 - Quando um presente é pago, a API manda o comprovante ao convidado e avisa os noivos por e-mail
@@ -121,44 +121,76 @@ em cache por 30 segundos). Até o painel ganhar a tela de presentes (Fase 5), ed
   `TELEGRAM_CHAT_ID`). O recado, se a pessoa autorizar, entra em `messages` aguardando
   aprovação (a moderação chega com o painel).
 
-## 6. Pagamentos: modo simulado e Mercado Pago
+## 6. Pagamentos: modo simulado e Asaas
 
-Sem credenciais do Mercado Pago no `.env`, a API usa o **modo simulado**: o Pix mostra um QR
+Com `PAYMENT_PROVIDER=simulado` (o padrão), a API usa o **modo simulado**: o Pix mostra um QR
 ilustrativo marcado "Simulação" e um código que nenhum banco aceita, e a tela de pagamento tem o
-botão **"Simular pagamento aprovado"**, que entrega à API um webhook assinado pelo mesmo caminho
-do Mercado Pago. Cartões de teste do simulado: `4111 1111 1111 1111` aprova,
-`4000 0000 0000 0002` recusa (qualquer nome, validade futura e CVV). O log da API mostra
+botão **"Simular pagamento aprovado"**, que entrega à API um webhook no mesmo formato do Asaas
+(com o token no header `asaas-access-token`). Cartões de teste do simulado: `4111 1111 1111 1111`
+aprova, `4000 0000 0000 0002` recusa (qualquer nome, validade futura e CVV). O log da API mostra
 `Pagamentos: provedor "simulado"` ao subir.
 
-### Ativar o Mercado Pago de verdade
+### Como funciona com o Asaas
 
-1. Crie a conta (de preferência como pessoa física no nome de quem vai receber) em
-   mercadopago.com.br e entre em **Seu negócio → Configurações → Suas integrações**
-   (developers.mercadopago.com.br/panel). Crie uma aplicação do tipo **Checkout Transparente /
-   Pagamentos online**.
-2. Em **Credenciais de teste**, copie a _Public Key_ e o _Access Token_ (começam com
-   `APP_USR-` ou `TEST-`). No `.env` da raiz:
-   ```
-   PAYMENT_PROVIDER=mercadopago
-   MP_ACCESS_TOKEN=APP_USR-...   # nunca no front
-   MP_PUBLIC_KEY=APP_USR-...     # vai para o navegador, para tokenizar o cartão
-   ```
-3. Em **Webhooks → Configurar notificações**, cadastre a URL
-   `https://SEU-DOMINIO-DA-API/api/webhooks/payments` e marque o evento **Order (Mercado
-   Pago)**. Salve e copie a **assinatura secreta** para `MP_WEBHOOK_SECRET=` no `.env`. Em
-   desenvolvimento, o Mercado Pago precisa alcançar a sua máquina: use um túnel (ex.:
-   `cloudflared tunnel --url http://localhost:3333`) e cadastre a URL do túnel. Sem webhook, o
-   pedido ainda é conferido no Mercado Pago quando a rotina de expiração passa.
-4. Reinicie a API (`pnpm dev`). O log deve dizer `Pagamentos: provedor "mercadopago"`. Se faltar
-   alguma das três variáveis, a API não sobe e diz qual falta.
-5. Teste no ambiente de testes: faça um Pix (o QR vem do Mercado Pago) e um cartão com os
-   **cartões de teste** da documentação (developers.mercadopago.com.br → Checkout API → Cartões
-   de teste; o nome do titular `APRO` aprova e `OTHE` recusa). Use o botão "Simular
-   notificação" do painel de webhooks para conferir a assinatura (a API responde 401 se o
-   segredo estiver errado).
-6. Para receber de verdade, troque pelas **Credenciais de produção** (e o segredo do webhook de
-   produção) e faça um Pix de R$ 1 para conferir. O reembolso pela API já existe
-   (`refund` no provedor); o botão no painel chega na Fase 5.
+- **Pix**: na nossa tela. O convidado informa o **CPF** no formulário do presente (o Asaas exige
+  o documento de quem paga; o campo só aparece com o Asaas ligado, valida os dígitos e explica o
+  porquê). O CPF é repassado ao Asaas para criar o cliente e **não fica guardado** no banco nem
+  nos logs. A tela mostra o QR e o copia e cola do Asaas e confere o status a cada 3 s.
+- **Cartão**: o botão "Pagar com cartão" leva à **fatura segura do Asaas**, onde a pessoa digita o
+  cartão e escolhe as parcelas. Os dados do cartão nunca passam pelo site nem pela API. A taxa
+  ("Quero cobrir a taxa") continua valendo: o valor da fatura já vem com ela.
+- **Confirmação**: pelo webhook. Sem webhook (ex.: em desenvolvimento sem túnel), a tela de
+  pagamento e a rotina de expiração também conferem o status no Asaas, então o pedido aparece
+  pago do mesmo jeito, só com alguns segundos de atraso.
+- **Expiração**: o QR do Asaas valeria por meses; quando o pedido passa dos 30 minutos, a API
+  apaga as cobranças abertas no Asaas. Pago por um caminho (Pix ou cartão), a outra cobrança
+  aberta também é apagada.
 
-A integração usa a **Orders API** (`/v1/orders`) do Checkout Transparente, a que a documentação
-indica para integrações novas. Código em `apps/api/src/payments/`.
+### Ativar o Asaas
+
+1. **Conta de testes (sandbox)**: crie em [sandbox.asaas.com](https://sandbox.asaas.com) (é
+   separada da conta real; nada é cobrado). Em **Minha conta → Integrações → Chaves de API**,
+   gere uma chave. A do sandbox começa com `$aact_hmlg_`.
+2. No `.env` da raiz (a chave **só** fica aqui; nunca vai ao navegador nem ao git):
+   ```
+   PAYMENT_PROVIDER=asaas
+   ASAAS_API_KEY=$aact_hmlg_...   # pode colar com o $ mesmo
+   ASAAS_ENV=                     # vazio: deduz pelo prefixo; se preencher e divergir, a API não sobe
+   ASAAS_WEBHOOK_TOKEN=           # o token do passo 3
+   ```
+3. **Webhook**: em **Integrações → Webhooks → Adicionar**:
+   - URL: `https://SEU-DOMINIO-DA-API/api/webhooks/payments`;
+   - E-mail: o seu (o Asaas avisa se o webhook falhar);
+   - Versão da API: v3; Envio: **não sequencial**; ativo;
+   - **Token de autenticação**: clique em "Gerar token" (32 a 255 caracteres, sem espaços; não
+     use a chave de API) e copie o mesmo valor para `ASAAS_WEBHOOK_TOKEN=`. Se o token não bater,
+     a API responde 401;
+   - **Eventos de cobrança**: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`,
+     `PAYMENT_DELETED`, `PAYMENT_RESTORED`, `PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`,
+     `PAYMENT_REFUND_IN_PROGRESS`, `PAYMENT_REFUND_DENIED`, `PAYMENT_CHARGEBACK_REQUESTED`,
+     `PAYMENT_AWAITING_RISK_ANALYSIS`, `PAYMENT_APPROVED_BY_RISK_ANALYSIS`,
+     `PAYMENT_REPROVED_BY_RISK_ANALYSIS`. Outros eventos são aceitos (200) e ignorados.
+4. **Webhook em desenvolvimento**: o Asaas precisa alcançar a sua máquina. Use um túnel, por
+   exemplo `cloudflared tunnel --url http://localhost:3333`, e cadastre no sandbox a URL que ele
+   mostrar + `/api/webhooks/payments`. Sem túnel tudo funciona pela consulta de status descrita
+   acima; o webhook passa a valer depois do deploy. Em desenvolvimento a API sobe sem o token
+   (avisa no log e responde 401 a todo webhook); em produção ele é obrigatório.
+5. **Volta do cartão**: em produção, depois de pagar a fatura o Asaas devolve a pessoa para
+   `/presentes/obrigado/...`. Para isso, o domínio do site (`SITE_URL`) precisa estar cadastrado
+   em **Minha conta → Informações** (dados comerciais) do Asaas. Em `localhost` não há
+   redirecionamento: a pessoa volta pela aba do site, que já mostra o pagamento confirmado.
+6. Reinicie a API (`pnpm dev`). O log deve dizer `Pagamentos: provedor "asaas"`. Teste no sandbox:
+   um Pix (no painel do sandbox, abra a cobrança e use **"Confirmar pagamento"** para simular o
+   recebimento) e um cartão na fatura com os cartões de teste da documentação do Asaas.
+7. **Produção**: na conta real (asaas.com), cadastre uma **chave Pix** (sem ela o Asaas não gera
+   o QR), complete a aprovação da conta (inclusive a conta bancária para saque), gere a chave de
+   produção (`$aact_prod_...`), cadastre o webhook de produção com um token novo e troque
+   `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no `.env` do servidor. Faça um Pix de R$ 5 e estorne
+   pelo painel dos noivos para conferir. Ajuste `payments.card_fee_percent` para a taxa de cartão
+   do seu plano no Asaas.
+
+Atenção: com a chave de produção em desenvolvimento, todo Pix ou cartão gerado no site local é
+uma cobrança real (a API avisa no log). Para testar, use a chave do sandbox.
+
+A integração usa a API v3 do Asaas com `fetch` (sem SDK). Código em `apps/api/src/payments/`
+(`asaas.ts`, `simulado.ts`, `provider.ts`).
