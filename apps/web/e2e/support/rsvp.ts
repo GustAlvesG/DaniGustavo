@@ -9,10 +9,9 @@ export function uniqueIp(): string {
   return `10.${h[0]}.${h[1]}.${(h[2]! % 250) + 1}`;
 }
 
-/** Contexto "já viu a abertura" + IP único (o site repassa X-Forwarded-For à API). */
+/** IP único por teste (o site repassa X-Forwarded-For à API). */
 export async function prepare(page: Page, ip = uniqueIp()): Promise<string> {
   await page.context().setExtraHTTPHeaders({ "x-forwarded-for": ip });
-  await page.addInitScript(() => sessionStorage.setItem("dg:abertura", "1"));
   return ip;
 }
 

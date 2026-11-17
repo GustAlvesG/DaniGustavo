@@ -207,7 +207,7 @@ test.describe("RSVP em /c/[token]", () => {
     ]);
   });
 
-  test("recusar: mensagem calorosa, sem azulejos de nomes", async ({ page }) => {
+  test("recusar: mensagem calorosa, sem a lista de quem vai", async ({ page }) => {
     invitation = await createInvitation({
       label: uniq("Família Recusa"),
       guests: [{ name: "Ana Recusa" }, { name: "Beto Recusa" }],
