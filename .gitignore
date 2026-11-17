@@ -13,3 +13,6 @@ blob-report
 .DS_Store
 next-env.d.ts
 .screenshots/
+
+# Imagens enviadas pelo painel (UPLOAD_DIR padrão)
+apps/api/storage/

@@ -18,12 +18,16 @@ export function createAuth(env: Env, db: Database) {
     // Só os dois usuários criados pelo seed: cadastro público desligado.
     emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 10 },
     // Login só com e-mail e senha (sem 2FA, decisão do casal). O limite vale em todos os
-    // ambientes (o padrão do Better Auth é só em produção): 5 tentativas por minuto por IP.
+    // ambientes (o padrão do Better Auth é só em produção): 5 tentativas por minuto por IP no
+    // login e na troca de senha.
     rateLimit: {
       enabled: true,
       window: 60,
       max: 100,
-      customRules: { "/sign-in/email": { window: 60, max: 5 } },
+      customRules: {
+        "/sign-in/email": { window: 60, max: 5 },
+        "/change-password": { window: 60, max: 5 },
+      },
     },
     advanced: {
       useSecureCookies: env.NODE_ENV === "production",

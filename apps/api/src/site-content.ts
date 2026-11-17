@@ -7,16 +7,19 @@ interface StoredVenue {
   lat?: number | null;
   lng?: number | null;
   time?: string;
+  /** Link de mapa escolhido no painel (substitui o calculado). */
+  mapsUrl?: string | null;
 }
 
 /** Links de mapa calculados a partir do endereço/coordenadas; null se não houver nenhum. */
 export function venueLinks(v: StoredVenue): Pick<Venue, "mapsUrl" | "wazeUrl"> {
   const address = v.address?.trim() ?? "";
   const hasCoords = typeof v.lat === "number" && typeof v.lng === "number";
-  if (!hasCoords && !address) return { mapsUrl: null, wazeUrl: null };
+  if (!hasCoords && !address) return { mapsUrl: v.mapsUrl || null, wazeUrl: null };
   const query = hasCoords ? `${v.lat},${v.lng}` : address;
   return {
-    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
+    mapsUrl:
+      v.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
     wazeUrl: hasCoords
       ? `https://waze.com/ul?ll=${v.lat},${v.lng}&navigate=yes`
       : `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`,

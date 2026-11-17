@@ -15,6 +15,12 @@ import { createPaymentProvider, isSimulated, type PaymentProvider } from "./paym
 import { buildSiteContent, readPublicSettings } from "./site-content.ts";
 import { webKey } from "./middleware/web-key.ts";
 import { painelRoutes } from "./painel.ts";
+import {
+  adminRoutes,
+  createWebRevalidator,
+  uploadFileRoutes,
+  type Revalidate,
+} from "./admin/index.ts";
 
 export interface AppDeps {
   env: Env;
@@ -32,6 +38,8 @@ export interface AppDeps {
   provider?: PaymentProvider;
   /** Avisos no Telegram (padrão: Bot API, se configurado no .env). */
   notifier?: Notifier;
+  /** Invalida o cache do site depois de uma mudança no painel (padrão: POST no /api/revalidar do Next). */
+  revalidate?: Revalidate;
 }
 
 /** Monta a aplicação sem abrir porta: o servidor fica em server.ts e os testes usam app.request(). */
@@ -45,6 +53,7 @@ export function createApp({
   now = () => new Date(),
   provider = createPaymentProvider(env),
   notifier,
+  revalidate = createWebRevalidator(env),
 }: AppDeps) {
   const app = new Hono();
 
@@ -89,6 +98,18 @@ export function createApp({
       return c.json({ ok: res.ok, webhookStatus: res.status }, res.ok ? 200 : 502);
     });
   }
+
+  app.route(
+    "/api/admin",
+    adminRoutes({
+      ...orderDeps,
+      auth,
+      limiter: rateLimiter,
+      revalidate,
+      uploadDir: env.UPLOAD_DIR,
+    }),
+  );
+  app.route("/", uploadFileRoutes(env.UPLOAD_DIR));
 
   app.route("/", painelRoutes(painelDist));
 

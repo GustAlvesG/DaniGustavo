@@ -3,7 +3,7 @@ import { getDb, loadRootEnv } from "@casamento/db";
 import { createApp } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { EnvError, parseEnv } from "./env.ts";
-import { startExpiryJob } from "./jobs.ts";
+import { startExpiryJob, startReconcileJob } from "./jobs.ts";
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
 
@@ -24,7 +24,9 @@ const db = getDb();
 const provider = createPaymentProvider(env);
 const mailer = createMailer(env);
 const app = createApp({ env, db, auth: createAuth(env, db), provider, mailer });
-const stopExpiryJob = startExpiryJob({ env, db, provider, mailer, now: () => new Date() });
+const jobDeps = { env, db, provider, mailer, now: () => new Date() };
+const stopExpiryJob = startExpiryJob(jobDeps);
+const stopReconcileJob = startReconcileJob(jobDeps);
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`API em http://localhost:${info.port} (painel em /painel)`);
@@ -33,6 +35,7 @@ const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 
 const shutdown = () => {
   stopExpiryJob();
+  stopReconcileJob();
   server.close();
   void db.$client.end();
 };

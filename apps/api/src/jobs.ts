@@ -1,4 +1,5 @@
 import { expirePendingOrders, type OrderDeps } from "./orders/service.ts";
+import { reconcileOrders } from "./orders/reconcile.ts";
 
 /** A cada 5 minutos (PROMPT §6). */
 export const EXPIRY_INTERVAL_MS = 5 * 60_000;
@@ -25,5 +26,34 @@ export function startExpiryJob(deps: OrderDeps, intervalMs = EXPIRY_INTERVAL_MS)
   void tick();
   const timer = setInterval(() => void tick(), intervalMs);
   timer.unref(); // não segura o processo aberto sozinho
+  return () => clearInterval(timer);
+}
+
+/** Uma vez por dia (PROMPT §6). */
+export const RECONCILE_INTERVAL_MS = 24 * 60 * 60_000;
+
+/**
+ * Conciliação diária com o provedor de pagamento, no mesmo processo da API. A primeira
+ * rodada é depois de um intervalo (não a cada reinício do `node --watch`); o painel tem o
+ * botão "Conferir com o provedor" para rodar na hora.
+ */
+export function startReconcileJob(deps: OrderDeps, intervalMs = RECONCILE_INTERVAL_MS): () => void {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await reconcileOrders(deps);
+      console.log(
+        `[conciliação] ${r.checked} pedido(s) conferido(s), ${r.changed.length} corrigido(s), ${r.errors} falha(s).`,
+      );
+    } catch (err) {
+      console.error("[conciliação] Falha na rotina diária:", err);
+    } finally {
+      running = false;
+    }
+  };
+  const timer = setInterval(() => void tick(), intervalMs);
+  timer.unref();
   return () => clearInterval(timer);
 }
