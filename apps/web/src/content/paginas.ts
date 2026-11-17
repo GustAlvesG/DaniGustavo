@@ -13,6 +13,22 @@ export const paginas = {
       posicao: "40% center",
     } satisfies Foto,
   },
+  /** /recados: o mural e o formulário "Deixe um recado". */
+  recados: {
+    rotulo: "Mural de recados",
+    titulo: "Palavras de quem *nos quer bem*",
+    lead: "Os recados aparecem aqui depois que a gente lê. Obrigado pelo carinho.",
+    vazio: "Ainda não tem recado por aqui. Que tal ser a primeira pessoa a escrever?",
+    indisponivel: "O mural não carregou agora. Recarregue a página em alguns instantes.",
+    formTitulo: "Deixe um recado",
+    formLead:
+      "Escreva o que quiser para nós dois. A gente lê tudo, e o recado entra no mural depois.",
+    formBotao: "Enviar recado",
+    privacidade:
+      "Privacidade: guardamos só o nome e o texto que você escrever, para mostrar no mural depois de aprovado. Não pedimos e-mail nem guardamos o seu IP. Para tirar um recado, é só falar com a gente.",
+    enviadoTitulo: "Recado enviado, obrigado!",
+    enviadoTexto: "Assim que a gente ler, ele aparece no mural.",
+  },
   /** Página não encontrada (404). */
   naoEncontrada: {
     foto: {

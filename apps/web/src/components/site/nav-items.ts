@@ -11,6 +11,7 @@ export const SECAO_ID: Record<SecaoHome, string> = {
   programacao: "programacao",
   traje: "traje",
   presentes: "presentes",
+  recados: "recados",
   rsvp: "rsvp",
   duvidas: "duvidas",
 };

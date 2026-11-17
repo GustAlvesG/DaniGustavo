@@ -1,0 +1,167 @@
+/*
+ * Mural de recados: bilhetes de papel presos com fita (a mesma do polaroid),
+ * levemente tortos, em colunas. Na home, três lado a lado; em /recados, o mural todo.
+ */
+
+.grade {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 1;
+  column-gap: 30px;
+}
+
+@media (min-width: 640px) {
+  .grade {
+    columns: 2;
+  }
+}
+
+@media (min-width: 1000px) {
+  .grade {
+    columns: 3;
+  }
+}
+
+.item {
+  break-inside: avoid;
+  margin: 0 0 40px;
+  padding-top: 14px;
+}
+
+/* Na home: uma fileira de três, sem colunas. */
+.fileira {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 28px 30px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 760px) {
+  .fileira {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: start;
+  }
+}
+
+.bilhete {
+  position: relative;
+  margin: 0;
+  background: var(--color-branco);
+  color: var(--color-tinta);
+  padding: 26px 24px 18px;
+  rotate: var(--r, 0deg);
+  box-shadow:
+    0 1px 2px rgb(20 33 61 / 0.08),
+    0 22px 40px -22px rgb(20 33 61 / 0.45);
+}
+
+/* A fita washi do polaroid, no topo do bilhete. */
+.bilhete::before {
+  content: "";
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  width: 84px;
+  height: 24px;
+  margin-left: -42px;
+  rotate: -3deg;
+  background: rgb(146 168 209 / 0.55);
+  box-shadow: 0 1px 2px rgb(20 33 61 / 0.1);
+}
+
+.texto {
+  margin: 0;
+  font-size: 1.22rem;
+  font-style: italic;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.rodape {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(27 42 74 / 0.22);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.autor {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.data {
+  font-size: 0.95rem;
+  color: var(--color-suave);
+}
+
+/* ---------- cartão de fio duplo: aviso de mural vazio e formulário ---------- */
+
+.caixa {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 48px);
+  background: var(--color-branco);
+  color: var(--color-tinta);
+  box-shadow:
+    inset 0 0 0 1px rgb(27 42 74 / 0.18),
+    inset 0 0 0 8px var(--color-branco),
+    inset 0 0 0 9px rgb(27 42 74 / 0.3),
+    0 30px 60px -36px rgb(20 33 61 / 0.5);
+}
+
+.caixaTitulo {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--text-display-sm);
+  line-height: 1.08;
+}
+
+.caixaLead {
+  margin: 0 0 24px;
+  color: var(--color-suave);
+}
+
+.vazio {
+  margin: 0 auto 28px;
+  max-width: 46ch;
+  text-align: center;
+  font-size: 1.2rem;
+  font-style: italic;
+  color: var(--color-suave);
+}
+
+.contador {
+  margin: 8px 0 0;
+  text-align: right;
+  font-size: 0.95rem;
+  color: var(--color-suave);
+}
+
+.obrigado {
+  text-align: center;
+}
+
+.obrigado p {
+  margin: 0 0 8px;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 12px;
+  margin-top: 56px;
+}

@@ -5,6 +5,7 @@ import { Duvidas } from "@/components/home/Duvidas";
 import { Hero } from "@/components/home/Hero";
 import { Historia } from "@/components/home/Historia";
 import { Presentes } from "@/components/home/Presentes";
+import { Recados } from "@/components/home/Recados";
 import { Programacao } from "@/components/home/Programacao";
 import { Rsvp } from "@/components/home/Rsvp";
 import { Traje } from "@/components/home/Traje";
@@ -13,6 +14,7 @@ import styles from "@/components/home/home.module.css";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { home, type SecaoHome } from "@/content/home";
+import { getWall } from "@/lib/api/messages";
 import { getSite } from "@/lib/api/site";
 
 /*
@@ -24,7 +26,7 @@ import { getSite } from "@/lib/api/site";
  * (ex.: programação vazia) somem sozinhas.
  */
 export default async function Home() {
-  const site = await getSite();
+  const [site, wall] = await Promise.all([getSite(), getWall()]);
 
   // Numeração "Página N" só nas seções com rótulo (o versículo não conta).
   let page = 0;
@@ -38,6 +40,7 @@ export default async function Home() {
     programacao: () => (site.schedule.length ? <Programacao site={site} pagina={next()} /> : null),
     traje: () => <Traje site={site} pagina={next()} />,
     presentes: () => <Presentes pagina={next()} />,
+    recados: () => <Recados wall={wall} timeZone={site.wedding.timezone} pagina={next()} />,
     rsvp: () => <Rsvp site={site} pagina={next()} />,
     duvidas: () => (site.faq.length ? <Duvidas site={site} pagina={next()} /> : null),
   };

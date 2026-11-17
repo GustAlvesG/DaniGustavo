@@ -267,6 +267,35 @@ na tela inicial.
 - **Recados → Aguardando** lista os recados novos (os que vêm junto com presentes, quando o
   convidado autoriza). **Aprovar** libera para aparecer no site; **Ocultar** tira de novo.
   Recado não aprovado nunca aparece publicamente.
+- Os aprovados aparecem no **mural** (`/recados`, e os 3 mais recentes na home). Aprovar ou
+  ocultar atualiza o site na hora. Quem não comprou presente também pode escrever em
+  `/recados` ("Deixe um recado"): entra como **Aguardando**, com nome e texto apenas (sem
+  e-mail, sem guardar o IP), limite de 500 caracteres e 3 recados por pessoa a cada 10 minutos.
+- Textos: home em `content/home.ts` (`recados`, incluindo quantos aparecem na home) e a
+  página do mural e o formulário em `content/paginas.ts` (`recados`). Para tirar o mural da
+  home, apague `"recados"` da lista `secoes`; para tirar do menu, apague `menu`.
+
+### Lembretes de confirmação (e-mail)
+
+- **Lembretes** no painel manda um e-mail curto, com o link do convite, para convites **sem
+  nenhuma resposta** e **com e-mail** (o de contato do convite ou o de um convidado), enquanto o
+  prazo do RSVP não passou. Convites pendentes sem e-mail são só contados (use o WhatsApp).
+- **Automático**: a API confere de hora em hora e envia nos dias configurados antes do prazo
+  (padrão **14 e 3**). Pode desligar na mesma tela. Cada convite recebe cada lembrete uma vez só
+  (tabela `rsvp_reminders`), mesmo que a API reinicie; se ficou parada e duas datas passaram,
+  vale só a última. Quem recebeu um lembrete nas últimas 24 horas não recebe outro.
+- **Enviar lembretes agora**: mostra quantos convites vão receber e pede confirmação.
+- Sem `MAIL_HOST` no `.env`, o e-mail só é impresso no console da API. O texto está em
+  `apps/api/src/reminder-email.ts`.
+
+### App instalável (PWA)
+
+O site pode ser instalado no celular ("Instalar app" / "Adicionar à tela inicial"). O nome vem
+do casal (`couple.names`); cores, ícone (monograma DG em marinho) e `start_url` ficam em
+`apps/web/src/app/manifest.ts` e `apps/web/src/lib/pwa-icon.tsx`. O service worker
+(`apps/web/public/sw.js`) só guarda fontes e ícones e mostra `public/offline.html` quando não
+há internet; nunca guarda páginas, convites (`/c/*`), `/confirmar`, pagamento nem a API. Mudou o
+`sw.js`? Aumente `VERSION` nele. Precisa de HTTPS em produção.
 
 ### Configurações
 

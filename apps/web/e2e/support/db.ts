@@ -60,3 +60,12 @@ export async function painelFixture(
 export async function painelCleanup(runId: string): Promise<void> {
   run("painel-cleanup", runId);
 }
+
+/** Recados do mural (e2e): aprova o recado deste autor / apaga os deste autor. */
+export async function approveMessage(author: string): Promise<void> {
+  run("message-approve", author);
+}
+
+export async function deleteMessages(author: string): Promise<void> {
+  run("message-delete", author);
+}

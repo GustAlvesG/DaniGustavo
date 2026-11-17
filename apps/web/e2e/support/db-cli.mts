@@ -148,6 +148,17 @@ async function main(): Promise<unknown> {
       await db.delete(invitations).where(eq(invitations.label, `Convite E2E ${run}`));
       return { ok: true };
     }
+    case "message-approve": {
+      await db
+        .update(messages)
+        .set({ approved: true })
+        .where(eq(messages.author, arg ?? ""));
+      return { ok: true };
+    }
+    case "message-delete": {
+      await db.delete(messages).where(eq(messages.author, arg ?? ""));
+      return { ok: true };
+    }
     default:
       throw new Error(`Comando desconhecido: ${command}`);
   }

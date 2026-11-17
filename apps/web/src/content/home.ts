@@ -39,6 +39,7 @@ export type SecaoHome =
   | "programacao"
   | "traje"
   | "presentes"
+  | "recados"
   | "rsvp"
   | "duvidas";
 
@@ -69,6 +70,7 @@ export const home = {
     "programacao",
     "traje",
     "presentes",
+    "recados",
     "rsvp",
     "duvidas",
   ] satisfies SecaoHome[] as SecaoHome[],
@@ -279,6 +281,25 @@ export const home = {
   },
 
   // --------------------------------------------------------------------------
+  // Recados: os últimos recados aprovados no painel (o mural todo fica em /recados;
+  // os textos dessa página e do formulário estão em content/paginas.ts).
+  // --------------------------------------------------------------------------
+  recados: {
+    menu: "Recados",
+    /** O item do menu leva direto ao mural, não à seção da home. */
+    menuLink: "/recados",
+    rotulo: "Mural de recados",
+    titulo: "Palavras de *quem nos quer bem*",
+    lead: "Os recados que chegam ficam aqui depois que a gente lê.",
+    /** Quantos recados aparecem na home (o resto fica em /recados). */
+    quantidade: 3,
+    verMural: "Ver o mural todo",
+    escrever: "Deixar um recado",
+    /** Quando ainda não há recado aprovado. */
+    vazio: "Ainda não tem recado por aqui. Que tal ser a primeira pessoa a escrever?",
+  },
+
+  // --------------------------------------------------------------------------
   // Confirmação de presença: a resposta de verdade é em /confirmar (busca
   // pelo nome) ou pelo link do convite (/c/...). Aqui é só o convite a ir.
   // --------------------------------------------------------------------------
@@ -322,6 +343,7 @@ export const home = {
     links: [
       { texto: "Galeria", link: "/galeria" },
       { texto: "Lista de presentes", link: "/presentes" },
+      { texto: "Mural de recados", link: "/recados" },
       { texto: "Manual dos padrinhos", link: "/padrinhos" },
       { texto: "Confirmar presença", link: "/confirmar" },
     ],
@@ -336,6 +358,7 @@ export const home = {
   programacao: Secao;
   traje: Secao;
   presentes: Secao;
+  recados: Secao & { quantidade: number };
   rsvp: Secao;
   duvidas: Secao;
   [k: string]: unknown;

@@ -70,7 +70,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 - Fases 0 a 3: concluídas. Fase 4 (presentes e pagamento): concluída; Asaas implementado e testado com respostas gravadas, falta teste real no sandbox.
 - Fase 5 (painel): concluída, aguardando revisão. Dashboard, convites (link, WhatsApp, respostas, CSV), presentes (CRUD, foto, ordem), pedidos (reembolso, conciliação), recados, configurações, trocar senha. E2E: `pnpm --filter @casamento/web exec playwright test --project=painel` (usa `ADMIN_EMAIL_1`/`ADMIN_PASSWORD_INICIAL` ou `E2E_ADMIN_*`; `PAINEL_URL` para outra porta).
-- Próxima: Fase 6 (extras).
+- Fase 6 (extras): concluída. Mural de recados (`/recados`, `GET/POST /api/messages`: só aprovados; POST com honeypot, 3 por 10 min por IP, entra pendente; tag de cache "messages"), PWA (`manifest.ts`, ícones em `/icons/*` via ImageResponse, `public/sw.js` com cache só de fontes/ícones e `offline.html`) e lembretes de RSVP (`apps/api/src/reminders.ts`, job horário `startReminderJob`, tabela `rsvp_reminders`, config privada em `settings.reminders`, página Lembretes no painel). `NEXT_DIST_DIR=.next-e2e` permite um segundo `next dev` ao lado do aberto.
 
 ## Pendências
 
