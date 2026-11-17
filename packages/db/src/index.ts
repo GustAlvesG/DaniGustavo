@@ -25,4 +25,18 @@ export const db: Database = new Proxy({} as Database, {
 });
 
 // Operadores do drizzle reexportados para que os apps usem a mesma instância do pacote.
-export { and, asc, count, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+export {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  like,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";

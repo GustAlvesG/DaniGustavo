@@ -3,3 +3,4 @@ export * from "./errors.ts";
 export * from "./gifts.ts";
 export * from "./rsvp.ts";
 export * from "./site.ts";
+export * from "./admin.ts";
