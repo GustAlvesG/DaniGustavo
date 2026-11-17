@@ -151,9 +151,15 @@ function GiftCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }) {
       data-gift={gift.slug}
     >
       {soldOut ? <span className={styles.carimbo}>Presenteado</span> : null}
-      <div className={styles.selo}>
-        <GiftIcon name={artFor(`${gift.slug} ${gift.title}`)} />
-      </div>
+      {gift.image ? (
+        // Foto enviada pelo painel (/uploads, repassado à API): tamanho livre, sem next/image.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className={styles.foto} src={gift.image} alt="" loading="lazy" decoding="async" />
+      ) : (
+        <div className={styles.selo}>
+          <GiftIcon name={artFor(`${gift.slug} ${gift.title}`)} />
+        </div>
+      )}
       <h2 id={titleId} className={styles.cardTitulo}>
         {gift.title}
       </h2>

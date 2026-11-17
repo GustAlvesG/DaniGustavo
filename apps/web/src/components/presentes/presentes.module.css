@@ -149,6 +149,17 @@
   translate: 0 -4px;
 }
 
+/* Foto do presente enviada pelo painel, como uma foto colada no cartão. */
+.foto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  margin-bottom: 18px;
+  background: var(--color-areia);
+  box-shadow: 0 0 0 1px rgb(27 42 74 / 0.12);
+}
+
 .selo {
   display: grid;
   place-items: center;

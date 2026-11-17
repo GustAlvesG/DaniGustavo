@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
   // O pacote do workspace exporta .ts cru (sem build). O Turbopack já o
   // compila sozinho; a lista deixa isso explícito (e vale para o webpack).
   transpilePackages: ["@casamento/shared"],
+  // Fotos dos presentes enviadas pelo painel ficam na API: o site as repassa em /uploads
+  // (proxy no servidor, a URL da API não vai para o navegador).
+  async rewrites() {
+    const api = process.env.API_URL?.replace(/\/+$/, "");
+    return api ? [{ source: "/uploads/:file", destination: `${api}/uploads/:file` }] : [];
+  },
   turbopack: {
     rules: {
       // Tailwind só no CSS global do app: com `as: "*.css"`, um *.module.css
