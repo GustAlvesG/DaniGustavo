@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { adminDashboardRoutes, adminMessageRoutes, adminSettingsRoutes } from "./content.ts";
 import { requireSession, sameOrigin, type AdminDeps, type AdminEnv } from "./context.ts";
 import { adminGiftRoutes, adminUploadRoutes } from "./gifts.ts";
+import { adminGuestListRoutes, adminImportRoutes } from "./guest-routes.ts";
 import { adminInvitationRoutes } from "./invitations.ts";
 import { adminOrderRoutes } from "./orders.ts";
 import { adminReminderRoutes } from "./reminders.ts";
@@ -22,6 +23,8 @@ export function adminRoutes(deps: AdminDeps) {
   app.use("*", sameOrigin(origins));
 
   app.route("/dashboard", adminDashboardRoutes(deps));
+  app.route("/invitations/import", adminImportRoutes(deps));
+  app.route("/invitations/lists", adminGuestListRoutes(deps));
   app.route("/invitations", adminInvitationRoutes(deps));
   app.route("/gifts", adminGiftRoutes(deps));
   app.route("/uploads", adminUploadRoutes(deps));

@@ -1,0 +1,51 @@
+﻿convite;lado;nome;tipo;faixa_etaria;telefone;email;acompanhante;max_pessoas;restricao_alimentar
+Família Andrade;Dani;Helena Andrade;adulto;;(24) 99811-2001;helena.andrade@exemplo.com;não;;
+Família Andrade;Dani;Roberto Andrade;adulto;;;;;;
+Família Andrade;Dani;Sofia Andrade;criança;8-12;;;;;
+Família Andrade;Dani;Theo Andrade;criança;3-7;;;;;Alergia a amendoim
+Vó Lourdes;Dani;Lourdes Pacheco;adulto;;(24) 99811-2002;;sim;;Diabética, sem açúcar
+Tia Márcia e tio Paulo;Dani;Márcia Pacheco;adulto;;(24) 99811-2003;marcia.pacheco@exemplo.com;não;;
+Tia Márcia e tio Paulo;Dani;Paulo Pacheco;adulto;;;;;;
+Família Brandão;Gustavo;Fernanda Brandão;adulto;;(21) 98722-3001;fe.brandao@exemplo.com;não;;Vegetariana
+Família Brandão;Gustavo;Diego Brandão;adulto;;;;;;
+Família Brandão;Gustavo;Alice Brandão;criança;0-2;;;;;
+Lucas Moreira;Gustavo;Lucas Moreira;adulto;;(21) 98722-3002;lucas.moreira@exemplo.com;sim;;
+Camila e Rafael Teixeira;Dani;Camila Teixeira;adulto;;(24) 99811-2004;;não;;Sem glúten (celíaca)
+Camila e Rafael Teixeira;Dani;Rafael Teixeira;adulto;;;;;;
+Família Cardoso;Gustavo;Patrícia Cardoso;adulto;;(21) 98722-3003;patricia.cardoso@exemplo.com;não;;
+Família Cardoso;Gustavo;Eduardo Cardoso;adulto;;;;;;
+Família Cardoso;Gustavo;Miguel Cardoso;criança;8-12;;;;;
+Família Cardoso;Gustavo;Laura Cardoso;criança;3-7;;;;;
+Família Cardoso;Gustavo;Davi Cardoso;criança;0-2;;;;;
+Bianca Lopes;Dani;Bianca Lopes;adulto;;(24) 99811-2005;bianca.lopes@exemplo.com;sim;;Vegana
+Padrinhos Renata e Igor;Dani;Renata Vasconcelos;adulto;;(24) 99811-2006;renata.v@exemplo.com;não;;
+Padrinhos Renata e Igor;Dani;Igor Vasconcelos;adulto;;;;;;Alergia a camarão
+Padrinhos Tiago e Luana;Gustavo;Tiago Ramalho;adulto;;(21) 98722-3004;tiago.ramalho@exemplo.com;não;;
+Padrinhos Tiago e Luana;Gustavo;Luana Ramalho;adulto;;;;;;
+Família Queiroz;Gustavo;Sérgio Queiroz;adulto;;(21) 98722-3005;;não;;
+Família Queiroz;Gustavo;Vera Queiroz;adulto;;;;;;Intolerância à lactose
+Família Queiroz;Gustavo;Gabriel Queiroz;adulto;;;;;;
+Amanda Fontes;Dani;Amanda Fontes;adulto;;(24) 99811-2007;amanda.fontes@exemplo.com;sim;;
+Família Mendes;Dani;Cláudia Mendes;adulto;;(24) 99811-2008;;não;;
+Família Mendes;Dani;Marcos Mendes;adulto;;;;;;
+Família Mendes;Dani;Beatriz Mendes;criança;8-12;;;;;
+João e Pedro Albano;Gustavo;João Albano;adulto;;(21) 98722-3006;joao.albano@exemplo.com;não;;
+João e Pedro Albano;Gustavo;Pedro Albano;adulto;;;;;;
+Colegas do escritório;Gustavo;Renan Siqueira;adulto;;(21) 98722-3007;;não;;
+Colegas do escritório;Gustavo;Larissa Prado;adulto;;;larissa.prado@exemplo.com;;;Vegetariana
+Colegas do escritório;Gustavo;Otávio Nunes;adulto;;;;;;
+Colegas do escritório;Gustavo;Priscila Dantas;adulto;;;;;;
+Família Rezende;Dani;Simone Rezende;adulto;;(24) 99811-2009;simone.rezende@exemplo.com;não;;
+Família Rezende;Dani;Antônio Rezende;adulto;;;;;;
+Família Rezende;Dani;Valentina Rezende;criança;3-7;;;;;
+Débora Castilho;Dani;Débora Castilho;adulto;;(24) 99811-2010;;sim;;
+Tio Henrique;Gustavo;Henrique Barreto;adulto;;(21) 98722-3008;;não;;Sem carne de porco
+Família Guimarães;Gustavo;Elisa Guimarães;adulto;;(21) 98722-3009;elisa.g@exemplo.com;não;;
+Família Guimarães;Gustavo;Rodrigo Guimarães;adulto;;;;;;
+Família Guimarães;Gustavo;Manuela Guimarães;criança;0-2;;;;;
+Nathália e Caio Freitas;Dani;Nathália Freitas;adulto;;(24) 99811-2011;nathalia.freitas@exemplo.com;não;;
+Nathália e Caio Freitas;Dani;Caio Freitas;adulto;;;;;;
+Família Pires;Gustavo;Juliana Pires;adulto;;(21) 98722-3010;juliana.pires@exemplo.com;não;4;
+Família Pires;Gustavo;André Pires;adulto;;;;;4;
+Família Pires;Gustavo;Heitor Pires;criança;8-12;;;;4;Alergia a ovo
+Rita Calado;Dani;Rita Calado;adulto;;(24) 99811-2012;rita.calado@exemplo.com;não;;
