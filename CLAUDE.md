@@ -14,7 +14,7 @@ Site de casamento de Dani & Gustavo: site público (convidados, RSVP, lista de p
 
 ## Estrutura
 
-- `apps/web/` site público (`src/app`; leia `apps/web/AGENTS.md` e `node_modules/next/dist/docs/`).
+- `apps/web/` site público (`src/app`; leia `apps/web/AGENTS.md` e `node_modules/next/dist/docs/`). Textos e fotos de apresentação em `src/content/` (`home.ts`, `galeria.ts`, `paginas.ts`), fotos em `public/fotos/`; guia em `docs/PERSONALIZAR.md`.
 - `apps/api/` API Hono (`src/app.ts`, `auth.ts`, `env.ts`, `middleware/`) e painel (`painel/`).
 - `packages/db/` schema, migrations, seed, `src/cli.ts`.
 - `docs/PROMPT.md` especificação; `.github/workflows/ci.yml`; `docker-compose.yml` (opcional); `.screenshots/` (ignorado pelo git).
@@ -56,6 +56,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Schema compatível com MariaDB 10.4 e MySQL 8: sem `serial`, coluna JSON customizada (parse na leitura), DATETIME(3) em UTC preenchido pelo app, varchar indexado ≤191.
 - Projeto em `C:\dev\casamento` (fora do OneDrive).
 - Web→API: Server Actions enviam `X-Web-Key` em não-GET `/api/*`; `/api/webhooks/*` e `/api/auth/*` são isentos. URL e chave da API nunca vão ao bundle do cliente.
+- Design "Álbum" (Proposta C): papel + tinta marinho, polaroids, cartões de fio duplo; tokens em `globals.css`, peças em `src/app/album.css`; revelações por `animation-timeline: view()` (sem JS), menu fixo de 72px com a data entrando ao rolar (IntersectionObserver).
 - Next 16: `cacheComponents: true` (dados de runtime sob Suspense ou em cache); Tailwind v4 via `@tailwindcss/turbopack` (sem postcss config); ESLint flat com `eslint` puro; `typecheck` = `next typegen && tsc --noEmit`.
 
 ## Fases
@@ -67,4 +68,5 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 - QR code na tela de 2FA exige dependência (`qrcode`): perguntar ao usuário.
 - O CI nunca rodou no GitHub (ainda sem remote).
-- Home do site ainda é um placeholder sem estilo (design é a Fase 1).
+- `gsap` e `@gsap/react` ficaram sem uso depois do design "Álbum" (Lenis roda sozinho): remover com o ok do usuário.
+- Lista de presentes ainda sem página pública: a seção da home mostra um aviso (`home.presentes.botoes` vazio).
