@@ -1,59 +1,68 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { Polaroid } from "@/components/album";
 import { PageTransition } from "@/components/site/PageTransition";
-import { SiteHeader } from "@/components/site/SiteHeader";
+import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
+import { galeria } from "@/content/galeria";
 import { getSite } from "@/lib/api/site";
+import { cx } from "@/lib/cx";
+import { foto } from "@/lib/fotos";
 
 export const metadata: Metadata = {
   title: "Galeria",
   description: "Fotos de Dani e Gustavo.",
 };
 
+const TILTS = ["r2", "r1", "r4", "r3", "r6", "r5"];
+
+/**
+ * Galeria: as fotos de content/galeria.ts como polaroids em colunas, cada
+ * uma na proporção do arquivo. Clicar abre a foto inteira numa nova aba.
+ * O aviso de "fotos oficiais em breve" é uma chave do banco.
+ */
 export default async function GalleryPage() {
-  const { gallery } = await getSite();
+  const site = await getSite();
   return (
     <PageTransition>
-      <SiteHeader band="onda" />
-      <main id="conteudo" className="section-space flex-1">
-        <div className="page-wrap page-grid gap-y-12">
-          <div className="lg:col-span-7">
-            <SectionHeading
-              as="h1"
-              id="galeria-titulo"
-              lead={
-                gallery.officialPhotosSoon
-                  ? "Por enquanto, o pré-wedding. As fotos oficiais chegam aqui em breve, depois do casamento."
-                  : undefined
-              }
-            >
-              Galeria
-            </SectionHeading>
-          </div>
-          {/* Colunas CSS: cada foto mantém a proporção. Clicar abre a foto inteira. */}
+      <SiteNav site={site} current="/galeria" />
+      <main id="conteudo" className="below-nav flex-1">
+        <div className="page-wrap section-space">
+          <SectionHeading
+            as="h1"
+            id="galeria-titulo"
+            rotulo="Do nosso álbum"
+            className="mx-auto mb-16 max-w-[640px] items-center text-center"
+            lead={site.gallery.officialPhotosSoon ? galeria.avisoPreWedding : undefined}
+          >
+            {galeria.titulo}
+          </SectionHeading>
           <ul
             aria-labelledby="galeria-titulo"
-            className="columns-1 gap-[calc(var(--grid-gap)+0.5rem)] sm:columns-2 lg:col-span-12 lg:columns-3"
+            className="columns-2 gap-[18px] sm:gap-[34px] lg:columns-3"
             data-gallery=""
           >
-            {gallery.items.map((photo, i) => (
-              <li key={photo.src} className="mb-[calc(var(--grid-gap)+0.5rem)] break-inside-avoid">
+            {galeria.fotos.map((f, i) => (
+              <li
+                key={f.arquivo}
+                className={cx(
+                  "mb-7 break-inside-avoid pt-3 sm:mb-10",
+                  i % 2 ? "assenta-d" : "assenta",
+                )}
+              >
                 <a
-                  href={photo.src}
+                  href={foto(f.arquivo).src}
                   target="_blank"
                   rel="noopener"
-                  className="block bg-noite outline-1 outline-offset-[5px] outline-line-soft"
-                  aria-label={`${photo.alt} (abre em nova aba)`}
+                  className="block"
+                  aria-label={`${f.alt} (abre em nova aba)`}
                 >
-                  <Image
-                    src={photo.src}
-                    alt={photo.alt}
-                    width={photo.width}
-                    height={photo.height}
-                    sizes="(min-width: 1024px) 30vw, (min-width: 640px) 50vw, 100vw"
-                    preload={i < 2}
-                    className="block h-auto w-full object-cover"
-                    style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+                  <Polaroid
+                    as="div"
+                    foto={f}
+                    formato="natural"
+                    legenda={f.legenda}
+                    sizes="(min-width: 1024px) 340px, 45vw"
+                    className={TILTS[i % TILTS.length]}
                   />
                 </a>
               </li>

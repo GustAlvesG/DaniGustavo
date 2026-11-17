@@ -6,7 +6,7 @@ import { ContactLinks } from "@/components/rsvp/ContactLinks";
 import { FormCard } from "@/components/rsvp/FormCard";
 import { RsvpForm } from "@/components/rsvp/RsvpForm";
 import { PageTransition } from "@/components/site/PageTransition";
-import { SiteHeader } from "@/components/site/SiteHeader";
+import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
 import { getSite } from "@/lib/api/site";
@@ -18,17 +18,18 @@ export const metadata = noindex({
 });
 
 /*
- * Página 100% por convidado (token na URL): não há casca estática útil. O menu
- * (usePathname) não pode ser pré-renderizado numa rota dinâmica, então a rota
- * aceita bloquear no pedido em vez de streamar a casca.
+ * Página 100% por convidado (token na URL): não há casca estática útil, então
+ * a rota aceita bloquear no pedido em vez de streamar a casca.
  */
 export const instant = false;
 
-export default function ConviteRoute({ params }: PageProps<"/c/[token]">) {
+export default async function ConviteRoute({ params }: PageProps<"/c/[token]">) {
+  // Cacheado ("use cache" em apiGet): não bloqueia por pedido.
+  const site = await getSite();
   return (
     <PageTransition>
-      <SiteHeader band="laco" />
-      <main id="conteudo" className="section-space flex-1" data-rsvp="">
+      <SiteNav site={site} />
+      <main id="conteudo" className="below-nav section-space flex-1" data-rsvp="">
         {/* `params` e a leitura do convite são dados de requisição: precisam ficar em <Suspense>. */}
         <Suspense fallback={<InvitationSkeleton />}>
           <InvitationView params={params} />
@@ -68,6 +69,7 @@ async function InvitationView({ params }: { params: PageProps<"/c/[token]">["par
       <div className="lg:col-span-5 lg:pt-16">
         <SectionHeading
           as="h1"
+          rotulo="Seu convite"
           lead={
             invitation.isClosed ? undefined : (
               <>

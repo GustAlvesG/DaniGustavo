@@ -6,7 +6,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useForm, useWatch } from "react-hook-form";
 import type { Invitation } from "@casamento/shared";
 import { submitRsvp, type RsvpActionResult } from "@/app/(site)/c/[token]/actions";
-import { Tile, type TileDesign } from "@/components/tiles";
 import { Button, ButtonLink, Radio, RadioGroup, TextField } from "@/components/ui";
 import {
   attendingCount,
@@ -36,7 +35,6 @@ const STEPS = ["Quem vai", "Detalhes", "Revisão"] as const;
 type StepIndex = 0 | 1 | 2;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const TILE_ROTATION: TileDesign[] = ["rosa", "flor", "estrela", "ramo", "onda", "monograma"];
 
 type Props = { token: string; invitation: Invitation };
 
@@ -432,10 +430,11 @@ function DoneStep({
                   delay: reduce ? 0 : 0.5 + i * 0.1,
                 }}
               >
-                <Tile
-                  design={TILE_ROTATION[i % TILE_ROTATION.length]!}
-                  size={44}
-                  className="rounded-full outline-1 outline-offset-2 outline-line-soft"
+                {/* Inicial do convidado num botão de papel (via CSS: não entra no texto). */}
+                <span
+                  aria-hidden="true"
+                  data-inicial={g.name.trim().charAt(0).toUpperCase()}
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-branco font-display text-xl text-tinta shadow-[inset_0_0_0_1px_rgb(27_42_74/0.18),inset_0_0_0_4px_#fff,inset_0_0_0_5px_rgb(27_42_74/0.32)] before:content-[attr(data-inicial)]"
                 />
                 <span className="text-lg text-ink">{g.name}</span>
               </motion.li>

@@ -1,20 +1,25 @@
-import { MonogramDG } from "@/components/brand";
-import { SiteHeader } from "@/components/site/SiteHeader";
+import { Polaroid } from "@/components/album";
+import { SiteNav } from "@/components/site/SiteNav";
 import { ButtonLink, SectionHeading } from "@/components/ui";
+import { paginas } from "@/content/paginas";
+import { getSite } from "@/lib/api/site";
 
 /** 404 do site (rotas que não existem e `notFound()` fora de /c/[token]). */
-export default function NotFound() {
+export default async function NotFound() {
+  const site = await getSite();
+  const { naoEncontrada } = paginas;
   return (
     <>
-      <SiteHeader band="onda" />
-      <main id="conteudo" className="section-space flex-1">
-        <div className="page-wrap page-grid items-center gap-y-14">
-          <div className="flex flex-col gap-10 lg:col-span-6">
+      <SiteNav site={site} />
+      <main id="conteudo" className="below-nav flex-1">
+        <div className="page-wrap page-grid section-space items-center gap-y-14">
+          <div className="flex flex-col gap-8 lg:col-span-6">
             <SectionHeading
               as="h1"
+              rotulo="Erro 404"
               lead="Esse endereço não existe no site. Confira o link ou volte para o início."
             >
-              Página não encontrada
+              Página <em>não encontrada</em>
             </SectionHeading>
             <div className="flex flex-wrap gap-3">
               <ButtonLink href="/" size="lg">
@@ -25,11 +30,13 @@ export default function NotFound() {
               </ButtonLink>
             </div>
           </div>
-          <div
-            aria-hidden="true"
-            className="card-marinho shape-arch mx-auto hidden aspect-[3/4] w-full max-w-[17rem] place-items-center [--arch-rise:37.5%] lg:col-span-4 lg:col-start-9 lg:grid"
-          >
-            <MonogramDG bold={6} className="w-[62%] text-ink" />
+          <div className="mx-auto w-[min(78%,20rem)] lg:col-span-4 lg:col-start-9">
+            <Polaroid
+              foto={naoEncontrada.foto}
+              sizes="320px"
+              legenda={naoEncontrada.legenda}
+              className="r4"
+            />
           </div>
         </div>
       </main>

@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import { LineIcon, MonogramDG, iconForText } from "@/components/brand";
 import { Swatches } from "@/components/home/Swatches";
 import { PageTransition } from "@/components/site/PageTransition";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { TileBand } from "@/components/tiles";
+import { SiteNav } from "@/components/site/SiteNav";
+import { FotoImg } from "@/components/album";
+import { paginas } from "@/content/paginas";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { getSite } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   description: "Traje, horários, missões e recados para madrinhas e padrinhos.",
 };
 
-const h2 = "font-display text-display-sm text-ink";
+const h2 = "titulo text-display-sm! m-0!";
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"] as const;
 const WEEKDAY_NAMES = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
@@ -45,9 +46,9 @@ function Block({
 
 /**
  * Manual dos padrinhos (docs/marca/manual-padrinhos.pdf), na linguagem do
- * manual do casal: arcos claros com moldura royal (madrinhas, padrinhos, a
- * data), uma cápsula (músicas e fotos), o arco marinho (para o grande dia) e
- * o versículo num selo no fim. Todo o texto vem de /api/site.
+ * álbum: foto no arco na capa, cartões de fio duplo (madrinhas, padrinhos,
+ * músicas e fotos), o arco marinho (para o grande dia) e o versículo num selo
+ * no fim. Todo o texto vem de /api/site; a foto da capa, de content/paginas.ts.
  */
 export default async function GodparentsPage() {
   const site = await getSite();
@@ -59,31 +60,36 @@ export default async function GodparentsPage() {
 
   return (
     <PageTransition>
-      <SiteHeader band="rosa" />
-      <main id="conteudo" className="flex-1">
+      <SiteNav site={site} current="/padrinhos" />
+      <main id="conteudo" className="below-nav flex-1">
         {/* Convite */}
         <section className="section-space" aria-labelledby="padrinhos-titulo">
           <div className="page-wrap page-grid items-center gap-y-14">
             <div className="lg:col-span-7">
-              <SectionHeading as="h1" id="padrinhos-titulo">
-                Manual dos padrinhos
+              <SectionHeading
+                as="h1"
+                id="padrinhos-titulo"
+                rotulo="Para quem vai ao altar com a gente"
+              >
+                Manual dos <em>padrinhos</em>
               </SectionHeading>
-              <p className="mt-8 max-w-[52ch] text-xl text-ink-soft">
+              <p className="mt-4 max-w-[52ch] text-xl text-ink-soft">
                 {g.invitation ??
                   "Obrigado por estar do nosso lado no altar. Aqui está o que combinar antes do dia."}
               </p>
             </div>
-            {/* A capa do manual: arco marinho com o DG na vertical. */}
-            <div
-              aria-hidden="true"
-              className="card-marinho shape-arch mx-auto grid aspect-[3/4] w-[min(70%,17rem)] place-items-center [--arch-rise:37.5%] lg:col-span-4 lg:col-start-9"
-            >
-              <MonogramDG vertical bold={6} className="w-[58%] text-ink" />
-            </div>
+            {/* A capa do manual: uma foto do casal no arco. */}
+            <figure className="arco r3 assenta w-[min(80%,22rem)] lg:col-span-4 lg:col-start-9">
+              <div className="relative aspect-[3/4.3]">
+                <FotoImg
+                  foto={paginas.padrinhos.foto}
+                  sizes="(max-width: 1024px) 80vw, 360px"
+                  fill
+                />
+              </div>
+            </figure>
           </div>
         </section>
-
-        <TileBand design="rosa" />
 
         {/* Traje: os dois cartões do manual lado a lado. */}
         <Block id="padrinhos-traje" title="O traje">
@@ -92,9 +98,9 @@ export default async function GodparentsPage() {
             {g.bridesmaids ? (
               <article
                 aria-labelledby="madrinhas"
-                className="surface-relevo card-relevo shape-arch flex flex-col items-center gap-5 px-7 pt-[clamp(4.5rem,18vw,7rem)] pb-10 text-center [--arch-rise:clamp(7rem,30vw,11rem)] sm:px-9"
+                className="cartao rv flex flex-col items-center gap-5 px-7! py-10! text-center sm:px-9!"
               >
-                <h3 id="madrinhas" className="font-display text-3xl text-ink">
+                <h3 id="madrinhas" className="font-display text-3xl font-medium text-ink">
                   Madrinhas
                 </h3>
                 <p className="max-w-[34ch] text-base text-ink-soft">{g.bridesmaids.text}</p>
@@ -104,7 +110,7 @@ export default async function GodparentsPage() {
                     className="block size-16 rounded-full outline-1 outline-offset-4 outline-line-soft"
                     style={{ backgroundColor: g.bridesmaids.inspiration.hex }}
                   />
-                  <p className="text-sm text-ink-soft">Inspiração</p>
+                  <p className="rotulo">Inspiração</p>
                   <p className="font-display text-2xl text-ink">{g.bridesmaids.inspiration.name}</p>
                 </div>
               </article>
@@ -112,9 +118,9 @@ export default async function GodparentsPage() {
             {g.groomsmen ? (
               <article
                 aria-labelledby="padrinhos-cartao"
-                className="surface-relevo card-relevo shape-arch flex flex-col items-center gap-5 px-7 pt-[clamp(4.5rem,18vw,7rem)] pb-10 text-center [--arch-rise:clamp(7rem,30vw,11rem)] sm:px-9"
+                className="cartao rv flex flex-col items-center gap-5 px-7! py-10! text-center sm:px-9!"
               >
-                <h3 id="padrinhos-cartao" className="font-display text-3xl text-ink">
+                <h3 id="padrinhos-cartao" className="font-display text-3xl font-medium text-ink">
                   Padrinhos
                 </h3>
                 <p className="max-w-[34ch] text-base text-ink-soft">{g.groomsmen.text}</p>
@@ -126,19 +132,18 @@ export default async function GodparentsPage() {
           </div>
           {showPalette && g.palette.length ? (
             <div className="lg:col-span-8">
-              <h3 className="mb-6 text-lg font-medium text-ink">Paleta</h3>
+              <h3 className="rotulo mb-6">Paleta</h3>
               <Swatches colors={g.palette} label="Paleta dos padrinhos" />
             </div>
           ) : null}
         </Block>
 
         {/* Data e horários */}
-        <div className="surface-relevo">
-          <TileBand design="estrela" />
+        <div className="surface-areia">
           <Block id="padrinhos-horarios" title="Guarde a data">
             <div className="lg:col-span-5">
               <p className="flex items-end gap-5 text-ink">
-                <span className="font-display text-display-lg leading-[0.8] tabular-nums">
+                <span className="font-display text-[clamp(4.5rem,10vw,7rem)] leading-[0.8] tabular-nums">
                   {cal.day}
                 </span>
                 <span className="pb-1 text-xl leading-tight">
@@ -158,7 +163,7 @@ export default async function GodparentsPage() {
                         key={i}
                         scope="col"
                         abbr={WEEKDAY_NAMES[i]}
-                        className="pb-3 text-sm font-medium text-ink-soft"
+                        className="pb-3 font-sans text-xs font-medium text-ink-soft"
                       >
                         {d}
                       </th>
@@ -203,23 +208,22 @@ export default async function GodparentsPage() {
         {/* Missões */}
         {g.missions?.length ? (
           <>
-            <TileBand design="trama" />
             <Block id="padrinhos-missoes" title="Missões">
               <ul className="grid gap-x-[var(--grid-gap)] gap-y-12 sm:grid-cols-2 lg:col-span-12 lg:grid-cols-3">
                 {g.missions.map((m) => (
-                  <li key={m.title} className="flex gap-5">
-                    <span className="grid size-14 shrink-0 place-items-center rounded-full border-[1.5px] border-line text-accent">
+                  <li key={m.title} className="rv flex gap-5">
+                    <span className="grid size-14 shrink-0 place-items-center rounded-full bg-branco text-tinta shadow-[inset_0_0_0_1px_rgb(27_42_74/0.18),inset_0_0_0_4px_#fff,inset_0_0_0_5px_rgb(27_42_74/0.32)]">
                       <LineIcon name={iconForText(m.title)} className="size-7" />
                     </span>
                     <div className="flex flex-col gap-1.5 pt-1">
-                      <h3 className="text-lg font-medium text-ink">{m.title}</h3>
+                      <h3 className="text-xl font-medium text-ink">{m.title}</h3>
                       <p className="text-base text-ink-soft">{m.text}</p>
                     </div>
                   </li>
                 ))}
               </ul>
               {g.missionsClosing ? (
-                <p className="font-display text-display-sm text-ink lg:col-span-10">
+                <p className="font-display text-display-sm text-ink italic lg:col-span-10">
                   {g.missionsClosing}
                 </p>
               ) : null}
@@ -231,7 +235,7 @@ export default async function GodparentsPage() {
         {g.music ? (
           <section className="pb-[var(--section-space)]" aria-labelledby="padrinhos-musica">
             <div className="page-wrap">
-              <div className="surface-relevo card-relevo grid gap-10 rounded-[2.5rem] px-7 py-12 sm:px-12 lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,5fr)] lg:items-center lg:gap-12 lg:rounded-full lg:px-24 lg:py-16">
+              <div className="cartao rv grid gap-10 px-7! py-12! sm:px-12! lg:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,5fr)] lg:items-center lg:gap-12 lg:px-16! lg:py-14!">
                 <h2 id="padrinhos-musica" className={h2}>
                   Músicas e fotos
                 </h2>
@@ -272,7 +276,7 @@ export default async function GodparentsPage() {
         {g.bigDay?.length || g.notes.length ? (
           <section className="pb-[var(--section-space)]" aria-labelledby="padrinhos-dia">
             <div className="page-wrap page-grid">
-              <div className="card-marinho shape-arch flex flex-col items-center px-7 pt-[clamp(5rem,20vw,8rem)] pb-14 text-center [--arch-rise:clamp(8rem,34vw,16rem)] sm:px-12 lg:col-span-8 lg:col-start-3">
+              <div className="surface-marinho arco-escuro rv flex flex-col items-center px-7 pt-[clamp(5rem,20vw,8rem)] pb-14 text-center sm:px-12 lg:col-span-8 lg:col-start-3">
                 <h2 id="padrinhos-dia" className={h2}>
                   Para o grande dia
                 </h2>
