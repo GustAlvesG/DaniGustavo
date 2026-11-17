@@ -269,7 +269,7 @@ Hero no celular:
 
 ## 8. Painel dos noivos (Filament)
 
-- Login só para dois usuários (seeder com e-mails do `.env`), com 2FA.
+- Login só para dois usuários (seeder com e-mails do `.env`), com e-mail e senha (2FA removido por decisão do casal).
 - **Dashboard:** confirmados, pendentes e recusados; adultos e crianças por faixa; total arrecadado bruto e líquido; últimos presentes com mensagem.
 - **Recursos:** Convites (com convidados), Presentes, Pedidos (somente leitura + reembolso), Recados (aprovar), Configurações (textos, datas, locais, prazo do RSVP, taxa).
 - **Ações:** importar convidados (CSV/XLSX); gerar QR dos convites em lote (PDF para impressão); botão "Enviar no WhatsApp" (link `wa.me` com mensagem e link do convite); exportar listas para buffet, cerimonial e portaria, com restrições alimentares.

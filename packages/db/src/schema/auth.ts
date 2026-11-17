@@ -1,7 +1,7 @@
-import { boolean, index, int, mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
 import { createdAt, updatedAt, utcDatetime } from "./columns.ts";
 
-// Tabelas do Better Auth (core + plugin twoFactor). As chaves das propriedades seguem os
+// Tabelas do Better Auth (só o core: login por e-mail e senha, sem 2FA). As chaves das propriedades seguem os
 // nomes de campo do Better Auth; as colunas no banco usam snake_case.
 // varchar(191) em colunas indexadas: cabe no limite de índice do utf8mb4 em qualquer formato.
 
@@ -11,7 +11,6 @@ export const user = mysqlTable("user", {
   email: varchar("email", { length: 191 }).notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  twoFactorEnabled: boolean("two_factor_enabled").default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -66,21 +65,4 @@ export const verification = mysqlTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
-);
-
-export const twoFactor = mysqlTable(
-  "two_factor",
-  {
-    id: varchar("id", { length: 36 }).primaryKey(),
-    // Segredo cifrado pelo Better Auth; TEXT porque o tamanho varia (sem índice).
-    secret: text("secret").notNull(),
-    backupCodes: text("backup_codes").notNull(),
-    userId: varchar("user_id", { length: 36 })
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    verified: boolean("verified").default(true),
-    failedVerificationCount: int("failed_verification_count").default(0),
-    lockedUntil: utcDatetime("locked_until"),
-  },
-  (t) => [index("two_factor_user_id_idx").on(t.userId)],
 );

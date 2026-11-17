@@ -207,35 +207,6 @@ h2 {
   gap: 24px;
 }
 
-.steps {
-  margin: 0;
-  padding-left: 1.2rem;
-  line-height: 1.5;
-}
-
-.uri {
-  color: var(--cobalto);
-  font-weight: 600;
-}
-
-.secret code,
-.codes {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
-
-.secret {
-  margin: 0;
-  word-break: break-all;
-}
-
-.codes {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 6px;
-  padding: 0;
-  list-style: none;
-}
-
 @media (min-width: 768px) {
   .topbar {
     padding: 16px 32px;

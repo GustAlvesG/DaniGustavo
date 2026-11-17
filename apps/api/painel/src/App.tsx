@@ -10,18 +10,6 @@ function describeError(error: AuthError): string {
   switch (error.code) {
     case "INVALID_EMAIL_OR_PASSWORD":
       return "E-mail ou senha incorretos. Confira os dados e tente de novo.";
-    case "INVALID_PASSWORD":
-      return "Senha incorreta. Digite a mesma senha que você usa para entrar.";
-    case "INVALID_CODE":
-    case "OTP_HAS_EXPIRED":
-      return "Código inválido ou expirado. Digite o código que aparece agora no app autenticador.";
-    case "ACCOUNT_TEMPORARILY_LOCKED":
-    case "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE":
-      return "Muitas tentativas com código errado. Aguarde alguns minutos e entre de novo.";
-    case "INVALID_TWO_FACTOR_COOKIE":
-      return "A etapa de verificação expirou. Entre com e-mail e senha de novo.";
-    case "TOTP_ALREADY_ENABLED":
-      return "A verificação em duas etapas já está ativa nesta conta.";
   }
   if (error.status === undefined || error.status === 0)
     return "Sem conexão com a API. Verifique se o servidor está rodando e tente de novo.";
@@ -30,8 +18,7 @@ function describeError(error: AuthError): string {
 
 export function App() {
   const { data, isPending } = authClient.useSession();
-  // O Better Auth refaz a busca da sessão após o login; mostrar "Carregando…" de novo
-  // desmontaria o formulário e perderia a etapa do código. Só na primeira carga.
+  // O Better Auth refaz a busca da sessão após o login; o "Carregando…" só na primeira carga.
   const [loaded, setLoaded] = useState(false);
   if (!isPending && !loaded) setLoaded(true);
 
@@ -56,109 +43,56 @@ function Brand() {
 }
 
 function Login() {
-  const [step, setStep] = useState<"password" | "totp">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function onPassword(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { data, error } = await authClient.signIn.email({ email, password });
+    const { error } = await authClient.signIn.email({ email, password });
     setBusy(false);
-    if (error) return setError(describeError(error));
-    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) setStep("totp");
-  }
-
-  async function onTotp(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { error } = await authClient.twoFactor.verifyTotp({ code: code.replace(/\s/g, "") });
-    setBusy(false);
-    if (error) {
-      if (error.code === "INVALID_TWO_FACTOR_COOKIE") setStep("password");
-      return setError(describeError(error));
-    }
+    if (error) setError(describeError(error));
   }
 
   return (
     <main className="shell shell--center">
       <section className="card card--narrow">
         <Brand />
-        {step === "password" ? (
-          <form onSubmit={onPassword} className="form">
-            <h1>Entrar no painel</h1>
-            <p className="muted">Acesso só para os noivos.</p>
-            <label className="field">
-              <span>E-mail</span>
-              <input
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Senha</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            <button className="button" type="submit" disabled={busy}>
-              {busy ? "Entrando…" : "Entrar"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={onTotp} className="form">
-            <h1>Verificação em duas etapas</h1>
-            <p className="muted">Digite o código de 6 dígitos do seu app autenticador.</p>
-            <label className="field">
-              <span>Código</span>
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9 ]{6,7}"
-                required
-                autoFocus
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
-            </label>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            <button className="button" type="submit" disabled={busy}>
-              {busy ? "Verificando…" : "Verificar"}
-            </button>
-            <button
-              className="button button--ghost"
-              type="button"
-              onClick={() => {
-                setStep("password");
-                setCode("");
-                setError(null);
-              }}
-            >
-              Voltar
-            </button>
-          </form>
-        )}
+        <form onSubmit={onSubmit} className="form">
+          <h1>Entrar no painel</h1>
+          <p className="muted">Acesso só para os noivos.</p>
+          <label className="field">
+            <span>E-mail</span>
+            <input
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Senha</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="button" type="submit" disabled={busy}>
+            {busy ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
       </section>
     </main>
   );
@@ -167,7 +101,6 @@ function Login() {
 interface PanelUser {
   name: string;
   email: string;
-  twoFactorEnabled?: boolean | null;
 }
 
 function Dashboard({ user }: { user: PanelUser }) {
@@ -197,136 +130,7 @@ function Dashboard({ user }: { user: PanelUser }) {
         <p className="muted">
           O painel completo (convidados, presentes, pedidos e recados) chega nas próximas fases.
         </p>
-        <TwoFactorSection enabled={Boolean(user.twoFactorEnabled)} />
       </main>
     </div>
-  );
-}
-
-/** Extrai o segredo do otpauth:// para digitação manual. */
-function secretFromUri(uri: string): string {
-  try {
-    const secret = new URL(uri).searchParams.get("secret") ?? "";
-    return secret.replace(/(.{4})/g, "$1 ").trim();
-  } catch {
-    return "";
-  }
-}
-
-function TwoFactorSection({ enabled }: { enabled: boolean }) {
-  const [password, setPassword] = useState("");
-  const [setup, setSetup] = useState<{ totpURI: string; backupCodes: string[] } | null>(null);
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-
-  if (enabled || done) {
-    return (
-      <section className="card">
-        <h2>Verificação em duas etapas</h2>
-        <p className="success">Verificação em duas etapas ativa.</p>
-        {setup && (
-          <>
-            <p className="muted">
-              Guarde estes códigos de recuperação num lugar seguro. Cada um funciona uma vez, se
-              você perder o celular.
-            </p>
-            <ul className="codes">
-              {setup.backupCodes.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
-    );
-  }
-
-  async function onEnable(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { data, error } = await authClient.twoFactor.enable({ password, method: "totp" });
-    setBusy(false);
-    if (error || !data || data.method !== "totp") return setError(describeError(error));
-    setSetup({ totpURI: data.totpURI, backupCodes: data.backupCodes });
-    setPassword("");
-  }
-
-  async function onVerify(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const { error } = await authClient.twoFactor.verifyTotp({ code: code.replace(/\s/g, "") });
-    setBusy(false);
-    if (error) return setError(describeError(error));
-    setDone(true);
-  }
-
-  return (
-    <section className="card">
-      <h2>Verificação em duas etapas</h2>
-      {!setup ? (
-        <form onSubmit={onEnable} className="form">
-          <p className="muted">
-            Proteja o acesso com um código do app autenticador (Google Authenticator, 1Password,
-            Authy…). Confirme sua senha para começar.
-          </p>
-          <label className="field">
-            <span>Senha</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
-            {busy ? "Preparando…" : "Ativar verificação"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={onVerify} className="form">
-          <ol className="steps">
-            <li>
-              No celular, toque no link abaixo ou adicione a conta manualmente no app autenticador
-              com a chave.
-            </li>
-            <li>Digite o código de 6 dígitos que o app mostrar.</li>
-          </ol>
-          <a className="uri" href={setup.totpURI}>
-            Abrir no app autenticador
-          </a>
-          <p className="secret">
-            <span className="muted">Chave:</span> <code>{secretFromUri(setup.totpURI)}</code>
-          </p>
-          <label className="field">
-            <span>Código</span>
-            <input
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
-            {busy ? "Verificando…" : "Confirmar código"}
-          </button>
-        </form>
-      )}
-    </section>
   );
 }

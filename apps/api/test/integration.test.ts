@@ -57,6 +57,19 @@ describe("Better Auth", () => {
     expect(res.status).toBe(401);
   });
 
+  it("limita o login a 5 tentativas por minuto por IP", async () => {
+    const attempt = () =>
+      app.request("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Forwarded-For": "203.0.113.77" },
+        body: JSON.stringify({ email: "ninguem@exemplo.com", password: "senha-errada-123" }),
+      });
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) statuses.push((await attempt()).status);
+    expect(statuses.slice(0, 5).every((s) => s === 401)).toBe(true);
+    expect(statuses[5]).toBe(429);
+  });
+
   it.runIf(process.env.ADMIN_EMAIL_1 && process.env.ADMIN_PASSWORD_INICIAL)(
     "faz login com um admin do seed",
     async () => {
@@ -69,9 +82,9 @@ describe("Better Auth", () => {
         }),
       });
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { twoFactorRedirect?: boolean; user?: unknown };
-      // Sem 2FA: devolve o usuário e o cookie de sessão. Com 2FA: pede o código.
-      expect(body.twoFactorRedirect === true || body.user !== undefined).toBe(true);
+      const body = (await res.json()) as { user?: unknown };
+      // Sem 2FA: e-mail e senha bastam; devolve o usuário e o cookie de sessão.
+      expect(body.user).toBeDefined();
       expect(res.headers.get("set-cookie")).toBeTruthy();
     },
   );

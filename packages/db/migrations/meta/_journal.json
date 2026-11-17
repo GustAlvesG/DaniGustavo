@@ -15,6 +15,13 @@
       "when": 1794840190359,
       "tag": "0001_rsvp_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794943474808,
+      "tag": "0002_remove_2fa",
+      "breakpoints": true
     }
   ]
 }

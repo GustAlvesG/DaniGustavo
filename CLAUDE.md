@@ -8,7 +8,7 @@ Site de casamento de Dani & Gustavo: site público (convidados, RSVP, lista de p
 
 - Monorepo pnpm 12 (`pnpm-workspace.yaml`), Node 24 (roda `.ts` direto, sem build com tsc).
 - `apps/web`: Next.js 16.4.6, React 19.3.0, Tailwind 4.3.3, Vitest 5 + Playwright 1.65.
-- `apps/api`: Hono 4.13 (@hono/node-server), Better Auth 1.7 (e-mail+senha + 2FA TOTP), Zod 4, painel React + Vite 8 em `/painel`.
+- `apps/api`: Hono 4.13 (@hono/node-server), Better Auth 1.7 (só e-mail+senha, sem 2FA; rate limit no login), Zod 4, painel React + Vite 8 em `/painel`.
 - `packages/db` (`@casamento/db`): Drizzle ORM 0.45 + mysql2 3.24 + drizzle-kit 0.31, migrations e seed.
 - Banco: MariaDB 10.4 (XAMPP) em dev, MySQL 8 no CI. TypeScript 5.9, ESLint 9 (flat), Prettier 3.
 
@@ -49,7 +49,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 ## Decisões (substituem PROMPT.md §3 e §6-8 onde houver conflito)
 
-- Sem PHP: Laravel/Filament/Pest/dx-php foram trocados por `apps/api` (Hono + Better Auth, cadastro desativado, 2FA TOTP) e `packages/db` (Drizzle).
+- Sem PHP: Laravel/Filament/Pest/dx-php foram trocados por `apps/api` (Hono + Better Auth, cadastro desativado, sem 2FA por decisão do casal) e `packages/db` (Drizzle).
 - Painel próprio em React+Vite servido em `/painel`; em dev: `vite build --watch` + `node --watch`, sem HMR (atualizar a página).
 - Mercado Pago via SDK oficial para Node (confirmar na Fase 4).
 - Sem Docker local: dev usa MariaDB do XAMPP; `docker-compose.yml` é opcional; CI usa MySQL 8.
@@ -66,7 +66,6 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 ## Pendências
 
-- QR code na tela de 2FA exige dependência (`qrcode`): perguntar ao usuário.
 - O CI nunca rodou no GitHub (ainda sem remote).
 - `gsap` e `@gsap/react` ficaram sem uso depois do design "Álbum" (Lenis roda sozinho): remover com o ok do usuário.
 - Lista de presentes ainda sem página pública: a seção da home mostra um aviso (`home.presentes.botoes` vazio).
