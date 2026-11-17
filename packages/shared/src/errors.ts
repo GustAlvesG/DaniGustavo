@@ -6,6 +6,12 @@ export const ERROR_CODES = {
   notFound: "not_found",
   invalidRequest: "invalid_request",
   rsvpClosed: "rsvp_closed",
+  /** Não há cotas suficientes do presente (vendidas ou reservadas). */
+  giftUnavailable: "gift_unavailable",
+  /** O pedido não está mais pendente (pago, expirado...). */
+  orderNotPending: "order_not_pending",
+  /** O provedor de pagamento falhou ou recusou a cobrança. */
+  paymentFailed: "payment_failed",
   tooManyRequests: "too_many_requests",
   internalError: "internal_error",
 } as const;
