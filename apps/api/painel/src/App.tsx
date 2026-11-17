@@ -1,26 +1,88 @@
-import { useState, type FormEvent } from "react";
-import { authClient } from "./auth-client.ts";
+import { useEffect, useState, type FormEvent } from "react";
+import { SESSION_EXPIRED } from "./api.ts";
+import { authClient, describeError } from "./auth-client.ts";
+import { Configuracoes } from "./pages/Configuracoes.tsx";
+import { Conta } from "./pages/Conta.tsx";
+import { ConviteDetalhe, ConviteForm, Convites } from "./pages/Convites.tsx";
+import { Dashboard } from "./pages/Dashboard.tsx";
+import { Pedidos } from "./pages/Pedidos.tsx";
+import { Presentes } from "./pages/Presentes.tsx";
+import { Recados } from "./pages/Recados.tsx";
+import { ToastProvider } from "./ui.tsx";
 
-type AuthError = { code?: string; status?: number; message?: string } | null | undefined;
+/* ------------------------------------------------------------------------ */
+/* Rotas por hash (#/convites/12): sem roteador, o servidor só entrega index */
+/* ------------------------------------------------------------------------ */
 
-/** Traduz erros do Better Auth: diz o que houve e como resolver. */
-function describeError(error: AuthError): string {
-  if (!error) return "Algo deu errado. Tente de novo.";
-  if (error.status === 429) return "Muitas tentativas seguidas. Aguarde um minuto e tente de novo.";
-  switch (error.code) {
-    case "INVALID_EMAIL_OR_PASSWORD":
-      return "E-mail ou senha incorretos. Confira os dados e tente de novo.";
-  }
-  if (error.status === undefined || error.status === 0)
-    return "Sem conexão com a API. Verifique se o servidor está rodando e tente de novo.";
-  return `Não foi possível concluir (${error.message ?? "erro desconhecido"}). Tente de novo.`;
+function useHashPath(): string {
+  const read = () => window.location.hash.replace(/^#/, "") || "/";
+  const [path, setPath] = useState(read);
+  useEffect(() => {
+    const on = () => {
+      setPath(read());
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  return path;
 }
 
+const NAV = [
+  { href: "/", label: "Início" },
+  { href: "/convites", label: "Convites" },
+  { href: "/presentes", label: "Presentes" },
+  { href: "/pedidos", label: "Pedidos" },
+  { href: "/recados", label: "Recados" },
+  { href: "/configuracoes", label: "Configurações" },
+];
+
+function Page({ path }: { path: string }) {
+  const parts = path.split("/").filter(Boolean);
+  const [section, id, extra] = parts;
+  switch (section) {
+    case undefined:
+      return <Dashboard />;
+    case "convites":
+      if (id === "novo") return <ConviteForm />;
+      if (id && extra === "editar") return <ConviteForm id={Number(id)} />;
+      if (id) return <ConviteDetalhe id={Number(id)} />;
+      return <Convites />;
+    case "presentes":
+      return <Presentes />;
+    case "pedidos":
+      return <Pedidos openId={id} />;
+    case "recados":
+      return <Recados />;
+    case "configuracoes":
+      return <Configuracoes />;
+    case "conta":
+      return <Conta />;
+    default:
+      return (
+        <div className="stack">
+          <h1>Página não encontrada</h1>
+          <a href="#/">Voltar ao início</a>
+        </div>
+      );
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* App                                                                       */
+/* ------------------------------------------------------------------------ */
+
 export function App() {
-  const { data, isPending } = authClient.useSession();
+  const { data, isPending, refetch } = authClient.useSession();
   // O Better Auth refaz a busca da sessão após o login; o "Carregando…" só na primeira carga.
   const [loaded, setLoaded] = useState(false);
   if (!isPending && !loaded) setLoaded(true);
+
+  useEffect(() => {
+    const on = () => void refetch();
+    window.addEventListener(SESSION_EXPIRED, on);
+    return () => window.removeEventListener(SESSION_EXPIRED, on);
+  }, [refetch]);
 
   if (!loaded) {
     return (
@@ -30,14 +92,76 @@ export function App() {
     );
   }
 
-  return data ? <Dashboard user={data.user} /> : <Login />;
+  return data ? (
+    <ToastProvider>
+      <Shell user={data.user} />
+    </ToastProvider>
+  ) : (
+    <Login />
+  );
 }
 
 function Brand() {
   return (
-    <div className="brand" aria-label="Dani e Gustavo">
-      <span className="brand__mark">D&nbsp;&amp;&nbsp;G</span>
+    <a className="brand" href="#/" aria-label="Painel Dani e Gustavo, início">
+      <span className="brand__mark" aria-hidden="true">
+        D&nbsp;&amp;&nbsp;G
+      </span>
       <span className="brand__label">Painel</span>
+    </a>
+  );
+}
+
+function Shell({ user }: { user: { name: string; email: string } }) {
+  const path = useHashPath();
+  const section = `/${path.split("/")[1] ?? ""}`;
+  const [signingOut, setSigningOut] = useState(false);
+  // No celular o menu rola de lado: mantém a seção atual à vista.
+  useEffect(() => {
+    document
+      .querySelector('.nav a[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [section]);
+
+  return (
+    <div className="app">
+      <a className="skip" href="#conteudo">
+        Pular para o conteúdo
+      </a>
+      <header className="topbar">
+        <Brand />
+        <div className="topbar__user">
+          <a href="#/conta" className="topbar__name" title={user.email}>
+            {user.name}
+          </a>
+          <button
+            className="button button--ghost button--small"
+            disabled={signingOut}
+            onClick={async () => {
+              setSigningOut(true);
+              await authClient.signOut();
+              setSigningOut(false);
+              window.location.hash = "/";
+            }}
+          >
+            Sair
+          </button>
+        </div>
+      </header>
+      <nav className="nav" aria-label="Seções do painel">
+        <ul>
+          {NAV.map((item) => (
+            <li key={item.href}>
+              <a href={`#${item.href}`} aria-current={section === item.href ? "page" : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <main className="content" id="conteudo" tabIndex={-1}>
+        <Page path={path} />
+      </main>
     </div>
   );
 }
@@ -60,12 +184,14 @@ function Login() {
   return (
     <main className="shell shell--center">
       <section className="card card--narrow">
-        <Brand />
-        <form onSubmit={onSubmit} className="form">
+        <div className="login-brand" aria-hidden="true">
+          <span className="brand__mark">D&nbsp;&amp;&nbsp;G</span>
+        </div>
+        <form onSubmit={onSubmit} className="stack">
           <h1>Entrar no painel</h1>
           <p className="muted">Acesso só para os noivos.</p>
           <label className="field">
-            <span>E-mail</span>
+            <span className="field__label">E-mail</span>
             <input
               type="email"
               autoComplete="username"
@@ -75,7 +201,7 @@ function Login() {
             />
           </label>
           <label className="field">
-            <span>Senha</span>
+            <span className="field__label">Senha</span>
             <input
               type="password"
               autoComplete="current-password"
@@ -85,52 +211,15 @@ function Login() {
             />
           </label>
           {error && (
-            <p className="error" role="alert">
+            <p className="alert alert--error" role="alert">
               {error}
             </p>
           )}
-          <button className="button" type="submit" disabled={busy}>
+          <button className="button button--block" type="submit" disabled={busy}>
             {busy ? "Entrando…" : "Entrar"}
           </button>
         </form>
       </section>
     </main>
-  );
-}
-
-interface PanelUser {
-  name: string;
-  email: string;
-}
-
-function Dashboard({ user }: { user: PanelUser }) {
-  const [signingOut, setSigningOut] = useState(false);
-
-  return (
-    <div className="shell">
-      <header className="topbar">
-        <Brand />
-        <div className="topbar__user">
-          <span className="topbar__email">{user.email}</span>
-          <button
-            className="button button--ghost button--small"
-            disabled={signingOut}
-            onClick={async () => {
-              setSigningOut(true);
-              await authClient.signOut();
-              setSigningOut(false);
-            }}
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-      <main className="content">
-        <h1>Olá, {user.name}</h1>
-        <p className="muted">
-          O painel completo (convidados, presentes, pedidos e recados) chega nas próximas fases.
-        </p>
-      </main>
-    </div>
   );
 }
