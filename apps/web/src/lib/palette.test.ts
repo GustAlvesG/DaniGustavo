@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { contrastRatio } from "./contrast";
 import { CONTRAST_PAIRS, PALETTE, minimumRatio } from "./palette";
 
-describe("paleta do casal (WCAG 2.2 AA)", () => {
+describe("paleta do álbum (WCAG 2.2 AA)", () => {
   it.each(CONTRAST_PAIRS.map((p) => [`${p.fg} sobre ${p.bg} (${p.role})`, p] as const))(
     "%s",
     (_, pair) => {
@@ -14,15 +14,13 @@ describe("paleta do casal (WCAG 2.2 AA)", () => {
   );
 
   it("confere as razões principais", () => {
-    expect(contrastRatio(PALETTE.branco, PALETTE.marinho)).toBeCloseTo(15.15, 1);
-    expect(contrastRatio(PALETTE.celeste, PALETTE.marinho)).toBeCloseTo(9.63, 1);
-    expect(contrastRatio(PALETTE.serenity, PALETTE.marinho)).toBeCloseTo(6.31, 1);
-    expect(contrastRatio(PALETTE.marinho, PALETTE.relevo)).toBeCloseTo(14.27, 1);
-    expect(contrastRatio(PALETTE.coral, PALETTE.marinho)).toBeGreaterThan(8);
+    expect(contrastRatio(PALETTE.tinta, PALETTE.papel)).toBeGreaterThan(13);
+    expect(contrastRatio(PALETTE.suave, PALETTE.papel)).toBeGreaterThan(6.5);
+    expect(contrastRatio(PALETTE.branco, PALETTE.marinho)).toBeGreaterThan(15);
   });
 
-  it("royal não serve de texto sobre o marinho (só moldura sobre o claro)", () => {
-    expect(contrastRatio(PALETTE.royal, PALETTE.marinho)).toBeLessThan(3);
+  it("serenity não serve de texto sobre o papel (só fita, pontos e acento)", () => {
+    expect(contrastRatio(PALETTE.serenity, PALETTE.papel)).toBeLessThan(3);
   });
 
   it("globals.css usa os mesmos valores", () => {

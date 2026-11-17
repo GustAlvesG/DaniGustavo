@@ -9,7 +9,7 @@ export type ButtonProps = ComponentProps<"button"> &
     /**
      * Ação em andamento: marca aria-busy, ignora cliques e envios (inclusive
      * Enter num campo do formulário) sem tirar o foco do botão, e mostra um
-     * pequeno ladrilho girando no lugar do texto (o texto continua para o
+     * pequeno arco girando no lugar do texto (o texto continua para o
      * leitor de tela).
      */
     loading?: boolean;
@@ -52,20 +52,20 @@ export function Button({
   );
 }
 
-/** Indicador de carregamento: um ladrilho que gira de 90 em 90 graus. */
+/** Indicador de carregamento: um arco que gira. */
 function LoadingTile() {
   return (
     <span aria-hidden="true" className="absolute inset-0 grid place-items-center">
       <svg
         viewBox="0 0 20 20"
-        className="size-5 animate-tile-turn"
+        className="size-5 animate-spin-slow"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.6"
+        strokeLinecap="round"
       >
-        <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="0.5" />
-        <path d="M11.75 2.75A9 9 0 0 1 2.75 11.75" />
-        <path d="M8.25 17.25A9 9 0 0 1 17.25 8.25" />
+        <circle cx="10" cy="10" r="7.25" opacity="0.25" />
+        <path d="M10 2.75a7.25 7.25 0 0 1 7.25 7.25" />
       </svg>
     </span>
   );

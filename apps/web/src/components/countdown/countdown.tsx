@@ -7,32 +7,29 @@ import {
   countdownPhase,
   describeCountdown,
   diffParts,
-  formatWeddingDate,
   msUntilNextSecond,
   pad2,
   unitLabel,
   type CountdownUnit,
 } from "@/lib/countdown";
+import styles from "./countdown.module.css";
 
 export type CountdownProps = {
   /** Instante do casamento, com fuso (ex.: "2027-04-10T16:00:00-03:00"). */
   target: string;
+  /** Linha acima dos números (ex.: "Faltam para o nosso sim"). */
+  title: string;
+  /** Mensagem no dia do casamento, depois do horário. */
+  todayMessage: string;
+  /** Mensagem a partir do dia seguinte. */
+  afterMessage: string;
   /**
-   * Relógio controlado (ms desde a época). Sem ele, o componente usa o
-   * relógio do aparelho e atualiza a cada virada de segundo. Com ele, a
-   * página /dev/design pode avançar o tempo e ver os dígitos rolarem.
+   * Relógio controlado (ms desde a época), para testes e prévias. Sem ele, o
+   * componente usa o relógio do aparelho e atualiza a cada virada de segundo.
    */
   now?: number;
-  /** Mensagem no dia do casamento, depois do horário. */
-  todayMessage?: string;
-  /** Mensagem a partir do dia seguinte. Padrão: "Casamos em 10 de abril de 2027." */
-  afterMessage?: string;
-  /** Tamanho dos números: "sm" (padrão, display-sm) ou "md" (display-md). */
-  size?: "sm" | "md";
   className?: string;
 };
-
-const SIZE = { sm: "text-display-sm", md: "text-display-md" } as const;
 
 /*
  * Relógio por segundo, um só para a página: um setTimeout alinhado à virada
@@ -100,44 +97,43 @@ function useClock<T>(derive: (ms: number) => T, now: number | undefined): T | nu
 }
 
 /**
- * Contagem regressiva em dias, horas, minutos e segundos. Server render:
- * esqueleto com as mesmas dimensões (sem CLS); o cliente preenche após a
- * hidratação.
+ * Contagem regressiva do hero, na faixa marinho com fio claro: dias, horas,
+ * minutos e segundos. O servidor manda um esqueleto do mesmo tamanho (sem
+ * pulo de layout); o cliente preenche após a hidratação.
  */
 export function Countdown({
   target,
-  now,
+  title,
   todayMessage,
   afterMessage,
-  size = "sm",
+  now,
   className,
 }: CountdownProps) {
   const phase = useClock((ms) => countdownPhase(ms, target), now);
+  const ready = phase === "counting";
 
-  if (phase === "today" || phase === "after") {
-    const message =
-      phase === "today"
-        ? (todayMessage ?? "É hoje.")
-        : (afterMessage ?? `Casamos em ${formatWeddingDate(target)}.`);
-    return <p className={cx("font-display text-ink", SIZE[size], className)}>{message}</p>;
-  }
-
-  const ready = phase !== null;
   return (
-    <div className={cx("text-ink", className)} data-countdown="">
-      {ready ? <SpokenCountdown target={target} now={now} /> : null}
-      <p
-        aria-hidden="true"
-        className={cx(
-          "flex items-start gap-x-[0.42em] font-display leading-none tabular-nums",
-          SIZE[size],
-          ready ? "animate-fade-in" : "opacity-0",
-        )}
-      >
-        {COUNTDOWN_UNITS.map((unit) => (
-          <UnitView key={unit} unit={unit} target={target} now={now} ready={ready} />
-        ))}
-      </p>
+    <div className={cx(styles.box, className)} data-countdown="">
+      <div className={styles.top} aria-hidden="true">
+        <i />
+        {title}
+        <i />
+      </div>
+      {phase === "today" || phase === "after" ? (
+        <p className={styles.message}>{phase === "today" ? todayMessage : afterMessage}</p>
+      ) : (
+        <>
+          {ready ? <SpokenCountdown target={target} now={now} /> : null}
+          <div
+            className={cx(styles.grid, ready ? "animate-fade-in" : "opacity-0")}
+            aria-hidden="true"
+          >
+            {COUNTDOWN_UNITS.map((unit) => (
+              <UnitView key={unit} unit={unit} target={target} now={now} ready={ready} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -145,7 +141,11 @@ export function Countdown({
 /** Frase do leitor de tela (minuto a minuto, sem os segundos). */
 function SpokenCountdown({ target, now }: { target: string; now?: number }) {
   const text = useClock((ms) => describeCountdown(diffParts(ms, target)), now);
-  return <span className="sr-only">{text}</span>;
+  return (
+    <p className="sr-only" role="timer">
+      {text}
+    </p>
+  );
 }
 
 function UnitView({
@@ -160,27 +160,18 @@ function UnitView({
   ready: boolean;
 }) {
   const value = useClock((ms) => diffParts(ms, target)[unit], now);
-  const text =
-    value === null || !ready
-      ? unit === "days"
-        ? "000"
-        : "00"
-      : unit === "days"
-        ? String(value)
-        : pad2(value);
+  const text = value === null || !ready ? (unit === "days" ? "000" : "00") : pad2(value);
   return (
-    <span className="inline-flex flex-col items-start gap-[0.32em]" data-unit={unit}>
-      <span className="inline-flex">
+    <div className={cx(styles.unit, unit === "seconds" && styles.seconds)} data-unit={unit}>
+      <span className={styles.num}>
         {text.split("").map((digit, i) => (
           // A chave conta da direita: as unidades ficam estáveis quando o
           // número perde um dígito (100 → 99).
           <RollingDigit key={text.length - i} digit={digit} />
         ))}
       </span>
-      <span className="font-sans text-xs leading-none font-medium tracking-normal text-ink-soft lg:text-sm">
-        {unitLabel(unit, value ?? 0)}
-      </span>
-    </span>
+      <span className={styles.label}>{unitLabel(unit, value ?? 0)}</span>
+    </div>
   );
 }
 

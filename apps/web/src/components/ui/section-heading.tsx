@@ -3,33 +3,43 @@ import { cx } from "@/lib/cx";
 
 export type SectionHeadingProps = {
   children: ReactNode;
-  /** Nível do título. h2 (padrão) usa display-md; h3 usa display-sm. */
+  /** Nível do título. h1 e h2 usam o título grande do álbum; h3, um degrau menor. */
   as?: "h1" | "h2" | "h3";
-  /** Frase curta em Figtree abaixo do título. */
+  /** Rótulo pequeno em caixa alta acima do título (ex.: "Confirmação"). */
+  rotulo?: string;
+  /** Frase de apoio abaixo do título. */
   lead?: ReactNode;
   /** id do título, para `aria-labelledby` na <section>. */
   id?: string;
   className?: string;
 };
 
-const sizeFor = {
-  h1: "text-display-lg",
-  h2: "text-display-md",
-  h3: "text-display-sm",
-} as const;
-
 /**
- * Título de seção: Bodoni grande, alinhado à esquerda, sem rótulo acima.
- * A hierarquia vem só do tamanho; nada de palavra destacada.
+ * Título das páginas internas, no estilo das seções da home: rótulo com fio,
+ * título em Cormorant (use <em> para a palavra em itálico azul) e frase de
+ * apoio em tom suave.
  */
-export function SectionHeading({ children, as = "h2", lead, id, className }: SectionHeadingProps) {
+export function SectionHeading({
+  children,
+  as = "h2",
+  rotulo,
+  lead,
+  id,
+  className,
+}: SectionHeadingProps) {
   const Tag = as;
   return (
-    <div className={cx("flex flex-col gap-5 lg:gap-7", className)}>
-      <Tag id={id} className={cx("font-display text-ink", sizeFor[as])}>
+    <div className={cx("flex flex-col", className)}>
+      {rotulo ? (
+        <div className="rotulo">
+          <i />
+          {rotulo}
+        </div>
+      ) : null}
+      <Tag id={id} className={cx("titulo", as === "h3" && "text-display-sm!")}>
         {children}
       </Tag>
-      {lead ? <p className="max-w-[44ch] text-lg text-ink-soft">{lead}</p> : null}
+      {lead ? <p className="lead max-w-[44ch]">{lead}</p> : null}
     </div>
   );
 }

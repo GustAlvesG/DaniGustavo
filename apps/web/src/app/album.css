@@ -1,0 +1,350 @@
+/*
+ * Peças do "álbum" (Proposta C), usadas na home e nas páginas internas:
+ * rótulo e título de seção, polaroid com fita washi, moldura de papel com
+ * cantoneiras, arco, cartão de fio duplo e as revelações na rolagem.
+ *
+ * As revelações usam animações guiadas pela rolagem (`animation-timeline:
+ * view()`), sem JavaScript. Ficam dentro de `@supports` e só valem sem
+ * "reduzir movimento": em navegadores sem suporte, ou com movimento
+ * reduzido, tudo aparece parado e no lugar final.
+ */
+
+@layer components {
+  /* Monograma DG: ocupa a largura do pai, a não ser que uma classe diga outra (w-16...). */
+  .mono-dg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* ---------- rótulo, título e chamada de seção ---------- */
+  .rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .rotulo > i {
+    display: block;
+    width: 26px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  .titulo {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: var(--text-display-md);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0.25em 0 0.35em;
+    color: var(--ink);
+  }
+  .titulo em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .lead {
+    font-size: 1.28rem;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  /* ---------- polaroid com fita washi ---------- */
+  .polaroid {
+    position: relative;
+    margin: 0;
+    background: var(--color-branco);
+    padding: 11px 11px 16px;
+    rotate: var(--r, 0deg);
+    box-shadow:
+      0 1px 2px rgb(20 33 61 / 0.08),
+      0 22px 40px -20px rgb(20 33 61 / 0.45);
+  }
+  .polaroid::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: -13px;
+    left: 50%;
+    width: 92px;
+    height: 26px;
+    margin-left: -46px;
+    rotate: -4deg;
+    background: rgb(146 168 209 / 0.55);
+    box-shadow: 0 1px 2px rgb(20 33 61 / 0.1);
+  }
+  .polaroid-foto {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #e8e4da;
+  }
+  .polaroid-foto > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .legenda {
+    padding: 12px 4px 0;
+    text-align: center;
+    color: var(--color-tinta);
+  }
+  .legenda b {
+    display: block;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 0.66rem;
+    letter-spacing: 0.26em;
+    color: var(--color-suave);
+  }
+  .legenda span {
+    display: block;
+    font-size: 1.22rem;
+    font-style: italic;
+    line-height: 1.2;
+    margin-top: 4px;
+  }
+  @media (max-width: 620px) {
+    .polaroid {
+      padding: 8px 8px 12px;
+    }
+    .legenda span {
+      font-size: 1.05rem;
+    }
+  }
+
+  /* Inclinações das fotos coladas. */
+  .r1 {
+    --r: -3.5deg;
+  }
+  .r2 {
+    --r: 2.5deg;
+  }
+  .r3 {
+    --r: -1.5deg;
+  }
+  .r4 {
+    --r: 3.2deg;
+  }
+  .r5 {
+    --r: -2.4deg;
+  }
+  .r6 {
+    --r: 1.4deg;
+  }
+
+  /* ---------- moldura de papel com cantoneiras ---------- */
+  .moldura-papel {
+    position: relative;
+    margin: 0;
+    background: var(--color-branco);
+    padding: 16px;
+    rotate: var(--r, 0deg);
+    box-shadow: 0 26px 50px -26px rgb(20 33 61 / 0.5);
+  }
+  .moldura-papel figcaption {
+    text-align: center;
+    font-style: italic;
+    padding-top: 12px;
+    font-size: 1.1rem;
+    color: var(--color-suave);
+  }
+  .canto {
+    position: absolute;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    background: var(--color-tinta);
+  }
+  .canto.a {
+    top: -6px;
+    left: -6px;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+  .canto.b {
+    top: -6px;
+    right: -6px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+  }
+  .canto.c {
+    bottom: -6px;
+    left: -6px;
+    clip-path: polygon(0 0, 0 100%, 100% 100%);
+  }
+  .canto.d {
+    bottom: -6px;
+    right: -6px;
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  }
+
+  /* ---------- arco (topo em semicírculo, moldura branca) ---------- */
+  .arco {
+    position: relative;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 430px;
+    overflow: hidden;
+    border-radius: 999px 999px 14px 14px;
+    border: 10px solid var(--color-branco);
+    box-shadow:
+      0 0 0 1px rgb(27 42 74 / 0.28),
+      0 30px 60px -30px rgb(20 33 61 / 0.55);
+    rotate: var(--r, 0deg);
+  }
+
+  /* ---------- cartão de fio duplo ---------- */
+  .cartao {
+    background: var(--color-branco);
+    color: var(--color-tinta);
+    padding: 28px 28px 26px;
+    box-shadow:
+      inset 0 0 0 1px rgb(27 42 74 / 0.18),
+      inset 0 0 0 7px var(--color-branco),
+      inset 0 0 0 8px rgb(27 42 74 / 0.32),
+      0 18px 40px -26px rgb(20 33 61 / 0.5);
+  }
+
+  /* Arco marinho com fio claro por dentro (o "para o grande dia" dos padrinhos). */
+  .arco-escuro {
+    border-radius: 999px 999px 14px 14px;
+    box-shadow:
+      inset 0 0 0 9px var(--color-marinho),
+      inset 0 0 0 10px rgb(255 255 255 / 0.28),
+      0 30px 60px -30px rgb(20 33 61 / 0.55);
+  }
+
+  /* Cartão-resposta: papel com fio a 9px da borda. */
+  .cartao-resp {
+    background: var(--color-papel);
+    color: var(--color-tinta);
+    padding: clamp(28px, 4vw, 48px);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 0 0 9px var(--color-papel),
+      inset 0 0 0 10px rgb(27 42 74 / 0.35),
+      0 40px 80px -30px rgb(0 0 0 / 0.6);
+  }
+}
+
+/* ---------- revelações na rolagem ---------- */
+@keyframes sobe {
+  from {
+    opacity: 0;
+    translate: 0 42px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes assenta {
+  from {
+    opacity: 0;
+    rotate: calc(var(--r, 0deg) - 18deg);
+    translate: 0 90px;
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    rotate: var(--r, 0deg);
+    translate: 0 0;
+  }
+}
+@keyframes assenta-d {
+  from {
+    opacity: 0;
+    rotate: calc(var(--r, 0deg) + 18deg);
+    translate: 0 90px;
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    rotate: var(--r, 0deg);
+    translate: 0 0;
+  }
+}
+@keyframes da-esq {
+  from {
+    opacity: 0;
+    translate: -90px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes da-dir {
+  from {
+    opacity: 0;
+    translate: 90px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rv {
+      animation: sobe linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+    .assenta {
+      animation: assenta linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 38%;
+    }
+    .assenta-d {
+      animation: assenta-d linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 38%;
+    }
+    .de-esq {
+      animation: da-esq linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 34%;
+    }
+    .de-dir {
+      animation: da-dir linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 34%;
+    }
+    /* Atrasos: o mesmo movimento, começando um pouco depois. */
+    .d1 {
+      animation-range: entry 10% cover 36%;
+    }
+    .d2 {
+      animation-range: entry 20% cover 42%;
+    }
+    .d3 {
+      animation-range: entry 30% cover 48%;
+    }
+  }
+}
+
+/* No celular os cartões não entram de lado (evita rolagem horizontal). */
+@media (max-width: 700px) {
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .de-esq,
+      .de-dir {
+        animation-name: sobe;
+      }
+    }
+  }
+}

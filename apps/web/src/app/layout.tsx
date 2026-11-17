@@ -1,26 +1,36 @@
 import type { Metadata, Viewport } from "next";
-import { Bodoni_Moda, Figtree } from "next/font/google";
+import { Cormorant_Garamond, Jost, Pinyon_Script } from "next/font/google";
 import { SmoothScroll } from "@/components/motion";
 import { getSite } from "@/lib/api/site";
 import { siteUrl } from "@/lib/site";
-import { openingInlineScript } from "@/lib/opening";
 import "./globals.css";
 
-// Bodoni Moda variável com o eixo opsz: o corte óptico acompanha o tamanho
-// (traços finos mais finos em tamanho de cartaz). Mapeada em --font-display.
-const bodoni = Bodoni_Moda({
-  subsets: ["latin"],
-  axes: ["opsz"],
-  display: "swap",
-  variable: "--font-bodoni",
-});
-
-// Figtree para texto e interface. Mapeada em --font-sans.
-const figtree = Figtree({
+/*
+ * Fontes do design "Álbum" (next/font baixa no build e serve do próprio
+ * site, sem pedido ao Google no navegador). Cada uma vira uma variável CSS
+ * usada pelos tokens de globals.css (--font-serif, --font-sans, --font-script).
+ */
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-figtree",
+  variable: "--font-cormorant",
+});
+
+const jost = Jost({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+  variable: "--font-jost",
+});
+
+// Só nos nomes do casal (hero e rodapé).
+const pinyon = Pinyon_Script({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-pinyon",
 });
 
 // Metadados a partir de /api/site (cacheado): título, descrição e Open Graph.
@@ -44,22 +54,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Barra do navegador no celular na cor do campo do site (marinho).
-export const viewport: Viewport = { themeColor: "#15244b", colorScheme: "dark" };
+// Barra do navegador no celular na cor do menu (marinho).
+export const viewport: Viewport = { themeColor: "#14213d", colorScheme: "light" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // suppressHydrationWarning: o script inline pode pôr data-opening no <html>
-    // antes da hidratação (o React aceita o DOM em vez de reclamar).
-    <html
-      lang="pt-BR"
-      className={`${bodoni.variable} ${figtree.variable}`}
-      suppressHydrationWarning
-    >
-      <head>
-        {/* Bloqueante e minúsculo: marca a capa da abertura antes do 1º paint. */}
-        <script dangerouslySetInnerHTML={{ __html: openingInlineScript() }} />
-      </head>
+    <html lang="pt-BR" className={`${cormorant.variable} ${jost.variable} ${pinyon.variable}`}>
       <body className="flex min-h-full flex-col">
         {children}
         <SmoothScroll />

@@ -1,26 +1,36 @@
 @import "tailwindcss";
+@import "./album.css";
 
 /*
- * Design system "Azulejo" (docs/PROMPT.md §4), com a identidade do casal
- * (docs/marca): azul-marinho dominante, branco e azul-claro como detalhe.
+ * Design "Álbum" (Proposta C): tinta marinho sobre papel, fotos em polaroid
+ * com fita, molduras de papel com cantoneiras e cartões de fio duplo. A
+ * identidade do casal continua: azul predominante, detalhes brancos e o
+ * azul serenity como acento.
+ *
+ * ONDE MUDAR CORES E FONTES: aqui. As cores ficam em `@theme static` (viram
+ * utilitários do Tailwind como `bg-papel`, `text-tinta` e variáveis
+ * `var(--color-papel)` para o CSS próprio). Mudou uma cor, mude também em
+ * src/lib/palette.ts: o teste confere o contraste de cada par.
  *
  * `@theme static` emite todas as variáveis no :root mesmo que nenhuma classe
- * as use: outros componentes (GSAP, Motion, CSS próprio) leem `var(--…)`.
+ * as use (o CSS de album.css e dos módulos lê `var(--…)`).
  */
 @theme static {
   /* Paleta nomeada (contraste conferido em src/lib/palette.test.ts) */
-  --color-marinho: #15244b; /* campo dominante: fundo da página e dos cartões escuros */
-  --color-noite: #0f1a38; /* marinho mais fundo: juntas, rodapé da abertura */
-  --color-royal: #0b3270; /* moldura grossa dos cartões; tinta e foco sobre o claro */
-  --color-serenity: #92a8d1; /* azul serenity: destaque e traços sobre o marinho */
-  --color-celeste: #bbd0ec; /* azul-claro: texto secundário sobre o marinho */
-  --color-relevo: #f3f9fd; /* superfície clara de relevo (cartões, formulários) */
-  --color-branco: #ffffff;
-  --color-lousa: #3d4f7a; /* texto secundário sobre o claro */
-  --color-erro: #b3261e; /* erro sobre o claro */
+  --color-papel: #faf7f1; /* fundo da página: papel de álbum */
+  --color-areia: #f1eee6; /* papel mais fundo: seções alternadas */
+  --color-branco: #ffffff; /* polaroids, cartões, molduras */
+  --color-tinta: #1b2a4a; /* texto e traços sobre o papel */
+  --color-marinho: #14213d; /* menu, contagem, rodapé, seção da confirmação */
+  --color-enfase: #2d4675; /* palavra em itálico nos títulos; foco sobre o papel */
+  --color-suave: #46557a; /* texto secundário sobre o papel */
+  --color-serenity: #92a8d1; /* azul serenity: fita, pontos, acento sobre o marinho */
+  --color-claro: #bbd0ec; /* azul-claro: destaque sobre o marinho */
+  --color-nevoa: #d3dded; /* texto secundário sobre o marinho */
+  --color-erro: #8a1f2b; /* erro sobre o papel e o branco */
   --color-coral: #ffb3a7; /* erro sobre o marinho */
 
-  /* Curvas (4.6.5) → utilitários `ease-out`, `ease-in-out` */
+  /* Curvas → utilitários `ease-out`, `ease-in-out` */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
@@ -31,56 +41,44 @@
 
   /* Larguras → `max-w-measure` (66 caracteres), `max-w-page` */
   --container-measure: 66ch;
-  --container-page: 84rem;
+  --container-page: 70rem;
 
   /*
-   * Escala de texto (Figtree): modular 1,25 a partir do corpo.
-   * `--text-base` vale 17px no celular e 18px a partir de 1024px
-   * (redefinido em :root abaixo); os outros degraus derivam dele.
+   * Escala de texto (Cormorant Garamond, que é "pequena" no olho: o corpo
+   * vale 19px no celular e 20px a partir de 1024px).
    */
   --text-*: initial;
-  --text-xs: 0.8125rem;
+  --text-xs: 0.875rem;
   --text-xs--line-height: 1.45;
-  --text-sm: calc(var(--text-base) / 1.25);
-  --text-sm--line-height: 1.5;
-  --text-base: 1.0625rem;
-  --text-base--line-height: 1.6;
-  --text-lg: calc(var(--text-base) * 1.25);
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1.1875rem;
+  --text-base--line-height: 1.5;
+  --text-lg: calc(var(--text-base) * 1.1);
   --text-lg--line-height: 1.45;
-  --text-xl: calc(var(--text-base) * 1.5625);
+  --text-xl: calc(var(--text-base) * 1.35);
   --text-xl--line-height: 1.3;
-  --text-2xl: calc(var(--text-base) * 1.953125);
-  --text-2xl--line-height: 1.2;
-  --text-3xl: calc(var(--text-base) * 2.44140625);
+  --text-2xl: calc(var(--text-base) * 1.7);
+  --text-2xl--line-height: 1.15;
+  --text-3xl: calc(var(--text-base) * 2.1);
   --text-3xl--line-height: 1.1;
 
-  /*
-   * Saltos de display (Bodoni Moda): fora da escala, tamanho de cartaz.
-   * Use com `font-display`. Entrelinha 0,9 e tracking negativo já embutidos.
-   *   display-sm  títulos de subseção (h3)          40 → 64px
-   *   display-md  títulos de seção (h2)             48 → 104px
-   *   display-lg  frases de impacto, data           64 → 160px
-   *   display-xl  nomes no hero (~18vw no celular)  70 → 232px
-   */
-  --text-display-sm: clamp(2.5rem, 1.9rem + 2.4vw, 4rem);
-  --text-display-sm--line-height: 0.95;
-  --text-display-sm--letter-spacing: -0.015em;
-  --text-display-md: clamp(3rem, 1.6rem + 5.4vw, 6.5rem);
-  --text-display-md--line-height: 0.9;
-  --text-display-md--letter-spacing: -0.02em;
-  --text-display-lg: clamp(4rem, 1.4rem + 10vw, 10rem);
-  --text-display-lg--line-height: 0.9;
-  --text-display-lg--letter-spacing: -0.025em;
-  --text-display-xl: clamp(4.25rem, 18vw, 14.5rem);
-  --text-display-xl--line-height: 0.9;
-  --text-display-xl--letter-spacing: -0.03em;
+  /* Títulos (Cormorant, peso 400). `font-display` + um destes. */
+  --text-display-sm: clamp(2rem, 1.6rem + 1.6vw, 2.8rem);
+  --text-display-sm--line-height: 1.08;
+  --text-display-md: clamp(2.5rem, 1.6rem + 3.6vw, 4.4rem);
+  --text-display-md--line-height: 1.02;
+  --text-display-md--letter-spacing: -0.01em;
+  --text-display-lg: clamp(2.8rem, 1.7rem + 4.4vw, 5rem);
+  --text-display-lg--line-height: 1;
+  --text-display-lg--letter-spacing: -0.01em;
 
-  /* Animações → `animate-roll-in`, `animate-fade-in`, `animate-tile-turn`… */
+  /* Animações → `animate-roll-in`, `animate-fade-in`, `animate-spin-slow`… */
   --animate-roll-in: roll-in var(--duration-ui) var(--ease-out) both;
   --animate-roll-out: roll-out var(--duration-ui) var(--ease-out) both;
   --animate-fade-in: fade-in var(--duration-ui) var(--ease-out) both;
   --animate-fade-out: fade-out var(--duration-ui) var(--ease-out) both;
-  --animate-tile-turn: tile-turn 1.8s var(--ease-in-out) infinite;
+  --animate-spin-slow: spin 1.1s linear infinite;
 
   @keyframes roll-in {
     from {
@@ -114,33 +112,22 @@
       opacity: 0;
     }
   }
-  /* Um ladrilho que gira de 90 em 90 graus, com pausa entre giros. */
-  @keyframes tile-turn {
-    0%,
-    20% {
-      transform: rotate(0deg);
-    }
-    45%,
-    70% {
-      transform: rotate(90deg);
-    }
-    95%,
-    100% {
-      transform: rotate(180deg);
-    }
-  }
 }
 
 /*
- * Fontes: next/font define --font-bodoni e --font-figtree no <html>.
- * `inline` faz os utilitários usarem o valor direto (a variável é resolvida
- * no elemento, onde a classe do next/font já está aplicada).
+ * Fontes: next/font (src/app/layout.tsx) define --font-cormorant, --font-jost
+ * e --font-pinyon no <html>. `inline` faz os utilitários usarem a variável
+ * resolvida no próprio elemento.
+ *   font-serif   Cormorant Garamond: texto corrido e títulos
+ *   font-display o mesmo Cormorant (nome mantido para os títulos)
+ *   font-sans    Jost: rótulos, menu, botões (caixa alta espaçada)
+ *   font-script  Pinyon Script: só os nomes do casal
  */
 @theme inline {
   /*
-   * Cores semânticas: resolvidas no próprio elemento (inline), então mudam
-   * com a superfície em volta. `text-ink` é branco no marinho e marinho no
-   * relevo; `bg-ink text-on-ink` é o botão primário de qualquer superfície.
+   * Cores semânticas: resolvidas no próprio elemento, então mudam com a
+   * superfície em volta. `text-ink` é tinta no papel e branco no marinho;
+   * `bg-ink text-on-ink` é o botão primário de qualquer superfície.
    */
   --color-surface: var(--surface);
   --color-ink: var(--ink);
@@ -152,111 +139,86 @@
   --color-danger: var(--danger);
   --color-field: var(--field);
 
-  --font-display: var(--font-bodoni), "Bodoni Moda", Didot, "Bodoni 72", Georgia, serif;
-  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-jost), "Jost", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-script: var(--font-pinyon), "Pinyon Script", cursive;
 }
 
 /*
  * Superfícies. Cada uma define o mesmo conjunto de papéis; o :root é o
- * marinho (a cor dominante do site). Pares de texto e fundo conferidos em
- * src/lib/palette.test.ts (WCAG 2.2 AA; elementos não textuais ≥ 3:1).
+ * papel. Pares de texto e fundo conferidos em src/lib/palette.test.ts.
  */
 @layer base {
   :root,
-  .surface-marinho,
-  .surface-royal,
-  .surface-noite {
-    --surface: var(--color-marinho);
-    --ink: var(--color-branco); /* 15,2:1 */
-    --ink-soft: var(--color-celeste); /* 9,6:1 */
-    --on-ink: var(--color-marinho);
-    --accent: var(--color-serenity); /* 6,3:1 */
-    --line: var(--color-serenity); /* bordas funcionais, 6,3:1 */
-    --line-soft: color-mix(in srgb, var(--color-serenity) 34%, transparent);
-    --danger: var(--color-coral); /* 8,9:1 */
-    --focus: var(--color-branco);
-    --field: var(--color-noite);
-    /* Azulejo sobre o marinho: linha branca, traço secundário serenity. */
-    --tile-face: var(--surface);
-    --tile-ink: var(--color-branco);
-    --tile-ink-2: var(--color-serenity);
-    --tile-wash: var(--color-serenity);
-    --tile-joint: color-mix(in srgb, var(--color-serenity) 18%, var(--surface));
-    --tile-back: var(--color-royal);
-  }
-
-  .surface-royal {
-    --surface: var(--color-royal); /* branco 12,3:1; celeste 7,8:1; serenity 5,1:1 */
-    --on-ink: var(--color-royal);
-    --field: var(--color-marinho);
-    --tile-back: var(--color-marinho);
-  }
-
-  .surface-noite {
-    --surface: var(--color-noite);
-    --on-ink: var(--color-noite);
-  }
-
-  .surface-relevo,
+  .surface-papel,
+  .surface-areia,
   .surface-branco {
     color-scheme: light;
-    --surface: var(--color-relevo);
-    --ink: var(--color-marinho); /* 14,3:1 */
-    --ink-soft: var(--color-lousa); /* 7,6:1 */
-    --on-ink: var(--color-relevo);
-    --accent: var(--color-royal); /* 11,6:1 */
-    --line: var(--color-royal);
-    --line-soft: color-mix(in srgb, var(--color-royal) 20%, transparent);
-    --danger: var(--color-erro); /* 6,2:1 */
-    --focus: var(--color-royal);
+    --surface: var(--color-papel);
+    --ink: var(--color-tinta);
+    --ink-soft: var(--color-suave);
+    --on-ink: var(--color-branco);
+    --accent: var(--color-enfase);
+    --line: var(--color-suave); /* bordas funcionais (campos), 6,9:1 */
+    --line-soft: rgb(27 42 74 / 0.18); /* fios decorativos */
+    --danger: var(--color-erro);
+    --focus: var(--color-enfase);
     --field: var(--color-branco);
-    /* Valor explícito: o Lightning CSS descarta um segundo "var(--surface)" aqui. */
-    --tile-face: var(--color-relevo);
-    --tile-ink: var(--color-royal);
-    --tile-ink-2: color-mix(in srgb, var(--color-serenity) 70%, var(--color-royal));
-    --tile-wash: var(--color-serenity);
-    --tile-joint: color-mix(in srgb, var(--color-serenity) 35%, var(--surface));
-    --tile-back: var(--color-celeste);
+  }
+
+  .surface-areia {
+    --surface: var(--color-areia);
   }
 
   .surface-branco {
     --surface: var(--color-branco);
-    --on-ink: var(--color-branco);
-    --tile-face: var(--color-branco);
+    --field: var(--color-papel);
   }
 
-  :where(.surface-marinho, .surface-royal, .surface-noite, .surface-relevo, .surface-branco) {
+  .surface-marinho {
+    color-scheme: dark;
+    --surface: var(--color-marinho);
+    --ink: var(--color-branco);
+    --ink-soft: var(--color-nevoa);
+    --on-ink: var(--color-marinho);
+    --accent: var(--color-claro);
+    --line: var(--color-serenity);
+    --line-soft: rgb(255 255 255 / 0.16);
+    --danger: var(--color-coral);
+    --focus: var(--color-serenity);
+    --field: rgb(255 255 255 / 0.06);
+  }
+
+  :where(.surface-papel, .surface-areia, .surface-branco, .surface-marinho) {
     background-color: var(--surface);
     color: var(--ink);
   }
 }
 
 :root {
-  /* Durações (4.6.5). Em CSS próprio: var(--duration-ui, 320ms). */
+  /* Durações. Em CSS próprio: var(--duration-ui, 320ms). */
   --duration-micro: 160ms;
   --duration-ui: 320ms;
   --duration-scene: 720ms;
 
-  /* Layout (4.4) */
-  --gutter: 1.5rem; /* margem lateral: 24px no celular */
+  /* Altura fixa do menu (não muda ao rolar). */
+  --nav-h: 72px;
+
+  /* Layout */
+  --gutter: 1rem; /* margem lateral: 16px no celular */
   --grid-gap: 1.5rem;
-  --container-max: 84rem; /* largura útil máxima da grade de 12 colunas */
+  --container-max: 70rem; /* 1120px, a largura do álbum */
 
   /* Respiro vertical entre seções */
-  --section-space: clamp(5rem, 3rem + 8vw, 10rem);
+  --section-space: clamp(84px, 11vw, 150px);
 }
 
 @media (width >= 64rem) {
   :root {
-    --text-base: 1.125rem; /* corpo 18px a partir de 1024px */
-    --gutter: 3rem;
+    --text-base: 1.25rem; /* corpo 20px a partir de 1024px */
+    --gutter: 2rem;
     --grid-gap: 2rem;
-  }
-}
-
-@media (width >= 90rem) {
-  :root {
-    --gutter: 4rem;
   }
 }
 
@@ -270,8 +232,7 @@
   padding-inline: var(--gutter);
 }
 
-/* Grade: 1 coluna no celular, 12 colunas a partir de 1024px.
- * Componha com `lg:col-span-6 lg:col-start-2` etc. */
+/* Grade: 1 coluna no celular, 12 colunas a partir de 1024px. */
 @utility page-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -292,44 +253,9 @@
   padding-block: var(--section-space);
 }
 
-/* ---------- Formas da identidade (docs/marca) ---------- */
-
-/*
- * Arco: topo em semicírculo (ou elipse baixa) e base reta, como os painéis
- * verticais do manual. `--arch-rise` é a altura do arco; o padrão faz um
- * semicírculo em molduras 4:5.
- */
-@utility shape-arch {
-  border-radius: 50% 50% var(--arch-foot, 0) var(--arch-foot, 0) / var(--arch-rise, 40%)
-    var(--arch-rise, 40%) var(--arch-foot, 0) var(--arch-foot, 0);
-}
-
-/* Cápsula (estádio): pontas em semicírculo. */
-@utility shape-pill {
-  border-radius: 9999px;
-}
-
-/* Selo: círculo. */
-@utility shape-seal {
-  border-radius: 50%;
-  aspect-ratio: 1;
-}
-
-/*
- * Cartão de relevo do manual: campo claro, moldura royal grossa e um fio
- * serenity por fora. Combine com uma forma (arch, pill).
- */
-@utility card-relevo {
-  border: var(--card-border, 5px) solid var(--color-royal);
-  outline: 1px solid color-mix(in srgb, var(--color-serenity) 55%, transparent);
-  outline-offset: var(--card-ring, 5px);
-}
-
-/* Cartão escuro: campo marinho com fio duplo claro por dentro. */
-@utility card-marinho {
-  border: 1.5px solid var(--color-branco);
-  outline: 1px solid color-mix(in srgb, var(--color-serenity) 60%, transparent);
-  outline-offset: calc(-1 * var(--card-ring, 7px) - 1.5px);
+/* Espaço do menu fixo nas páginas internas (a home põe o hero por baixo dele). */
+@utility below-nav {
+  padding-top: var(--nav-h);
 }
 
 /* ---------- Base ---------- */
@@ -340,14 +266,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-kerning: normal;
+    background-color: var(--color-marinho);
+    scroll-padding-top: var(--nav-h);
   }
 
   body {
     background-color: var(--surface);
     color: var(--ink);
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-size: var(--text-base);
-    line-height: 1.6;
+    line-height: 1.5;
+    overflow-x: clip;
   }
 
   h1,
@@ -364,22 +293,12 @@
     text-wrap: pretty;
   }
 
-  html {
-    background-color: var(--color-marinho);
-    color-scheme: dark;
-  }
-
-  /* Bodoni Moda escolhe o corte óptico (eixo opsz) pelo tamanho do texto. */
-  .font-display {
-    font-optical-sizing: auto;
-  }
-
   ::selection {
     background-color: var(--color-serenity);
     color: var(--color-marinho);
   }
 
-  /* Foco: branco sobre o marinho, royal sobre o claro (var(--focus)). */
+  /* Foco: azul ênfase sobre o papel, serenity sobre o marinho (var(--focus)). */
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 3px;
@@ -393,7 +312,7 @@
 /*
  * Movimento reduzido: transições e animações CSS ficam instantâneas, mas o
  * estado final continua aplicado. Exceção: elementos com data-motion="keep"
- * (use em crossfades curtos que comunicam mudança, ex.: dígitos da contagem).
+ * (crossfades curtos que comunicam mudança, ex.: dígitos da contagem).
  */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -412,8 +331,8 @@
 }
 
 /*
- * View Transitions entre páginas (PROMPT §4.6.4; <PageTransition>): crossfade
- * curto do conteúdo; o monograma (nome "monograma") faz o morph padrão.
+ * View Transitions entre páginas (<PageTransition>): crossfade curto do
+ * conteúdo. O menu é o mesmo em todas as páginas e não anima.
  */
 ::view-transition {
   pointer-events: none;
@@ -425,11 +344,6 @@
 
 ::view-transition-new(.pagina) {
   animation: 320ms var(--ease-out) 80ms both vt-fade-in;
-}
-
-::view-transition-group(.monograma) {
-  animation-duration: 520ms;
-  animation-timing-function: var(--ease-in-out);
 }
 
 @keyframes vt-fade-in {

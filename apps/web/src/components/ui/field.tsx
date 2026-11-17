@@ -46,7 +46,7 @@ export function Field({ id, label, hint, error, optional, className, children }:
 
   return (
     <div className={cx("flex flex-col", className)}>
-      <label htmlFor={controlId} className="self-start text-base font-medium text-ink">
+      <label htmlFor={controlId} className="self-start text-lg font-medium text-ink">
         {label}
         {optional ? <OptionalTag /> : null}
       </label>
@@ -111,11 +111,11 @@ function ErrorMark() {
 /*
  * Aparência dos controles de texto. Campo claro (branco dentro do relevo),
  * borda na cor da linha da superfície (royal no claro, 11,6:1; serenity no
- * marinho, 6,3:1), cantos de 12px: a cápsula fica para os botões.
+ * marinho, 6,3:1), cantos de 4px (papel): a cápsula fica para os botões.
  */
 export const controlStyles = cx(
-  "block w-full min-h-12 rounded-xl border-[1.5px] border-line bg-field px-4",
-  "font-sans text-base text-ink placeholder:text-ink-soft",
+  "block w-full min-h-12 rounded-[4px] border border-line bg-field px-4",
+  "font-serif text-lg text-ink placeholder:text-ink-soft",
   "transition-[border-color,background-color,box-shadow] duration-micro ease-out",
   "hover:border-ink focus-visible:border-ink focus-visible:shadow-[inset_0_0_0_1px_var(--ink)]",
   "aria-[invalid=true]:border-danger",
