@@ -1,13 +1,24 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { asc, count, eq, giftOrders, gifts, newPublicId, sql, type Database } from "@casamento/db";
+import {
+  asc,
+  count,
+  eq,
+  giftOrders,
+  gifts,
+  newPublicId,
+  settings,
+  sql,
+  type Database,
+} from "@casamento/db";
 import {
   AdminGiftInput,
   ERROR_CODES,
   GiftOrderInput,
   UPLOAD_MAX_BYTES,
   type AdminGift,
+  type GiftCategory,
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -126,7 +137,13 @@ export function adminGiftRoutes(deps: AdminDeps) {
   const app = new Hono<AdminEnv>();
   const changed = () => revalidate(["gifts"]);
 
-  app.get("/", async (c) => c.json({ gifts: await listAdminGifts(db) }));
+  app.get("/", async (c) => {
+    const [list, [cats]] = await Promise.all([
+      listAdminGifts(db),
+      db.select().from(settings).where(eq(settings.key, "gifts.categories")),
+    ]);
+    return c.json({ gifts: list, categories: (cats?.value ?? []) as GiftCategory[] });
+  });
 
   app.post("/", async (c) => {
     const parsed = AdminGiftInput.safeParse(await readJson(c));
