@@ -92,6 +92,62 @@ async function main(): Promise<unknown> {
       }
       return { deleted: ids.length };
     }
+    case "painel-fixture": {
+      // Painel: um presente próprio com um pedido pago (simulado) e um recado pendente.
+      const run = String(arg);
+      const slug = `e2e-painel-${run}`;
+      await db.insert(gifts).values({
+        slug,
+        title: `Presente e2e ${run}`,
+        priceCents: 12000,
+        quotaTotal: 3,
+        quotaSold: 1,
+        category: "casa",
+        tileDesign: "flor",
+        sort: 99999,
+      });
+      const [gift] = await db.select().from(gifts).where(eq(gifts.slug, slug));
+      const publicId = newPublicId();
+      const now = new Date();
+      await db.insert(giftOrders).values({
+        publicId,
+        giftId: gift!.id,
+        quantity: 1,
+        amountCents: 12000,
+        method: "card",
+        provider: "simulado",
+        providerOrderId: `SIM-CARD-E2E-${run}`,
+        statusDetail: "accredited",
+        buyerName: `Madrinha E2E ${run}`,
+        buyerEmail: `e2e-painel-${run}@exemplo.com`,
+        message: "Felicidades!",
+        status: "paid",
+        expiresAt: now,
+        paidAt: now,
+      });
+      await db.insert(messages).values({ author: `Tia E2E ${run}`, body: `Recado e2e ${run}` });
+      return { slug, publicId, giftId: gift!.id };
+    }
+    case "painel-cleanup": {
+      const run = String(arg);
+      const [gift] = await db
+        .select()
+        .from(gifts)
+        .where(eq(gifts.slug, `e2e-painel-${run}`));
+      if (gift) {
+        const rows = await db.select().from(giftOrders).where(eq(giftOrders.giftId, gift.id));
+        const ids = rows.map((r) => r.id);
+        if (ids.length) {
+          await db.delete(payments).where(inArray(payments.orderId, ids));
+          await db.delete(messages).where(inArray(messages.giftOrderId, ids));
+          await db.delete(giftOrders).where(inArray(giftOrders.id, ids));
+        }
+        await db.delete(gifts).where(eq(gifts.id, gift.id));
+      }
+      await db.delete(messages).where(eq(messages.author, `Tia E2E ${run}`));
+      await db.delete(invitations).where(eq(invitations.label, `Convite E2E ${run}`));
+      return { ok: true };
+    }
     default:
       throw new Error(`Comando desconhecido: ${command}`);
   }

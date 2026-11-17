@@ -49,3 +49,14 @@ export async function setDeadline(iso: string): Promise<void> {
 export async function cleanupOrders(buyerEmail: string): Promise<void> {
   run("cleanup-orders", buyerEmail);
 }
+
+/** Painel: presente com pedido pago (simulado) e recado pendente, identificados por `run`. */
+export async function painelFixture(
+  runId: string,
+): Promise<{ slug: string; publicId: string; giftId: number }> {
+  return run("painel-fixture", runId);
+}
+
+export async function painelCleanup(runId: string): Promise<void> {
+  run("painel-cleanup", runId);
+}

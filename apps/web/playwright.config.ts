@@ -23,13 +23,20 @@ export default defineConfig({
   projects: [
     {
       name: "mobile",
-      testIgnore: /prazo.spec.ts/,
+      testIgnore: /prazo.spec.ts|painel.spec.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
     {
       name: "desktop",
-      testIgnore: /prazo.spec.ts/,
+      testIgnore: /prazo.spec.ts|painel.spec.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      // Painel dos noivos (na API, /painel), no tamanho do celular: mexe em dados próprios.
+      name: "painel",
+      testMatch: /painel.spec.ts/,
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
     {
       // O prazo do RSVP é uma configuração global: este teste a altera e restaura,
