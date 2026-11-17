@@ -103,8 +103,12 @@ export function Dashboard() {
               )}
             </ul>
           )}
-          <a className="link-small" href="/api/admin/invitations/export.csv" download>
+          <a className="link-small" href="/api/admin/invitations/lists/buffet.csv" download>
             Baixar lista do buffet (CSV)
+          </a>{" "}
+          ·{" "}
+          <a className="link-small" href="#/convites/listas/buffet">
+            Outras listas
           </a>
         </section>
         <section className="card" aria-labelledby="d-din">

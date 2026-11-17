@@ -1,5 +1,6 @@
 import {
   AdminInvitationInput,
+  qrSvg,
   type AdminInvitation,
   type AdminRsvpLog,
   type AgeRange,
@@ -21,6 +22,7 @@ import {
   useLoad,
   useToast,
 } from "../ui.tsx";
+import "../tools.css";
 
 export const INVITATION_STATUS_LABEL: Record<InvitationStatus, string> = {
   confirmed: "Confirmado",
@@ -70,6 +72,17 @@ export function Convites() {
           </>
         }
       />
+      <nav className="actions actions--tight" aria-label="Ferramentas dos convites">
+        <a className="button button--ghost button--small" href="#/convites/importar">
+          Importar planilha
+        </a>
+        <a className="button button--ghost button--small" href="#/convites/qr">
+          Imprimir QR dos convites
+        </a>
+        <a className="button button--ghost button--small" href="#/convites/listas/buffet">
+          Listas: buffet, cerimonial e portaria
+        </a>
+      </nav>
       <div className="filters" role="search">
         <Field label="Buscar">
           <input
@@ -239,6 +252,32 @@ export function ConviteDetalhe({ id }: { id: number }) {
           <button className="button button--ghost" onClick={() => setConfirm("token")}>
             Gerar link novo
           </button>
+        </div>
+        <div className="qr-inline">
+          <div
+            className="qr-inline__img"
+            dangerouslySetInnerHTML={{
+              __html: qrSvg(inv.link, { dark: "#14213d", title: `QR do convite ${inv.label}` }),
+            }}
+          />
+          <div className="stack">
+            <p className="muted small">QR com o link do convite, para imprimir junto do convite.</p>
+            <div className="actions actions--tight">
+              <a
+                className="button button--ghost button--small"
+                href={`#/convites/qr?ids=${inv.id}`}
+              >
+                Imprimir QR
+              </a>
+              <a
+                className="button button--ghost button--small"
+                download={`qr-${inv.label}.svg`}
+                href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg(inv.link, { dark: "#14213d" }))}`}
+              >
+                Baixar QR (SVG)
+              </a>
+            </div>
+          </div>
         </div>
         <p className="muted small">
           {inv.sentAt ? `Enviado em ${formatDateTime(inv.sentAt)}.` : "Ainda não enviado."}

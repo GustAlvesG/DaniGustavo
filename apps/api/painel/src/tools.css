@@ -1,0 +1,300 @@
+/*
+ * Importação, QR dos convites e listas para impressão. A impressão (Salvar como PDF do
+ * navegador) esconde o painel e deixa só o conteúdo, em A4.
+ */
+
+.alert.stack {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+.alert--ok {
+  background: var(--ok-fundo);
+  color: var(--ok);
+  border: 1px solid #b9dcc6;
+}
+.alert--ok h2 {
+  color: var(--ok);
+  margin: 0;
+}
+.alert--info ul,
+.error-list {
+  display: grid;
+  gap: 4px;
+}
+.alert--info {
+  margin-top: 0;
+}
+.tone-error {
+  color: var(--erro) !important;
+}
+.row-error td {
+  background: #fff7f8;
+}
+.table code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--marinho);
+}
+.table--import td:first-child .muted {
+  display: none;
+}
+@media (max-width: 599px) {
+  .table--import td:first-child .muted {
+    display: inline;
+  }
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+.qr-choose {
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.tab[aria-current="page"] {
+  color: var(--marinho);
+  border-bottom-color: var(--serenity);
+}
+a.tab {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- cartões de QR */
+
+.qr-sheets {
+  display: grid;
+  gap: 16px;
+}
+.qr-sheet {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+}
+.qr-card {
+  --qr-tinta: #14213d;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  color: var(--qr-tinta);
+  /* fio duplo do convite */
+  border: 3px double var(--qr-tinta);
+  outline: 1px solid var(--claro);
+  outline-offset: -8px;
+  border-radius: 4px;
+  padding: 16px 14px 16px 18px;
+  min-height: 170px;
+}
+.qr-card__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.qr-card__mono {
+  font-family: "Cormorant Garamond", "Playfair Display", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 1.6rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--qr-tinta);
+}
+.qr-card__names {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+}
+.qr-card__date {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--suave);
+}
+.qr-card__label {
+  margin-top: 8px;
+  font-weight: 650;
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.qr-card__cta {
+  font-size: 0.72rem;
+  color: var(--suave);
+}
+.qr-card__link {
+  margin-top: 4px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+.qr-card__qr {
+  width: 128px;
+}
+.qr-card__qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* QR no detalhe do convite */
+.qr-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.qr-inline__img {
+  width: 148px;
+  border: 1px solid var(--linha);
+  border-radius: 6px;
+  padding: 4px;
+  background: #fff;
+}
+.qr-inline__img svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------- listas */
+
+.check-cell .box {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--tinta);
+  border-radius: 3px;
+}
+.print-head {
+  display: grid;
+  gap: 4px;
+}
+.print-head h2 {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- impressão */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  :root,
+  body {
+    background: #fff !important;
+    font-size: 11pt;
+  }
+  .topbar,
+  .nav,
+  .skip,
+  .toasts,
+  .no-print {
+    display: none !important;
+  }
+  .app {
+    display: block;
+  }
+  .content {
+    padding: 0;
+    max-width: none;
+  }
+  .stack--lg {
+    gap: 0;
+  }
+
+  /* QR: 2 colunas × 4 linhas por folha (190 × 277 mm úteis). */
+  .qr-sheets {
+    display: block;
+  }
+  .qr-sheet {
+    display: grid;
+    grid-template-columns: repeat(2, 93mm);
+    grid-auto-rows: 66mm;
+    gap: 4mm;
+    justify-content: center;
+    break-after: page;
+  }
+  .qr-sheet:last-child {
+    break-after: auto;
+  }
+  .qr-card {
+    min-height: 0;
+    height: 66mm;
+    padding: 5mm 4mm 5mm 6mm;
+    gap: 3mm;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .qr-card__mono {
+    font-size: 20pt;
+  }
+  .qr-card__names {
+    font-size: 10.5pt;
+  }
+  .qr-card__date {
+    font-size: 7pt;
+  }
+  .qr-card__label {
+    margin-top: 3mm;
+    font-size: 11pt;
+  }
+  .qr-card__cta {
+    font-size: 7.5pt;
+  }
+  .qr-card__link {
+    font-size: 6.5pt;
+  }
+  .qr-card__qr {
+    width: 38mm;
+  }
+
+  /* Listas: tabela inteira, com linhas e cabeçalho repetido em cada folha. */
+  .card.print-sheet {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .table--list {
+    table-layout: auto;
+    width: 100%;
+  }
+  .tally {
+    margin: 2mm 0 4mm;
+  }
+  .tally dd {
+    font-size: 14pt;
+  }
+  .table-wrap {
+    overflow: visible;
+  }
+  .table--list {
+    font-size: 9.5pt;
+  }
+  .table--list thead {
+    display: table-header-group !important;
+  }
+  .table--list tr {
+    display: table-row !important;
+    break-inside: avoid;
+  }
+  .table--list td,
+  .table--list th {
+    display: table-cell !important;
+    border: 1px solid #999 !important;
+    padding: 1.5mm 2mm !important;
+    color: #000 !important;
+    font-size: 9.5pt !important;
+    text-align: left !important;
+  }
+}

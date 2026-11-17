@@ -4,6 +4,9 @@ import { authClient, describeError } from "./auth-client.ts";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
 import { Conta } from "./pages/Conta.tsx";
 import { ConviteDetalhe, ConviteForm, Convites } from "./pages/Convites.tsx";
+import { ConvitesQr } from "./pages/ConvitesQr.tsx";
+import { Importar } from "./pages/Importar.tsx";
+import { Listas } from "./pages/Listas.tsx";
 import { Dashboard } from "./pages/Dashboard.tsx";
 import { Lembretes } from "./pages/Lembretes.tsx";
 import { Pedidos } from "./pages/Pedidos.tsx";
@@ -40,13 +43,18 @@ const NAV = [
 ];
 
 function Page({ path }: { path: string }) {
-  const parts = path.split("/").filter(Boolean);
+  // "#/convites/qr?ids=1,2": a parte depois do "?" vai para a página.
+  const [route = "", query = ""] = path.split("?");
+  const parts = route.split("/").filter(Boolean);
   const [section, id, extra] = parts;
   switch (section) {
     case undefined:
       return <Dashboard />;
     case "convites":
       if (id === "novo") return <ConviteForm />;
+      if (id === "importar") return <Importar />;
+      if (id === "qr") return <ConvitesQr query={query} />;
+      if (id === "listas") return <Listas kind={extra ?? "buffet"} />;
       if (id && extra === "editar") return <ConviteForm id={Number(id)} />;
       if (id) return <ConviteDetalhe id={Number(id)} />;
       return <Convites />;
