@@ -233,10 +233,52 @@ na tela inicial.
 - **Convites** tem busca por nome (do convite ou de quem está nele) e filtro por situação. Na
   página de cada convite aparecem as respostas recebidas pelo site, com data e restrições
   alimentares.
-- **Exportar confirmados (CSV)** (em Convites, ou "Baixar lista do buffet" no Início) baixa a
-  planilha das pessoas confirmadas com restrições alimentares, pronta para buffet, cerimonial e
-  portaria. Abre direto no Excel. Restrição alimentar é dado de saúde: compartilhe só com o
-  buffet.
+- **Exportar confirmados (CSV)** (em Convites) baixa a planilha de todas as pessoas confirmadas.
+- **Listas: buffet, cerimonial e portaria** (em Convites; "Baixar lista do buffet" no Início):
+  cada aba mostra os confirmados com totais, com **Baixar CSV** (abre no Excel) e **Imprimir ou
+  salvar PDF**. Buffet: adulto/criança, faixa etária e restrição alimentar. Cerimonial: por
+  convite, com lado, acompanhante, restrição e telefone. Portaria: nomes em ordem alfabética com
+  uma caixinha "Chegou", **sem** restrições nem telefone. Restrição alimentar é dado de saúde:
+  repasse só ao buffet (e ao cerimonial, que combina o serviço).
+
+### Importar convidados de uma planilha
+
+1. **Convites → Importar planilha**. Baixe o **modelo** (XLSX ou CSV) ou use o exemplo
+   `docs/exemplos/convidados-exemplo.csv` (50 convidados fictícios em 22 convites; também em
+   `.xlsx`).
+2. Uma linha por pessoa. Colunas (a primeira linha tem os nomes; maiúsculas e acentos não
+   importam):
+
+   | Coluna                | Obrigatória | O que preencher                                                                      |
+   | --------------------- | ----------- | ------------------------------------------------------------------------------------ |
+   | `convite`             | sim         | Nome do convite (ex.: Família Silva). Linhas com o mesmo convite viram um convite só |
+   | `lado`                | sim         | Dani ou Gustavo                                                                      |
+   | `nome`                | sim         | Nome da pessoa                                                                       |
+   | `tipo`                | não         | adulto ou criança (vazio = adulto)                                                   |
+   | `faixa_etaria`        | só criança  | 0-2, 3-7 ou 8-12                                                                     |
+   | `telefone`            | não         | Com DDD; o primeiro do convite vira o WhatsApp do convite                            |
+   | `email`               | não         | O primeiro do convite recebe a confirmação da resposta                               |
+   | `acompanhante`        | não         | sim ou não; basta marcar em uma linha do convite                                     |
+   | `max_pessoas`         | não         | Vazio = número de convidados (+1 se aceita acompanhante)                             |
+   | `restricao_alimentar` | não         | Alergia é dado de saúde: só para o buffet                                            |
+
+3. Escolha o arquivo: a **prévia** mostra cada linha como "Pronto", "Já existe" ou com os erros
+   em português (ex.: "Lado “Noiva” não reconhecido"). Corrija na planilha e escolha de novo;
+   nada é gravado até **Importar N convites**.
+4. Reimportar o mesmo arquivo não duplica: convite com o mesmo nome de um que já está no painel
+   é ignorado (com aviso). Pessoa com o mesmo nome em outro convite gera só um aviso.
+5. Formatos: `.xlsx` (Excel, Google Planilhas → Fazer download → .xlsx) ou `.csv` (vírgula ou
+   ponto e vírgula, UTF-8 ou o CSV do Excel). O `.xls` antigo não é aceito: no Excel, **Salvar
+   como → Pasta de Trabalho do Excel (.xlsx)**. Até 1.000 pessoas e 2 MB por arquivo.
+
+### QR dos convites para imprimir
+
+- Na página de cada convite aparece o **QR** do link, com **Imprimir QR** e **Baixar QR (SVG)**.
+- **Convites → Imprimir QR dos convites** monta cartões no visual do convite (monograma, nomes,
+  data, nome do convite, QR e o link em texto), 8 por folha A4. Escolha **Todos**, **Não
+  enviados** ou **Escolher** (marque os convites) e toque em **Imprimir ou salvar PDF**; na janela
+  do navegador escolha "Salvar como PDF", papel A4, escala 100%. Depois de importar, o botão
+  "Imprimir QR dos novos convites" já abre só os importados. Imprimir não marca como enviado.
 
 ### Presentes
 
