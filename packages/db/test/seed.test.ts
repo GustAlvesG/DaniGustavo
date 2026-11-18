@@ -61,6 +61,11 @@ describe("seed", () => {
     });
   });
 
+  it("lê JSON que é só uma string (MySQL 8 e MariaDB ≥ 10.5 marcam a coluna como JSON)", async () => {
+    const [row] = await db.select().from(settings).where(eq(settings.key, "wedding.datetime"));
+    expect(row?.value).toBe("2027-04-10T16:00:00-03:00");
+  });
+
   it("cria os dois usuários do painel com conta de senha", async () => {
     const users = await db.select().from(user);
     expect(users.map((u) => u.email).sort()).toEqual([env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2]);
