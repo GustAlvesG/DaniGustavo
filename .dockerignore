@@ -1,0 +1,23 @@
+# Contexto do build = raiz do monorepo. Fica de fora o que não entra na imagem
+# (e, principalmente, segredos: o .env nunca vai para dentro de uma imagem).
+**/node_modules
+**/.next
+**/.next-*
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/next-env.d.ts
+**/playwright-report
+**/test-results
+**/blob-report
+.git
+.github
+.screenshots
+.env
+.env.*
+!.env.example
+!.env.production.example
+apps/api/storage
+backups
+docs
+**/.DS_Store
