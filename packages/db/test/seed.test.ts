@@ -5,7 +5,7 @@ import { runMigrations } from "../src/migrate.ts";
 import { resetDatabase } from "../src/reset.ts";
 import { gifts, guests, invitations, settings } from "../src/schema/app.ts";
 import { account, user } from "../src/schema/auth.ts";
-import { seed } from "../src/seed.ts";
+import { seed, setup } from "../src/seed.ts";
 import { createTestDb } from "./helpers.ts";
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -84,5 +84,20 @@ describe("seed", () => {
       settingsCreated: 0,
       adminsCreated: 0,
     });
+  });
+});
+
+describe("setup (produção)", () => {
+  it("cria só configurações e admins, sem convites nem presentes fictícios", async () => {
+    await resetDatabase(db);
+    await runMigrations(db);
+    const first = await setup(db, env);
+    expect(first.adminsCreated).toBe(2);
+    expect(first.settingsCreated).toBeGreaterThan(0);
+    const [inv] = await db.select({ n: count() }).from(invitations);
+    const [gft] = await db.select({ n: count() }).from(gifts);
+    expect(inv?.n).toBe(0);
+    expect(gft?.n).toBe(0);
+    expect(await setup(db, env)).toEqual({ settingsCreated: 0, adminsCreated: 0 });
   });
 });
