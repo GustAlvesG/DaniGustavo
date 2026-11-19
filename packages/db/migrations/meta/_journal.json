@@ -43,6 +43,13 @@
       "when": 1794948159409,
       "tag": "0005_lembretes_rsvp",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1795097507730,
+      "tag": "0006_multi_evento",
+      "breakpoints": true
     }
   ]
 }

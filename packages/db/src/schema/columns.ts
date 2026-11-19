@@ -1,4 +1,4 @@
-import { customType, datetime } from "drizzle-orm/mysql-core";
+import { bigint, customType, datetime } from "drizzle-orm/mysql-core";
 
 /**
  * JSON portátil entre MySQL 8 e MariaDB 10.4.
@@ -38,3 +38,10 @@ export const updatedAt = () =>
     .$onUpdate(() => new Date());
 
 export const timestamps = () => ({ createdAt: createdAt(), updatedAt: updatedAt() });
+
+// Chave primária BIGINT UNSIGNED AUTO_INCREMENT. Não usamos `serial`: o drizzle-kit gera
+// "serial AUTO_INCREMENT", que o MariaDB 10.4 rejeita.
+export const pk = () =>
+  bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey();
+// FK para essas chaves.
+export const fk = (name: string) => bigint(name, { mode: "number", unsigned: true });

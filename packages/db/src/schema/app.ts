@@ -1,16 +1,18 @@
 import {
-  bigint,
   boolean,
+  foreignKey,
   index,
   int,
   mediumtext,
   mysqlEnum,
   mysqlTable,
+  primaryKey,
   text,
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
-import { createdAt, json, timestamps, utcDatetime } from "./columns.ts";
+import { createdAt, fk, json, pk, timestamps, utcDatetime } from "./columns.ts";
+import { events } from "./tenancy.ts";
 
 export const SIDES = ["dani", "gustavo"] as const;
 export const RSVP_STATUSES = ["pending", "confirmed", "declined"] as const;
@@ -27,34 +29,43 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
-// Chave primária BIGINT UNSIGNED AUTO_INCREMENT. Não usamos `serial`: o drizzle-kit gera
-// "serial AUTO_INCREMENT", que o MariaDB 10.4 rejeita.
-const pk = () => bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey();
-// FK para essas chaves.
-const fk = (name: string) => bigint(name, { mode: "number", unsigned: true });
+/**
+ * Evento dono da linha. Repetido nas tabelas filhas de propósito (filtro direto, sem join).
+ * TODO(fase1-etapa8): o DEFAULT 1 é provisório (dados do casamento); a migration 0007 o remove.
+ */
+const eventId = (onDelete: "cascade" | "restrict") =>
+  fk("event_id")
+    .notNull()
+    .default(1)
+    .references(() => events.id, { onDelete });
 
-export const invitations = mysqlTable("invitations", {
-  id: pk(),
-  /** ULID aleatório usado no link do convite. Nunca expor o `id`. */
-  token: varchar("token", { length: 26 }).notNull().unique(),
-  label: varchar("label", { length: 191 }).notNull(),
-  maxGuests: int("max_guests").notNull().default(1),
-  side: mysqlEnum("side", SIDES).notNull(),
-  allowPlusOne: boolean("allow_plus_one").notNull().default(false),
-  /** Contato do grupo para o e-mail de confirmação e para os noivos. Preenchido no RSVP. */
-  contactEmail: varchar("contact_email", { length: 191 }),
-  contactPhone: varchar("contact_phone", { length: 32 }),
-  sentAt: utcDatetime("sent_at"),
-  ...timestamps(),
-});
+export const invitations = mysqlTable(
+  "invitations",
+  {
+    id: pk(),
+    eventId: eventId("cascade"),
+    /** ULID aleatório usado no link do convite. Nunca expor o `id`. */
+    token: varchar("token", { length: 26 }).notNull().unique(),
+    label: varchar("label", { length: 191 }).notNull(),
+    maxGuests: int("max_guests").notNull().default(1),
+    side: mysqlEnum("side", SIDES).notNull(),
+    allowPlusOne: boolean("allow_plus_one").notNull().default(false),
+    /** Contato do grupo para o e-mail de confirmação e para os noivos. Preenchido no RSVP. */
+    contactEmail: varchar("contact_email", { length: 191 }),
+    contactPhone: varchar("contact_phone", { length: 32 }),
+    sentAt: utcDatetime("sent_at"),
+    ...timestamps(),
+  },
+  // (event_id, id) único: alvo das FKs compostas das tabelas filhas.
+  (t) => [uniqueIndex("invitations_event_id_id_idx").on(t.eventId, t.id)],
+);
 
 export const guests = mysqlTable(
   "guests",
   {
     id: pk(),
-    invitationId: fk("invitation_id")
-      .notNull()
-      .references(() => invitations.id, { onDelete: "cascade" }),
+    eventId: eventId("cascade"),
+    invitationId: fk("invitation_id").notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     isChild: boolean("is_child").notNull().default(false),
     /** Faixa etária, só para crianças. */
@@ -69,13 +80,22 @@ export const guests = mysqlTable(
     respondedAt: utcDatetime("responded_at"),
     ...timestamps(),
   },
-  (t) => [index("guests_invitation_id_idx").on(t.invitationId)],
+  (t) => [
+    index("guests_event_invitation_idx").on(t.eventId, t.invitationId),
+    // Convidado e convite sempre do mesmo evento.
+    foreignKey({
+      name: "guests_invitation_fk",
+      columns: [t.eventId, t.invitationId],
+      foreignColumns: [invitations.eventId, invitations.id],
+    }).onDelete("cascade"),
+  ],
 );
 
 export const rsvpLogs = mysqlTable(
   "rsvp_logs",
   {
     id: pk(),
+    eventId: eventId("cascade"),
     invitationId: fk("invitation_id")
       .notNull()
       .references(() => invitations.id, { onDelete: "cascade" }),
@@ -83,14 +103,18 @@ export const rsvpLogs = mysqlTable(
     ip: varchar("ip", { length: 45 }),
     createdAt: createdAt(),
   },
-  (t) => [index("rsvp_logs_invitation_id_idx").on(t.invitationId)],
+  (t) => [
+    index("rsvp_logs_invitation_id_idx").on(t.invitationId),
+    index("rsvp_logs_event_id_idx").on(t.eventId),
+  ],
 );
 
 export const gifts = mysqlTable(
   "gifts",
   {
     id: pk(),
-    slug: varchar("slug", { length: 191 }).notNull().unique(),
+    eventId: eventId("cascade"),
+    slug: varchar("slug", { length: 191 }).notNull(),
     title: varchar("title", { length: 191 }).notNull(),
     description: text("description"),
     image: varchar("image", { length: 255 }),
@@ -106,7 +130,11 @@ export const gifts = mysqlTable(
     sort: int("sort").notNull().default(0),
     ...timestamps(),
   },
-  (t) => [index("gifts_active_sort_idx").on(t.active, t.sort)],
+  (t) => [
+    uniqueIndex("gifts_event_id_id_idx").on(t.eventId, t.id),
+    uniqueIndex("gifts_event_slug_idx").on(t.eventId, t.slug),
+    index("gifts_event_active_sort_idx").on(t.eventId, t.active, t.sort),
+  ],
 );
 
 export const giftOrders = mysqlTable(
@@ -115,9 +143,8 @@ export const giftOrders = mysqlTable(
     id: pk(),
     /** ULID aleatório exposto ao front. Nunca expor o `id`. */
     publicId: varchar("public_id", { length: 26 }).notNull().unique(),
-    giftId: fk("gift_id")
-      .notNull()
-      .references(() => gifts.id, { onDelete: "restrict" }),
+    eventId: eventId("restrict"),
+    giftId: fk("gift_id").notNull(),
     quantity: int("quantity").notNull().default(1),
     /** Valor do presente (cotas × preço, ou o valor livre), sem a taxa. */
     amountCents: int("amount_cents").notNull(),
@@ -147,7 +174,14 @@ export const giftOrders = mysqlTable(
   },
   (t) => [
     index("gift_orders_status_expires_idx").on(t.status, t.expiresAt),
-    index("gift_orders_gift_id_idx").on(t.giftId),
+    index("gift_orders_event_status_created_idx").on(t.eventId, t.status, t.createdAt),
+    index("gift_orders_event_gift_idx").on(t.eventId, t.giftId),
+    uniqueIndex("gift_orders_event_id_id_idx").on(t.eventId, t.id),
+    foreignKey({
+      name: "gift_orders_gift_fk",
+      columns: [t.eventId, t.giftId],
+      foreignColumns: [gifts.eventId, gifts.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -155,9 +189,8 @@ export const payments = mysqlTable(
   "payments",
   {
     id: pk(),
-    orderId: fk("order_id")
-      .notNull()
-      .references(() => giftOrders.id, { onDelete: "restrict" }),
+    eventId: eventId("restrict"),
+    orderId: fk("order_id").notNull(),
     gateway: varchar("gateway", { length: 32 }).notNull().default("simulado"),
     gatewayId: varchar("gateway_id", { length: 128 }).notNull().unique(),
     method: mysqlEnum("method", PAYMENT_METHODS).notNull(),
@@ -169,22 +202,40 @@ export const payments = mysqlTable(
     raw: json<unknown>("raw"),
     ...timestamps(),
   },
-  (t) => [index("payments_order_id_idx").on(t.orderId)],
+  (t) => [
+    index("payments_event_order_idx").on(t.eventId, t.orderId),
+    foreignKey({
+      name: "payments_order_fk",
+      columns: [t.eventId, t.orderId],
+      foreignColumns: [giftOrders.eventId, giftOrders.id],
+    }).onDelete("restrict"),
+  ],
 );
 
-export const webhookEvents = mysqlTable("webhook_events", {
-  id: pk(),
-  gateway: varchar("gateway", { length: 32 }).notNull().default("simulado"),
-  eventId: varchar("event_id", { length: 128 }).notNull().unique(),
-  payload: json<unknown>("payload").notNull(),
-  processedAt: utcDatetime("processed_at"),
-  createdAt: createdAt(),
-});
+export const webhookEvents = mysqlTable(
+  "webhook_events",
+  {
+    id: pk(),
+    gateway: varchar("gateway", { length: 32 }).notNull().default("simulado"),
+    /** Id do evento no provedor de pagamento (idempotência), não o evento da plataforma. */
+    eventId: varchar("event_id", { length: 128 }).notNull().unique(),
+    /**
+     * Evento da plataforma a que o webhook se refere, só para auditoria (a tabela é global).
+     * Não se chama `event_id` porque esse nome já é o id do evento no provedor.
+     */
+    appEventId: fk("app_event_id").references(() => events.id, { onDelete: "set null" }),
+    payload: json<unknown>("payload").notNull(),
+    processedAt: utcDatetime("processed_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("webhook_events_app_event_id_idx").on(t.appEventId)],
+);
 
 export const messages = mysqlTable(
   "messages",
   {
     id: pk(),
+    eventId: eventId("cascade"),
     author: varchar("author", { length: 120 }).notNull(),
     body: text("body").notNull(),
     approved: boolean("approved").notNull().default(false),
@@ -194,7 +245,7 @@ export const messages = mysqlTable(
       .references(() => giftOrders.id, { onDelete: "set null" }),
     ...timestamps(),
   },
-  (t) => [index("messages_approved_idx").on(t.approved)],
+  (t) => [index("messages_event_approved_idx").on(t.eventId, t.approved)],
 );
 
 /**
@@ -205,19 +256,31 @@ export const rsvpReminders = mysqlTable(
   "rsvp_reminders",
   {
     id: pk(),
+    eventId: eventId("cascade"),
     invitationId: fk("invitation_id")
       .notNull()
       .references(() => invitations.id, { onDelete: "cascade" }),
     kind: varchar("kind", { length: 32 }).notNull(),
     sentAt: createdAt(),
   },
-  (t) => [uniqueIndex("rsvp_reminders_invitation_kind_idx").on(t.invitationId, t.kind)],
+  (t) => [
+    uniqueIndex("rsvp_reminders_invitation_kind_idx").on(t.invitationId, t.kind),
+    index("rsvp_reminders_event_id_idx").on(t.eventId),
+  ],
 );
 
-export const settings = mysqlTable("settings", {
-  key: varchar("key", { length: 100 }).primaryKey(),
-  value: json<unknown>("value").notNull(),
-  /** Se pode aparecer em GET /api/site. */
-  isPublic: boolean("is_public").notNull().default(true),
-  ...timestamps(),
-});
+/** Configurações e textos de cada evento (chave/valor JSON). */
+export const eventSettings = mysqlTable(
+  "event_settings",
+  {
+    eventId: fk("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    key: varchar("key", { length: 100 }).notNull(),
+    value: json<unknown>("value").notNull(),
+    /** Se pode aparecer em GET /api/site. */
+    isPublic: boolean("is_public").notNull().default(true),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ name: "event_settings_pk", columns: [t.eventId, t.key] })],
+);

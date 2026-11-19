@@ -11,6 +11,8 @@ export const user = mysqlTable("user", {
   email: varchar("email", { length: 191 }).notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  /** Papel na plataforma ("admin" vê todas as organizações); nulo para os demais. */
+  platformRole: varchar("platform_role", { length: 32 }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
