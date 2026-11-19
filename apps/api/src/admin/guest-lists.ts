@@ -1,5 +1,6 @@
-import { asc, eq, guests, invitations, type Database } from "@casamento/db";
+import { and, asc, byEvent, eq, guests, invitations, type Database } from "@casamento/db";
 import { GUEST_LIST_KINDS, type GuestList, type GuestListKind } from "@casamento/shared";
+import type { EventCtx } from "../tenancy/types.ts";
 
 /*
  * Listas dos confirmados para os fornecedores. Restrição alimentar é dado de saúde (LGPD):
@@ -18,6 +19,7 @@ export const isGuestListKind = (k: string): k is GuestListKind =>
 const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
 export async function buildGuestList(
+  ev: EventCtx,
   db: Database,
   kind: GuestListKind,
   now: Date,
@@ -35,8 +37,8 @@ export async function buildGuestList(
       contactPhone: invitations.contactPhone,
     })
     .from(guests)
-    .innerJoin(invitations, eq(guests.invitationId, invitations.id))
-    .where(eq(guests.rsvpStatus, "confirmed"))
+    .innerJoin(invitations, and(eq(guests.invitationId, invitations.id), byEvent(invitations, ev)))
+    .where(and(byEvent(guests, ev), eq(guests.rsvpStatus, "confirmed")))
     .orderBy(asc(invitations.label), asc(guests.isPlusOne), asc(guests.id));
 
   const type = (g: (typeof rows)[number]) => (g.isChild ? "Criança" : "Adulto");

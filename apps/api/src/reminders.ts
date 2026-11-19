@@ -1,12 +1,12 @@
 import {
   and,
   asc,
+  byEvent,
   eq,
   eventSettings,
   guests,
   inArray,
   invitations,
-  LEGACY_EVENT_ID,
   rsvpReminders,
   type Database,
 } from "@casamento/db";
@@ -15,6 +15,7 @@ import { invitationLink, invitationStatus } from "./admin/invitations.ts";
 import type { Env } from "./env.ts";
 import type { Mailer } from "./mailer.ts";
 import { buildReminderEmail } from "./reminder-email.ts";
+import type { EventCtx } from "./tenancy/types.ts";
 
 /*
  * Lembretes de RSVP por e-mail (Fase 6). Quem recebe: convites ainda pendentes (ninguém
@@ -31,6 +32,8 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = { enabled: true, days
 const SETTINGS_KEY = "reminders";
 
 export interface ReminderDeps {
+  /** O evento dos lembretes (o job de lembretes passa um por vez). */
+  ev: EventCtx;
   env: Env;
   db: Database;
   mailer: Mailer;
@@ -40,16 +43,20 @@ export interface ReminderDeps {
 }
 
 /** Configuração dos lembretes (padrão: ligado, 14 e 3 dias antes do prazo). */
-export async function readReminderSettings(db: Database): Promise<ReminderSettings> {
+export async function readReminderSettings(ev: EventCtx, db: Database): Promise<ReminderSettings> {
   const [row] = await db
     .select()
     .from(eventSettings)
-    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, SETTINGS_KEY)));
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, SETTINGS_KEY)));
   const parsed = ReminderSettings.safeParse(row?.value);
   return parsed.success ? parsed.data : DEFAULT_REMINDER_SETTINGS;
 }
 
-export async function saveReminderSettings(db: Database, value: ReminderSettings): Promise<void> {
+export async function saveReminderSettings(
+  ev: EventCtx,
+  db: Database,
+  value: ReminderSettings,
+): Promise<void> {
   const clean: ReminderSettings = {
     enabled: value.enabled,
     daysBefore: [...new Set(value.daysBefore)].sort((a, b) => b - a),
@@ -57,25 +64,25 @@ export async function saveReminderSettings(db: Database, value: ReminderSettings
   // Privada (is_public = false): não entra em GET /api/site.
   await db
     .insert(eventSettings)
-    .values({ eventId: LEGACY_EVENT_ID, key: SETTINGS_KEY, value: clean, isPublic: false })
+    .values({ eventId: ev.id, key: SETTINGS_KEY, value: clean, isPublic: false })
     .onDuplicateKeyUpdate({ set: { value: clean, updatedAt: new Date() } });
 }
 
-async function readDeadline(db: Database): Promise<Date> {
+async function readDeadline(ev: EventCtx, db: Database): Promise<Date> {
   const [row] = await db
     .select()
     .from(eventSettings)
-    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")));
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, "rsvp.deadline")));
   return new Date(String(row?.value));
 }
 
-async function readCouple(db: Database) {
+async function readCouple(ev: EventCtx, db: Database) {
   const rows = await db
     .select()
     .from(eventSettings)
     .where(
       and(
-        eq(eventSettings.eventId, LEGACY_EVENT_ID),
+        byEvent(eventSettings, ev),
         inArray(eventSettings.key, ["couple.names", "wedding.datetime", "wedding.timezone"]),
       ),
     );
@@ -99,11 +106,15 @@ export interface Candidate {
 }
 
 /** Convites pendentes, separados entre com e sem e-mail. */
-async function loadPending(db: Database, only?: number[]) {
+async function loadPending(ev: EventCtx, db: Database, only?: number[]) {
   const [invs, gs, sent] = await Promise.all([
-    db.select().from(invitations).orderBy(asc(invitations.label)),
-    db.select().from(guests).orderBy(asc(guests.isPlusOne), asc(guests.id)),
-    db.select().from(rsvpReminders),
+    db.select().from(invitations).where(byEvent(invitations, ev)).orderBy(asc(invitations.label)),
+    db
+      .select()
+      .from(guests)
+      .where(byEvent(guests, ev))
+      .orderBy(asc(guests.isPlusOne), asc(guests.id)),
+    db.select().from(rsvpReminders).where(byEvent(rsvpReminders, ev)),
   ]);
   const withEmail: Candidate[] = [];
   let withoutEmail = 0;
@@ -160,11 +171,11 @@ export function dueAutoKind(daysBefore: number[], deadline: Date, now: Date): st
 
 /** Quantos receberiam um lembrete manual agora, e o resumo para o painel. */
 export async function reminderStatus(deps: ReminderDeps): Promise<ReminderStatus> {
-  const { db, now } = deps;
+  const { ev, db, now } = deps;
   const [cfg, deadline, pending] = await Promise.all([
-    readReminderSettings(db),
-    readDeadline(db),
-    loadPending(db, deps.only),
+    readReminderSettings(ev, db),
+    readDeadline(ev, db),
+    loadPending(ev, db, deps.only),
   ]);
   const valid = !Number.isNaN(deadline.getTime());
   const open = valid && now() < deadline;
@@ -201,9 +212,11 @@ async function sendOne(
   kind: string,
   ctx: { couple: Couple; deadline: Date },
 ): Promise<"sent" | "skipped" | "failed"> {
-  const { db, mailer, env, now } = deps;
+  const { ev, db, mailer, env, now } = deps;
   try {
-    await db.insert(rsvpReminders).values({ invitationId: c.invitationId, kind, sentAt: now() });
+    await db
+      .insert(rsvpReminders)
+      .values({ eventId: ev.id, invitationId: c.invitationId, kind, sentAt: now() });
   } catch (err) {
     if (isDuplicate(err)) return "skipped";
     throw err;
@@ -225,7 +238,13 @@ async function sendOne(
     console.error(`[lembretes] Falha ao enviar para o convite ${c.invitationId}:`, err);
     await db
       .delete(rsvpReminders)
-      .where(and(eq(rsvpReminders.invitationId, c.invitationId), eq(rsvpReminders.kind, kind)));
+      .where(
+        and(
+          byEvent(rsvpReminders, ev),
+          eq(rsvpReminders.invitationId, c.invitationId),
+          eq(rsvpReminders.kind, kind),
+        ),
+      );
     return "failed";
   }
 }
@@ -248,22 +267,22 @@ async function sendAll(
 
 /** Rodada do lembrete automático (chamada pelo job). Não faz nada se estiver desligado. */
 export async function runAutoReminders(deps: ReminderDeps): Promise<ReminderSendResult> {
-  const { db, now } = deps;
-  const cfg = await readReminderSettings(db);
+  const { ev, db, now } = deps;
+  const cfg = await readReminderSettings(ev, db);
   if (!cfg.enabled) return { sent: 0, failed: 0 };
-  const deadline = await readDeadline(db);
+  const deadline = await readDeadline(ev, db);
   const kind = dueAutoKind(cfg.daysBefore, deadline, now());
   if (!kind) return { sent: 0, failed: 0 };
-  const [pending, couple] = await Promise.all([loadPending(db, deps.only), readCouple(db)]);
+  const [pending, couple] = await Promise.all([loadPending(ev, db, deps.only), readCouple(ev, db)]);
   return sendAll(deps, kind, pending.withEmail, { couple, deadline });
 }
 
 /** "Enviar lembretes agora" (botão do painel): vale também com o automático desligado. */
 export async function sendRemindersNow(deps: ReminderDeps): Promise<ReminderSendResult> {
-  const { db, now } = deps;
-  const deadline = await readDeadline(db);
+  const { ev, db, now } = deps;
+  const deadline = await readDeadline(ev, db);
   if (Number.isNaN(deadline.getTime()) || now() >= deadline) return { sent: 0, failed: 0 };
-  const [pending, couple] = await Promise.all([loadPending(db, deps.only), readCouple(db)]);
+  const [pending, couple] = await Promise.all([loadPending(ev, db, deps.only), readCouple(ev, db)]);
   const kind = `manual:${localDay(now(), couple.timezone)}`;
   return sendAll(deps, kind, pending.withEmail, { couple, deadline });
 }

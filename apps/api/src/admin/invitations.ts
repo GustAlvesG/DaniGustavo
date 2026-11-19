@@ -1,5 +1,7 @@
 import {
+  and,
   asc,
+  byEvent,
   desc,
   eq,
   guests,
@@ -19,7 +21,9 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { invalid, iso, notFound, readJson, sensitiveLimit } from "./context.ts";
-import type { AdminDeps, AdminEnv } from "./context.ts";
+import { requirePermission } from "../tenancy/permissions.ts";
+import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
+import type { AdminDeps } from "./context.ts";
 
 type InvitationRow = typeof invitations.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -67,10 +71,14 @@ function invitationDto(siteUrl: string, inv: InvitationRow, list: GuestRow[]): A
   };
 }
 
-async function loadAll(db: Database) {
+async function loadAll(ev: EventCtx, db: Database) {
   const [invs, gs] = await Promise.all([
-    db.select().from(invitations).orderBy(asc(invitations.label)),
-    db.select().from(guests).orderBy(asc(guests.isPlusOne), asc(guests.id)),
+    db.select().from(invitations).where(byEvent(invitations, ev)).orderBy(asc(invitations.label)),
+    db
+      .select()
+      .from(guests)
+      .where(byEvent(guests, ev))
+      .orderBy(asc(guests.isPlusOne), asc(guests.id)),
   ]);
   const byInv = new Map<number, GuestRow[]>();
   for (const g of gs) {
@@ -81,13 +89,16 @@ async function loadAll(db: Database) {
   return invs.map((inv) => ({ inv, guests: byInv.get(inv.id) ?? [] }));
 }
 
-async function loadOne(db: Database, id: number) {
-  const [inv] = await db.select().from(invitations).where(eq(invitations.id, id));
+async function loadOne(ev: EventCtx, db: Database, id: number) {
+  const [inv] = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
   if (!inv) return null;
   const list = await db
     .select()
     .from(guests)
-    .where(eq(guests.invitationId, id))
+    .where(and(eq(guests.invitationId, id), byEvent(guests, ev)))
     .orderBy(asc(guests.isPlusOne), asc(guests.id));
   return { inv, guests: list };
 }
@@ -144,13 +155,17 @@ export function toCsv(rows: (string | number | null)[][]): string {
 
 export function adminInvitationRoutes(deps: AdminDeps) {
   const { db, env, now } = deps;
-  const app = new Hono<AdminEnv>();
+  const app = new Hono<EventAdminEnv>();
   const siteUrl = env.SITE_URL;
+  app.on("GET", "*", requirePermission("invitations.read"));
+  app.on(["POST", "PUT", "PATCH", "DELETE"], "*", requirePermission("invitations.write"));
 
   app.get("/", async (c) => {
     const q = fold(c.req.query("q")?.trim() ?? "");
     const status = InvitationStatus.safeParse(c.req.query("status"));
-    const all = (await loadAll(db)).map(({ inv, guests: g }) => invitationDto(siteUrl, inv, g));
+    const all = (await loadAll(c.get("event"), db)).map(({ inv, guests: g }) =>
+      invitationDto(siteUrl, inv, g),
+    );
     const list = all.filter(
       (i) =>
         (!status.success || i.status === status.data) &&
@@ -161,7 +176,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
 
   app.get("/export.csv", async (c) => {
     const wanted = c.req.query("status") ?? "confirmed";
-    const all = await loadAll(db);
+    const all = await loadAll(c.get("event"), db);
     const rows: (string | number | null)[][] = [
       [
         "Convidado",
@@ -199,13 +214,14 @@ export function adminInvitationRoutes(deps: AdminDeps) {
   });
 
   app.get("/:id{[0-9]+}", async (c) => {
+    const ev = c.get("event");
     const id = Number(c.req.param("id"));
-    const found = await loadOne(db, id);
+    const found = await loadOne(ev, db, id);
     if (!found) return notFound(c, "Convite");
     const logs = await db
       .select({ id: rsvpLogs.id, payload: rsvpLogs.payload, createdAt: rsvpLogs.createdAt })
       .from(rsvpLogs)
-      .where(eq(rsvpLogs.invitationId, id))
+      .where(and(eq(rsvpLogs.invitationId, id), byEvent(rsvpLogs, ev)))
       .orderBy(desc(rsvpLogs.createdAt))
       .limit(50);
     const names = new Map(found.guests.map((g) => [g.id, g.name]));
@@ -218,12 +234,14 @@ export function adminInvitationRoutes(deps: AdminDeps) {
   });
 
   app.post("/", async (c) => {
+    const ev = c.get("event");
     const parsed = AdminInvitationInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
     const moment = now();
     const id = await db.transaction(async (tx) => {
       const [res] = await tx.insert(invitations).values({
+        eventId: ev.id,
         token: newPublicId(),
         label: input.label,
         side: input.side,
@@ -236,6 +254,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
       });
       await tx.insert(guests).values(
         input.guests.map((g) => ({
+          eventId: ev.id,
           invitationId: res.insertId,
           name: g.name,
           isChild: g.isChild,
@@ -249,16 +268,17 @@ export function adminInvitationRoutes(deps: AdminDeps) {
       );
       return res.insertId;
     });
-    const found = await loadOne(db, id);
+    const found = await loadOne(ev, db, id);
     return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) }, 201);
   });
 
   app.put("/:id{[0-9]+}", async (c) => {
+    const ev = c.get("event");
     const id = Number(c.req.param("id"));
     const parsed = AdminInvitationInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
-    const current = await loadOne(db, id);
+    const current = await loadOne(ev, db, id);
     if (!current) return notFound(c, "Convite");
     const existing = new Map(current.guests.map((g) => [g.id, g]));
     if (input.guests.some((g) => g.id !== undefined && !existing.has(g.id))) {
@@ -278,7 +298,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
           contactEmail: input.contactEmail,
           contactPhone: input.contactPhone,
         })
-        .where(eq(invitations.id, id));
+        .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
       const keep = new Set<number>();
       for (const g of input.guests) {
         const values = {
@@ -302,45 +322,55 @@ export function adminInvitationRoutes(deps: AdminDeps) {
           await tx
             .update(guests)
             .set({ ...values, respondedAt })
-            .where(eq(guests.id, g.id));
+            .where(and(eq(guests.id, g.id), byEvent(guests, ev)));
         } else {
           await tx.insert(guests).values({
             ...values,
+            eventId: ev.id,
             invitationId: id,
             respondedAt: g.rsvpStatus === "pending" ? null : moment,
           });
         }
       }
       const removed = current.guests.filter((g) => !keep.has(g.id)).map((g) => g.id);
-      if (removed.length) await tx.delete(guests).where(inArray(guests.id, removed));
+      if (removed.length)
+        await tx.delete(guests).where(and(inArray(guests.id, removed), byEvent(guests, ev)));
     });
-    const found = await loadOne(db, id);
+    const found = await loadOne(ev, db, id);
     return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) });
   });
 
   app.delete("/:id{[0-9]+}", async (c) => {
+    const ev = c.get("event");
     const id = Number(c.req.param("id"));
-    const [res] = await db.delete(invitations).where(eq(invitations.id, id));
+    const [res] = await db
+      .delete(invitations)
+      .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
     if (res.affectedRows === 0) return notFound(c, "Convite");
     return c.json({ ok: true });
   });
 
   /** Gera um token novo: o link antigo deixa de funcionar. */
   app.post("/:id{[0-9]+}/token", sensitiveLimit(deps.limiter, "token"), async (c) => {
+    const ev = c.get("event");
     const id = Number(c.req.param("id"));
     const [res] = await db
       .update(invitations)
       .set({ token: newPublicId(), sentAt: null })
-      .where(eq(invitations.id, id));
+      .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
     if (res.affectedRows === 0) return notFound(c, "Convite");
-    const found = await loadOne(db, id);
+    const found = await loadOne(ev, db, id);
     return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) });
   });
 
   /** Marca como enviado (o painel chama ao abrir o WhatsApp ou copiar o link). */
   app.post("/:id{[0-9]+}/sent", async (c) => {
+    const ev = c.get("event");
     const id = Number(c.req.param("id"));
-    const [res] = await db.update(invitations).set({ sentAt: now() }).where(eq(invitations.id, id));
+    const [res] = await db
+      .update(invitations)
+      .set({ sentAt: now() })
+      .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
     if (res.affectedRows === 0) return notFound(c, "Convite");
     return c.json({ ok: true });
   });

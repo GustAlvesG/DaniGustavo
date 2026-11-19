@@ -5,6 +5,7 @@ import {
   account,
   and,
   eq,
+  eventMembers,
   eventSettings,
   giftOrders,
   gifts,
@@ -61,7 +62,7 @@ const createdInvitations: number[] = [];
 const createdGifts: number[] = [];
 
 const admin = (path: string, init: RequestInit = {}) =>
-  app.request(`/api/admin${path}`, {
+  app.request(`/api/admin/events/${LEGACY_EVENT_ID}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", cookie, ...(init.headers ?? {}) },
   });
@@ -69,6 +70,7 @@ const json = (body: unknown) => JSON.stringify(body);
 
 beforeAll(async () => {
   await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
+  await db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" });
   await db.insert(account).values({
     id: ulid(),
     accountId: userId,
@@ -122,19 +124,19 @@ describe("acesso ao painel", () => {
     ["PUT", "/settings"],
     ["GET", "/invitations/export.csv"],
   ])("%s %s sem sessão → 401", async (method, path) => {
-    const res = await app.request(`/api/admin${path}`, { method });
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}${path}`, { method });
     expect(res.status).toBe(401);
   });
 
   it("a X-Web-Key do site não abre o painel", async () => {
-    const res = await app.request("/api/admin/dashboard", {
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}/dashboard`, {
       headers: { "X-Web-Key": TEST_WEB_KEY },
     });
     expect(res.status).toBe(401);
   });
 
   it("recusa formulário de outra origem (CSRF)", async () => {
-    const res = await app.request("/api/admin/uploads", {
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}/uploads`, {
       method: "POST",
       headers: {
         cookie,
@@ -324,7 +326,7 @@ describe("presentes", () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
     const form = new FormData();
     form.set("file", new File([png], "foto.png", { type: "image/png" }));
-    const res = await app.request("/api/admin/uploads", {
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}/uploads`, {
       method: "POST",
       headers: { cookie },
       body: form,
@@ -338,7 +340,7 @@ describe("presentes", () => {
 
     const fake = new FormData();
     fake.set("file", new File(["<svg/>"], "x.png", { type: "image/png" }));
-    const bad = await app.request("/api/admin/uploads", {
+    const bad = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}/uploads`, {
       method: "POST",
       headers: { cookie },
       body: fake,

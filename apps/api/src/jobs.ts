@@ -1,6 +1,8 @@
 import { expirePendingOrders, type OrderDeps } from "./orders/service.ts";
 import { reconcileOrders } from "./orders/reconcile.ts";
 import { runAutoReminders, type ReminderDeps } from "./reminders.ts";
+import { legacyEvent } from "./tenancy/legacy.ts";
+import { resolverFor } from "./tenancy/resolver.ts";
 
 /** A cada 5 minutos (PROMPT §6). */
 export const EXPIRY_INTERVAL_MS = 5 * 60_000;
@@ -68,7 +70,7 @@ export const REMINDER_INTERVAL_MS = 60 * 60_000;
  * e-mails. Desligado no painel, a rodada não faz nada.
  */
 export function startReminderJob(
-  deps: ReminderDeps,
+  deps: Omit<ReminderDeps, "ev">,
   intervalMs = REMINDER_INTERVAL_MS,
 ): () => void {
   let running = false;
@@ -76,7 +78,9 @@ export function startReminderJob(
     if (running) return;
     running = true;
     try {
-      const r = await runAutoReminders(deps);
+      // TODO(fase1-etapa6): iterar os eventos ativos em vez de só o evento 1.
+      const ev = await legacyEvent(resolverFor(deps.db));
+      const r = await runAutoReminders({ ...deps, ev });
       if (r.sent > 0 || r.failed > 0) {
         console.log(`[lembretes] ${r.sent} lembrete(s) enviado(s), ${r.failed} falha(s).`);
       }

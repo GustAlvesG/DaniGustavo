@@ -2,6 +2,7 @@ import {
   account,
   and,
   eq,
+  eventMembers,
   eventSettings,
   guests,
   inArray,
@@ -26,6 +27,8 @@ import {
   saveReminderSettings,
   sendRemindersNow,
 } from "../src/reminders.ts";
+import { legacyEvent } from "../src/tenancy/legacy.ts";
+import { resolverFor } from "../src/tenancy/resolver.ts";
 import { testApp } from "./helpers.ts";
 
 // Usa o banco de DATABASE_URL já migrado e com seed. Cria convites próprios (e-mails
@@ -47,6 +50,7 @@ const mailer: Mailer = {
 };
 let clock = new Date("2027-01-01T12:00:00-03:00");
 const { app, db, env } = testApp({ mailer, now: () => clock });
+const ev = await legacyEvent(resolverFor(db));
 const DEADLINE = new Date("2027-03-10T23:59:59-03:00");
 const day = (iso: string) => new Date(`${iso}T12:00:00-03:00`);
 
@@ -72,7 +76,7 @@ async function invite(key: string, opts: { email?: string; status?: "pending" | 
   });
 }
 
-const deps = () => ({ env, db, mailer, now: () => clock, only: created });
+const deps = () => ({ ev, env, db, mailer, now: () => clock, only: created });
 const to = () => sent.map((m) => m.to).filter((t) => t.endsWith(`-${run}@exemplo.com`));
 const clearSent = () =>
   db.delete(rsvpReminders).where(inArray(rsvpReminders.invitationId, created));
@@ -87,7 +91,7 @@ beforeAll(async () => {
   await invite("b", { email: emailOf("b") });
   await invite("sem", {});
   await invite("resp", { email: emailOf("resp"), status: "confirmed" });
-  await saveReminderSettings(db, DEFAULT_REMINDER_SETTINGS);
+  await saveReminderSettings(ev, db, DEFAULT_REMINDER_SETTINGS);
 });
 
 afterAll(async () => {
@@ -97,7 +101,7 @@ afterAll(async () => {
       .delete(eventSettings)
       .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "reminders")));
   } else {
-    await saveReminderSettings(db, originalSettings as typeof DEFAULT_REMINDER_SETTINGS);
+    await saveReminderSettings(ev, db, originalSettings as typeof DEFAULT_REMINDER_SETTINGS);
   }
   await db.$client.end();
 });
@@ -150,7 +154,7 @@ describe("agenda por dias antes do prazo", () => {
 
 describe("liga/desliga e configuração", () => {
   it("desligado, o automático não envia (e o manual ainda funciona)", async () => {
-    await saveReminderSettings(db, { enabled: false, daysBefore: [14, 3] });
+    await saveReminderSettings(ev, db, { enabled: false, daysBefore: [14, 3] });
     await clearSent();
     await db.update(guests).set({ rsvpStatus: "pending" }).where(eq(guests.invitationId, ids.b!));
     sent.length = 0;
@@ -161,13 +165,13 @@ describe("liga/desliga e configuração", () => {
   });
 
   it("datas configuradas são ordenadas e sem repetição; padrão 14 e 3", async () => {
-    await saveReminderSettings(db, { enabled: true, daysBefore: [3, 7, 7, 30] });
-    expect((await readReminderSettings(db)).daysBefore).toEqual([30, 7, 3]);
+    await saveReminderSettings(ev, db, { enabled: true, daysBefore: [3, 7, 7, 30] });
+    expect((await readReminderSettings(ev, db)).daysBefore).toEqual([30, 7, 3]);
     await db
       .delete(eventSettings)
       .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "reminders")));
-    expect(await readReminderSettings(db)).toEqual({ enabled: true, daysBefore: [14, 3] });
-    await saveReminderSettings(db, DEFAULT_REMINDER_SETTINGS);
+    expect(await readReminderSettings(ev, db)).toEqual({ enabled: true, daysBefore: [14, 3] });
+    await saveReminderSettings(ev, db, DEFAULT_REMINDER_SETTINGS);
   });
 });
 
@@ -225,13 +229,14 @@ describe("painel (/api/admin/reminders)", () => {
   const userId = ulid();
   let cookie = "";
   const admin = (path: string, init: RequestInit = {}) =>
-    app.request(`/api/admin/reminders${path}`, {
+    app.request(`/api/admin/events/${ev.id}/reminders${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", cookie, ...(init.headers ?? {}) },
     });
 
   beforeAll(async () => {
     await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
+    await db.insert(eventMembers).values({ eventId: ev.id, userId, role: "host" });
     await db.insert(account).values({
       id: ulid(),
       accountId: userId,
@@ -279,6 +284,6 @@ describe("painel (/api/admin/reminders)", () => {
       body: JSON.stringify({ enabled: true, daysBefore: [0] }),
     });
     expect(bad.status).toBe(422);
-    await saveReminderSettings(db, DEFAULT_REMINDER_SETTINGS);
+    await saveReminderSettings(ev, db, DEFAULT_REMINDER_SETTINGS);
   });
 });

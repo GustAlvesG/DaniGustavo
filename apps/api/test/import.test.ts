@@ -1,4 +1,14 @@
-import { account, eq, guests, inArray, invitations, like, user } from "@casamento/db";
+import {
+  account,
+  eq,
+  eventMembers,
+  guests,
+  inArray,
+  invitations,
+  LEGACY_EVENT_ID,
+  like,
+  user,
+} from "@casamento/db";
 import type { GuestList, ImportPreview, ImportResult } from "@casamento/shared";
 import { hashPassword } from "better-auth/crypto";
 import { ulid } from "ulid";
@@ -27,16 +37,18 @@ const CSV =
 const upload = (path: string, body: string | Uint8Array, name = "convidados.csv") => {
   const form = new FormData();
   form.append("file", new File([body], name));
-  return app.request(`/api/admin/invitations/import${path}`, {
+  return app.request(`/api/admin/events/${LEGACY_EVENT_ID}/invitations/import${path}`, {
     method: "POST",
     headers: { cookie },
     body: form,
   });
 };
-const get = (path: string) => app.request(`/api/admin${path}`, { headers: { cookie } });
+const get = (path: string) =>
+  app.request(`/api/admin/events/${LEGACY_EVENT_ID}${path}`, { headers: { cookie } });
 
 beforeAll(async () => {
   await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
+  await db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" });
   await db.insert(account).values({
     id: ulid(),
     accountId: userId,
@@ -70,14 +82,14 @@ describe("acesso", () => {
     ["GET", "/invitations/lists/buffet"],
     ["GET", "/invitations/lists/portaria.csv"],
   ])("%s %s sem sessão → 401", async (method, path) => {
-    const res = await app.request(`/api/admin${path}`, { method });
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}${path}`, { method });
     expect(res.status).toBe(401);
   });
 
   it("importação de outra origem → 403", async () => {
     const form = new FormData();
     form.append("file", new File([CSV], "x.csv"));
-    const res = await app.request("/api/admin/invitations/import", {
+    const res = await app.request(`/api/admin/events/${LEGACY_EVENT_ID}/invitations/import`, {
       method: "POST",
       headers: { cookie, Origin: "https://malicioso.example" },
       body: form,
@@ -88,11 +100,14 @@ describe("acesso", () => {
 
 describe("importação", () => {
   it("sem arquivo → 422", async () => {
-    const res = await app.request("/api/admin/invitations/import/preview", {
-      method: "POST",
-      headers: { cookie },
-      body: new FormData(),
-    });
+    const res = await app.request(
+      `/api/admin/events/${LEGACY_EVENT_ID}/invitations/import/preview`,
+      {
+        method: "POST",
+        headers: { cookie },
+        body: new FormData(),
+      },
+    );
     expect(res.status).toBe(422);
   });
 

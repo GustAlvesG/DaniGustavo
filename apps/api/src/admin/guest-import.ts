@@ -1,4 +1,5 @@
 import { guests, invitations, newPublicId, type Database } from "@casamento/db";
+import type { EventCtx } from "../tenancy/types.ts";
 import {
   AdminInvitationInput,
   IMPORT_COLUMNS,
@@ -376,6 +377,7 @@ export function planImport(
 
 /** Grava os convites do plano numa transação só (tudo ou nada). */
 export async function applyImport(
+  ev: EventCtx,
   db: Database,
   plan: ImportPlan,
   moment: Date,
@@ -384,6 +386,7 @@ export async function applyImport(
   await db.transaction(async (tx) => {
     for (const { input } of plan.create) {
       const [res] = await tx.insert(invitations).values({
+        eventId: ev.id,
         token: newPublicId(),
         label: input.label,
         side: input.side,
@@ -397,6 +400,7 @@ export async function applyImport(
       ids.push(res.insertId);
       await tx.insert(guests).values(
         input.guests.map((g) => ({
+          eventId: ev.id,
           invitationId: res.insertId,
           name: g.name,
           isChild: g.isChild,

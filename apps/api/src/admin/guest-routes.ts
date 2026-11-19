@@ -1,9 +1,11 @@
-import { guests, invitations } from "@casamento/db";
+import { byEvent, guests, invitations } from "@casamento/db";
 import { IMPORT_COLUMNS, IMPORT_MAX_BYTES } from "@casamento/shared";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { apiError, ERROR_CODES } from "../errors.ts";
-import { invalid, sensitiveLimit, type AdminDeps, type AdminEnv } from "./context.ts";
+import { requirePermission } from "../tenancy/permissions.ts";
+import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
+import { invalid, sensitiveLimit, type AdminDeps } from "./context.ts";
 import { applyImport, planImport } from "./guest-import.ts";
 import { buildGuestList, isGuestListKind } from "./guest-lists.ts";
 import { toCsv } from "./invitations.ts";
@@ -31,7 +33,7 @@ export const TEMPLATE_ROWS: string[][] = [
 
 const tooBig = `O arquivo passa de ${IMPORT_MAX_BYTES / 1024 / 1024} MB. Divida a planilha.`;
 
-async function readUpload(c: Context<AdminEnv>) {
+async function readUpload(c: Context<EventAdminEnv>) {
   let file: unknown;
   try {
     file = (await c.req.parseBody())["file"];
@@ -45,16 +47,24 @@ async function readUpload(c: Context<AdminEnv>) {
 /** /api/admin/invitations/import — prévia, confirmação e modelos. */
 export function adminImportRoutes(deps: AdminDeps) {
   const { db, now } = deps;
-  const app = new Hono<AdminEnv>();
+  const app = new Hono<EventAdminEnv>();
+  app.on("POST", "*", requirePermission("invitations.write"));
+  app.on("GET", "*", requirePermission("invitations.read"));
   const limit = bodyLimit({
     maxSize: IMPORT_MAX_BYTES + 64 * 1024,
     onError: (c) => apiError(c, 413, ERROR_CODES.invalidRequest, tooBig),
   });
 
-  const existing = async () => {
+  const existing = async (ev: EventCtx) => {
     const [invs, gs] = await Promise.all([
-      db.select({ id: invitations.id, label: invitations.label }).from(invitations),
-      db.select({ invitationId: guests.invitationId, name: guests.name }).from(guests),
+      db
+        .select({ id: invitations.id, label: invitations.label })
+        .from(invitations)
+        .where(byEvent(invitations, ev)),
+      db
+        .select({ invitationId: guests.invitationId, name: guests.name })
+        .from(guests)
+        .where(byEvent(guests, ev)),
     ]);
     return invs.map((i) => ({
       label: i.label,
@@ -62,13 +72,14 @@ export function adminImportRoutes(deps: AdminDeps) {
     }));
   };
 
-  const handle = (commit: boolean) => async (c: Context<AdminEnv>) => {
+  const handle = (commit: boolean) => async (c: Context<EventAdminEnv>) => {
     const upload = await readUpload(c);
     if (!upload) return invalid(c, [{ message: "Escolha um arquivo CSV ou XLSX para importar." }]);
     if (upload.bytes.length > IMPORT_MAX_BYTES) {
       return apiError(c, 413, ERROR_CODES.invalidRequest, tooBig);
     }
-    const plan = planImport(upload.name, upload.bytes, await existing());
+    const ev = c.get("event");
+    const plan = planImport(upload.name, upload.bytes, await existing(ev));
     if (!commit) return c.json({ preview: plan.preview });
     const p = plan.preview;
     if (p.fileError) return invalid(c, [{ message: p.fileError }]);
@@ -84,7 +95,7 @@ export function adminImportRoutes(deps: AdminDeps) {
         { message: "Nada novo para importar: todos os convites da planilha já estão no painel." },
       ]);
     }
-    const result = await applyImport(db, plan, now());
+    const result = await applyImport(ev, db, plan, now());
     return c.json({ result }, 201);
   };
 
@@ -108,15 +119,15 @@ export function adminImportRoutes(deps: AdminDeps) {
 
 /** /api/admin/invitations/lists/:kind — buffet, cerimonial e portaria (JSON ou CSV). */
 export function adminGuestListRoutes(deps: AdminDeps) {
-  const app = new Hono<AdminEnv>();
-  app.get("/:kind", async (c) => {
+  const app = new Hono<EventAdminEnv>();
+  app.get("/:kind", requirePermission("invitations.read"), async (c) => {
     const raw = c.req.param("kind");
     const csv = raw.endsWith(".csv");
     const kind = raw.replace(/\.csv$/, "");
     if (!isGuestListKind(kind)) {
       return apiError(c, 404, ERROR_CODES.notFound, "Lista não encontrada.");
     }
-    const list = await buildGuestList(deps.db, kind, deps.now());
+    const list = await buildGuestList(c.get("event"), deps.db, kind, deps.now());
     if (!csv) return c.json({ list });
     return c.body(toCsv([list.columns, ...list.rows]), 200, {
       "Content-Type": "text/csv; charset=utf-8",

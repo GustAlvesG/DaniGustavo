@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  byEvent,
   count,
   desc,
   eq,
@@ -9,7 +10,6 @@ import {
   gifts,
   guests,
   invitations,
-  LEGACY_EVENT_ID,
   messages,
   type Database,
 } from "@casamento/db";
@@ -24,20 +24,20 @@ import {
 import { Hono } from "hono";
 import { cardFeePercent } from "../orders/service.ts";
 import { buildSiteContent } from "../site-content.ts";
-import { legacyEvent } from "../tenancy/legacy.ts";
-import { resolverFor } from "../tenancy/resolver.ts";
+import { requirePermission } from "../tenancy/permissions.ts";
+import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import { invalid, notFound, readJson } from "./context.ts";
-import type { AdminDeps, AdminEnv } from "./context.ts";
+import type { AdminDeps } from "./context.ts";
 import { invitationStatus } from "./invitations.ts";
 
 /* ------------------------------------------------------------------------ */
 /* Dashboard                                                                 */
 /* ------------------------------------------------------------------------ */
 
-export async function dashboard(db: Database): Promise<DashboardData> {
+export async function dashboard(ev: EventCtx, db: Database): Promise<DashboardData> {
   const [invs, gs, paid, pending, recent, deadlineRow, feePercent, pendingMsgs] = await Promise.all(
     [
-      db.select({ id: invitations.id }).from(invitations),
+      db.select({ id: invitations.id }).from(invitations).where(byEvent(invitations, ev)),
       db
         .select({
           invitationId: guests.invitationId,
@@ -45,7 +45,8 @@ export async function dashboard(db: Database): Promise<DashboardData> {
           isChild: guests.isChild,
           ageRange: guests.ageRange,
         })
-        .from(guests),
+        .from(guests)
+        .where(byEvent(guests, ev)),
       db
         .select({
           amount: giftOrders.amountCents,
@@ -53,8 +54,11 @@ export async function dashboard(db: Database): Promise<DashboardData> {
           method: giftOrders.method,
         })
         .from(giftOrders)
-        .where(eq(giftOrders.status, "paid")),
-      db.select({ n: count() }).from(giftOrders).where(eq(giftOrders.status, "pending")),
+        .where(and(byEvent(giftOrders, ev), eq(giftOrders.status, "paid"))),
+      db
+        .select({ n: count() })
+        .from(giftOrders)
+        .where(and(byEvent(giftOrders, ev), eq(giftOrders.status, "pending"))),
       db
         .select({
           publicId: giftOrders.publicId,
@@ -66,19 +70,19 @@ export async function dashboard(db: Database): Promise<DashboardData> {
           paidAt: giftOrders.paidAt,
         })
         .from(giftOrders)
-        .innerJoin(gifts, eq(gifts.id, giftOrders.giftId))
-        .where(eq(giftOrders.status, "paid"))
+        .innerJoin(gifts, and(eq(gifts.id, giftOrders.giftId), byEvent(gifts, ev)))
+        .where(and(byEvent(giftOrders, ev), eq(giftOrders.status, "paid")))
         .orderBy(desc(giftOrders.paidAt))
         .limit(6),
       db
         .select()
         .from(eventSettings)
-        .where(
-          and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")),
-        ),
-      // TODO(fase1-etapa5): o evento da rota em vez do evento 1.
-      legacyEvent(resolverFor(db)).then((ev) => cardFeePercent(ev, db)),
-      db.select({ n: count() }).from(messages).where(eq(messages.approved, false)),
+        .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, "rsvp.deadline"))),
+      cardFeePercent(ev, db),
+      db
+        .select({ n: count() })
+        .from(messages)
+        .where(and(byEvent(messages, ev), eq(messages.approved, false))),
     ],
   );
 
@@ -137,8 +141,10 @@ export async function dashboard(db: Database): Promise<DashboardData> {
 }
 
 export function adminDashboardRoutes(deps: AdminDeps) {
-  const app = new Hono<AdminEnv>();
-  app.get("/", async (c) => c.json(await dashboard(deps.db)));
+  const app = new Hono<EventAdminEnv>();
+  app.get("/", requirePermission("dashboard.read"), async (c) =>
+    c.json(await dashboard(c.get("event"), deps.db)),
+  );
   return app;
 }
 
@@ -148,21 +154,25 @@ export function adminDashboardRoutes(deps: AdminDeps) {
 
 export function adminMessageRoutes(deps: AdminDeps) {
   const { db, revalidate } = deps;
-  const app = new Hono<AdminEnv>();
+  const app = new Hono<EventAdminEnv>();
 
   app.get("/", async (c) => {
+    const ev = c.get("event");
     const filter = c.req.query("status");
     const rows = await db
       .select({ m: messages, giftTitle: gifts.title })
       .from(messages)
-      .leftJoin(giftOrders, eq(giftOrders.id, messages.giftOrderId))
-      .leftJoin(gifts, eq(gifts.id, giftOrders.giftId))
+      .leftJoin(giftOrders, and(eq(giftOrders.id, messages.giftOrderId), byEvent(giftOrders, ev)))
+      .leftJoin(gifts, and(eq(gifts.id, giftOrders.giftId), byEvent(gifts, ev)))
       .where(
-        filter === "pending"
-          ? eq(messages.approved, false)
-          : filter === "approved"
-            ? eq(messages.approved, true)
-            : undefined,
+        and(
+          byEvent(messages, ev),
+          filter === "pending"
+            ? eq(messages.approved, false)
+            : filter === "approved"
+              ? eq(messages.approved, true)
+              : undefined,
+        ),
       )
       .orderBy(asc(messages.approved), desc(messages.createdAt))
       .limit(500);
@@ -177,7 +187,8 @@ export function adminMessageRoutes(deps: AdminDeps) {
     return c.json({ messages: list });
   });
 
-  app.patch("/:id{[0-9]+}", async (c) => {
+  app.patch("/:id{[0-9]+}", requirePermission("messages.moderate"), async (c) => {
+    const ev = c.get("event");
     const body = (await readJson(c)) as { approved?: unknown } | undefined;
     if (typeof body?.approved !== "boolean") {
       return invalid(c, [{ message: "Informe approved: true ou false." }]);
@@ -185,7 +196,7 @@ export function adminMessageRoutes(deps: AdminDeps) {
     const [res] = await db
       .update(messages)
       .set({ approved: body.approved })
-      .where(eq(messages.id, Number(c.req.param("id"))));
+      .where(and(eq(messages.id, Number(c.req.param("id"))), byEvent(messages, ev)));
     if (res.affectedRows === 0) return notFound(c, "Recado");
     await revalidate(["messages"]);
     return c.json({ ok: true });
@@ -200,31 +211,29 @@ export function adminMessageRoutes(deps: AdminDeps) {
 
 export function adminSettingsRoutes(deps: AdminDeps) {
   const { db, revalidate, env } = deps;
-  const app = new Hono<AdminEnv>();
+  const app = new Hono<EventAdminEnv>();
 
-  const readAll = async () => {
-    const rows = await db
-      .select()
-      .from(eventSettings)
-      .where(eq(eventSettings.eventId, LEGACY_EVENT_ID));
+  const readAll = async (ev: EventCtx) => {
+    const rows = await db.select().from(eventSettings).where(byEvent(eventSettings, ev));
     return new Map(rows.map((r) => [r.key, { value: r.value, isPublic: r.isPublic }]));
   };
 
   app.get("/", async (c) => {
-    const all = await readAll();
+    const all = await readAll(c.get("event"));
     const values: Record<string, unknown> = {};
     for (const key of SETTINGS_KEYS) values[key] = all.get(key)?.value ?? null;
     return c.json({ values, siteUrl: env.SITE_URL });
   });
 
-  app.put("/", async (c) => {
+  app.put("/", requirePermission("settings.write"), async (c) => {
+    const ev = c.get("event");
     const body = SettingsUpdate.safeParse(await readJson(c));
     if (!body.success) return invalid(c, body.error.issues);
     const parsed = parseSettings(body.data.values);
     if (!parsed.ok) return invalid(c, [{ message: parsed.message }]);
 
     // O conteúdo público inteiro precisa continuar válido (o site lê tudo de uma vez).
-    const all = await readAll();
+    const all = await readAll(ev);
     const merged = new Map<string, unknown>();
     for (const [k, v] of all) if (v.isPublic) merged.set(k, v.value);
     for (const [k, v] of Object.entries(parsed.data)) merged.set(k, v);
@@ -243,7 +252,7 @@ export function adminSettingsRoutes(deps: AdminDeps) {
         await tx
           .insert(eventSettings)
           .values({
-            eventId: LEGACY_EVENT_ID,
+            eventId: ev.id,
             key,
             value,
             isPublic: all.get(key)?.isPublic ?? true,
