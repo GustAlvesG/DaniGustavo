@@ -57,7 +57,7 @@ versões em WebP/AVIF no tamanho de cada tela. A largura e a altura são lidas d
 
 Data e hora, local e endereço, programação, traje (cores e "evite"), hospedagem, perguntas
 frequentes, contato, prazo da confirmação, manual dos padrinhos e textos de SEO ficam na tabela
-`settings` do banco e chegam ao site por `GET /api/site`. **O jeito normal de editar é o painel**,
+`settings` do banco e chegam ao site por `GET /api/e/<slug>/site`. **O jeito normal de editar é o painel**,
 em **Configurações** (passo a passo na seção 7): salvar valida os dados e avisa o site na hora.
 Editado fora do painel, o site guarda a resposta em cache por 60 segundos.
 
@@ -178,7 +178,7 @@ aprova, `4000 0000 0000 0002` recusa (qualquer nome, validade futura e CVV). O l
    acima; o webhook passa a valer depois do deploy. Em desenvolvimento a API sobe sem o token
    (avisa no log e responde 401 a todo webhook); em produção ele é obrigatório.
 5. **Volta do cartão**: em produção, depois de pagar a fatura o Asaas devolve a pessoa para
-   `/presentes/obrigado/...`. Para isso, o domínio do site (`SITE_URL`) precisa estar cadastrado
+   `/presentes/obrigado/...`. Para isso, o domínio do site (o host primário do evento) precisa estar cadastrado
    em **Minha conta → Informações** (dados comerciais) do Asaas. Em `localhost` não há
    redirecionamento: a pessoa volta pela aba do site, que já mostra o pagamento confirmado.
 6. Reinicie a API (`pnpm dev`). O log deve dizer `Pagamentos: provedor "asaas"`. Teste no sandbox:
@@ -353,3 +353,28 @@ Cada bloco tem o próprio botão de salvar e é validado antes de ir para o site
   **Compartilhamento** (título e descrição do link).
 - **Avançado**: nossa história, galeria e manual dos padrinhos (este em JSON). As fotos em si
   continuam na pasta do site (seção 2).
+
+## 8. Criar um novo evento
+
+O site agora atende vários eventos, um por domínio. Enquanto não existe o painel da organização
+(Fase 3), o evento nasce pela CLI, a partir de `packages/db` (a API não precisa estar parada):
+
+```bash
+cd packages/db
+node src/cli.ts org:create --slug minha-org --name "Minha organização"
+node src/cli.ts event:create --org minha-org --slug ana-bruno --name "Ana & Bruno" \
+  --type wedding --starts-at 2027-09-18T16:00:00-03:00 --status active
+node src/cli.ts domain:add --event ana-bruno --host ana-bruno.localhost:3000 --primary
+node src/cli.ts user:add --email anfitriao@exemplo.com --name "Ana" --event ana-bruno --role host
+node src/cli.ts event:list
+```
+
+- O host entra como chega no navegador, com a porta em desenvolvimento
+  (`ana-bruno.localhost:3000`); em produção, o domínio sem porta. O domínio marcado `--primary`
+  é o dos links de e-mail, WhatsApp e QR.
+- `user:add` imprime uma senha temporária uma única vez. Para dar acesso à organização inteira,
+  troque por `--org minha-org --role owner|member`.
+- O evento só aparece no site com `--status active` (`draft` responde 404).
+- Os textos e as fotos fixos de `apps/web/src/content/` (seções 1, 2 e 4) valem só para o
+  casamento `dani-gustavo`. Os outros eventos mostram um site neutro, montado com os dados do
+  banco, até a Fase 2 trazer o editor de conteúdo e temas.

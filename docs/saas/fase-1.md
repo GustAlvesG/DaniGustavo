@@ -100,4 +100,25 @@ Teste `packages/db/test/migration.test.ts`: banco temporário `casamento_mig_<ul
 
 ## 9. Decisões do usuário
 
-Ver respostas registradas abaixo à medida que forem dadas.
+Estado ao fim da etapa 9. Os padrões abaixo estão em vigor e podem ser trocados sem mexer na arquitetura.
+
+| Decisão                               | Estado                                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Papéis de Dani e Gustavo              | **Pendente.** Padrão: Gustavo é `platform_admin` (`ADMIN_EMAIL_2` no seed) e os dois são `owner` da org 1 (`TODO(fase1-papeis)` em `seed.ts`).         |
+| Permissões do `event_host`            | **Pendente.** Padrão: tudo no seu evento (matriz em `tenancy/permissions.ts`); restringir é editar a matriz.                                           |
+| Canal de Telegram                     | Padrão adotado: canal da plataforma (um bot só), com o nome do evento no começo da mensagem. Alternativa: token/chat por evento (Fase 3).              |
+| Domínio base (`PLATFORM_BASE_DOMAIN`) | **Pendente.** Documentado no `.env.example`, mas o código ainda não o usa: cada domínio entra por `domain:add`. Entra com o cadastro pela UI (Fase 3). |
+| Avisos para owners da org             | Padrão: só os hosts do evento; owners entram com `notify.org_owners` (ou se o evento não tem hosts).                                                   |
+| `invitations.side` (`dani`/`gustavo`) | Mantido na Fase 1, assim como o rótulo "O casamento" do site neutro. Vocabulário por tipo de evento na Fase 2.                                         |
+
+## 10. Desvios em relação ao plano
+
+- `webhook_events` ganhou `app_event_id` (evento do nosso pedido), além do `event_id` textual do provedor, que já era a chave de idempotência.
+- `pk()`/`fk()` ficaram em `schema/columns.ts` (e não em `app.ts`), para `tenancy.ts` e `app.ts` não se importarem em círculo.
+- Além das FKs compostas (pai/filho), cada tabela com `event_id` tem também a FK simples para `events`.
+- `GET /api/hosts` devolve a lista de hosts primários dos eventos ativos (usada pelo `generateStaticParams`), além de `/api/hosts/:host`.
+- `expirePendingOrders(deps, onlyEventId?)` aceita limitar-se a um evento, para os testes não mexerem em pedidos de outros eventos.
+- Os apelidos legados (`/api/{site,gifts,...}` e `/uploads/:file`) foram removidos na etapa 7, sem período de convivência.
+- Banco de testes `casamento_api_test` (ou `TEST_DATABASE_URL`), criado no global-setup; o CI não roda mais `db:migrate`/`db:seed` para os testes.
+- `.gitattributes` com `eol=lf` e `endOfLine: auto` no prettier (arquivos escritos no Windows vinham com CRLF).
+- Revalidação no pagamento: o plano (§5) dizia que `applyCharge` revalidaria as tags do evento. Não foi feito: o `main` também não revalidava no pagamento, e `applyCharge` não recebe o `revalidate` do painel. A cota vendida aparece quando o cache de presentes (`revalidate: 30` s) é refeito; só as ações do painel (reembolso, edição) revalidam na hora.
