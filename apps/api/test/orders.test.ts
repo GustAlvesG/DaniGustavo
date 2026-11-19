@@ -3,6 +3,7 @@ import {
   giftOrders,
   gifts,
   inArray,
+  LEGACY_EVENT_ID,
   messages,
   payments,
   webhookEvents,
@@ -14,6 +15,7 @@ import type { MailMessage, Mailer } from "../src/mailer.ts";
 import type { Notifier } from "../src/orders/notify.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
+import { resolverFor } from "../src/tenancy/resolver.ts";
 import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
 // Usa o banco de DATABASE_URL já migrado e com seed. Cria presentes próprios (slugs únicos)
@@ -36,10 +38,7 @@ const notifier: Notifier = {
 
 let clock = new Date();
 const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_KEY}` });
-const { app, db, env } = testApp(
-  { mailer, notifier, provider, now: () => clock },
-  { ADMIN_EMAIL_1: "dani@exemplo.com", ADMIN_EMAIL_2: "gustavo@exemplo.com" },
-);
+const { app, db, env } = testApp({ mailer, notifier, provider, now: () => clock }, {});
 
 const run = Date.now().toString(36);
 const createdGifts: number[] = [];
@@ -241,14 +240,20 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     expect(msgs[0]).toMatchObject({ author: "Ana Teste", body: "Felicidades!", approved: false });
 
     await flush();
-    expect(sent.map((m) => m.to).sort()).toEqual([
-      "ana@exemplo.com",
-      "dani@exemplo.com",
-      "gustavo@exemplo.com",
-    ]);
+    // Destinatários = anfitriões do evento 1 (ADMIN_EMAIL_* não é mais usado fora do seed).
+    // Outros arquivos de teste, em paralelo, entram e saem dos membros do evento 1: não fixa
+    // nomes (a regra dos destinatários tem teste próprio em events-jobs.test.ts).
+    const ev1 = (await resolverFor(db).byId(LEGACY_EVENT_ID))!;
+    expect(sent.map((m) => m.to)).toContain("ana@exemplo.com");
     expect(sent.find((m) => m.to === "ana@exemplo.com")?.subject).toBe("Presente enviado");
-    expect(sent.find((m) => m.to === "dani@exemplo.com")?.text).toContain("Felicidades!");
+    const hostMails = sent.filter((m) => m.to !== "ana@exemplo.com");
+    expect(hostMails.length).toBeGreaterThan(0);
+    for (const m of hostMails) {
+      expect(m.text).toContain("Felicidades!");
+      expect(m.fromName).toBe(ev1.name);
+    }
     expect(telegrams[0]).toContain("Ana Teste");
+    expect(telegrams[0]).toMatch(/^\[.+\] Presente recebido/);
   });
 
   it("webhook repetido não paga nem avisa duas vezes", async () => {

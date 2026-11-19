@@ -333,7 +333,7 @@ describe("presentes", () => {
     });
     expect(res.status).toBe(201);
     const { path } = (await res.json()) as { path: string };
-    expect(path).toMatch(/^\/uploads\/[0-9A-Z]{26}\.png$/);
+    expect(path).toMatch(new RegExp(`^/uploads/${LEGACY_EVENT_ID}/[0-9A-Z]{26}\\.png$`));
     const served = await app.request(path);
     expect(served.status).toBe(200);
     expect(served.headers.get("content-type")).toBe("image/png");
