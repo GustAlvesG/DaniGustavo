@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -288,14 +288,9 @@ describe("uploads por evento", () => {
     expect(res.status).toBe(422);
   });
 
-  it("rota legada /uploads/:file procura na raiz e depois em 1/", async () => {
-    const root = "01ARZ3NDEKTSV4RRFFQ69G5FAV.png";
-    const one = "01ARZ3NDEKTSV4RRFFQ69G5FAW.png";
-    await writeFile(join(uploadDir, root), png);
-    await mkdir(join(uploadDir, "1"), { recursive: true });
-    await writeFile(join(uploadDir, "1", one), png);
-    expect((await app.request(`/uploads/${root}`)).status).toBe(200);
-    expect((await app.request(`/uploads/${one}`)).status).toBe(200);
-    expect((await app.request(`/uploads/01ARZ3NDEKTSV4RRFFQ69G5FAX.png`)).status).toBe(404);
+  it("a rota antiga /uploads/:file não existe mais", async () => {
+    const file = "01ARZ3NDEKTSV4RRFFQ69G5FAV.png";
+    await writeFile(join(uploadDir, file), png);
+    expect((await app.request(`/uploads/${file}`)).status).toBe(404);
   });
 });

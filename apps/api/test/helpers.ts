@@ -123,6 +123,7 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
       name: values.name,
       type: values.type,
       status,
+      startsAt: values.startsAt,
     };
   };
   const eventA = await event(orgA.id, "a", "active");

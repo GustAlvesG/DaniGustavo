@@ -66,12 +66,12 @@ async function makeInvitation(
 }
 
 const getInvitation = async (token: string) => {
-  const res = await app.request(`/api/invitations/${token}`);
+  const res = await app.request(`/api/e/dani-gustavo/invitations/${token}`);
   return { res, body: res.status === 200 ? Invitation.parse(await res.json()) : null };
 };
 
 const put = (token: string, body: unknown, headers: Record<string, string> = writeHeaders()) =>
-  app.request(`/api/invitations/${token}/rsvp`, {
+  app.request(`/api/e/dani-gustavo/invitations/${token}/rsvp`, {
     method: "PUT",
     headers,
     body: JSON.stringify(body),
@@ -117,7 +117,7 @@ describe("GET /api/invitations/{token}", () => {
   });
 
   it("responde 404 no formato ApiError para token desconhecido", async () => {
-    const res = await app.request("/api/invitations/01ZZZZZZZZZZZZZZZZZZZZZZZZ");
+    const res = await app.request("/api/e/dani-gustavo/invitations/01ZZZZZZZZZZZZZZZZZZZZZZZZ");
     expect(res.status).toBe(404);
     expect(ApiError.parse(await res.json()).error.code).toBe("not_found");
   });
@@ -268,7 +268,7 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
     const late = testApp({ mailer, now: () => new Date("2027-04-16T12:00:00-03:00") });
     try {
       const { body } = await getInvitation(pontes);
-      const res = await late.app.request(`/api/invitations/${pontes}/rsvp`, {
+      const res = await late.app.request(`/api/e/dani-gustavo/invitations/${pontes}/rsvp`, {
         method: "PUT",
         headers: writeHeaders(),
         body: JSON.stringify({ guests: [{ id: body!.guests[0]!.id, attending: true }] }),
@@ -278,7 +278,7 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
       expect(err.code).toBe("rsvp_closed");
       expect(err.message).toContain("contato@exemplo.com");
 
-      const view = await late.app.request(`/api/invitations/${pontes}`);
+      const view = await late.app.request(`/api/e/dani-gustavo/invitations/${pontes}`);
       expect(Invitation.parse(await view.json()).isClosed).toBe(true);
     } finally {
       await late.db.$client.end();
@@ -295,7 +295,7 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
 
 describe("POST /api/invitations/lookup", () => {
   const lookup = (body: unknown, headers: Record<string, string> = writeHeaders()) =>
-    app.request("/api/invitations/lookup", {
+    app.request("/api/e/dani-gustavo/invitations/lookup", {
       method: "POST",
       headers,
       body: JSON.stringify(body),

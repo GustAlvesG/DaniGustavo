@@ -11,6 +11,8 @@ export interface EventCtx {
   /** wedding, fifteen, birthday ou other (varchar no banco). */
   type: string;
   status: EventStatus;
+  /** Início do evento (UTC); null se não definido. */
+  startsAt: Date | null;
 }
 
 /** Papel efetivo de quem acessa um evento pelo painel (do mais forte para o mais fraco). */

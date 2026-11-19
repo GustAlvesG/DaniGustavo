@@ -15,7 +15,7 @@ const ip = () => `10.7.${n++}.${run.length}`;
 const authors = [`Ana ${run}`, `Bot ${run}`, `Zé ${run}`, `Pendente ${run}`];
 
 const post = (body: unknown, clientIp = ip()) =>
-  app.request("/api/messages", {
+  app.request("/api/e/dani-gustavo/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -39,7 +39,7 @@ describe("GET /api/messages", () => {
       .insert(messages)
       .values({ author: `Pendente ${run}`, body: "Ainda não aprovado", approved: false });
 
-    const res = await app.request("/api/messages");
+    const res = await app.request("/api/e/dani-gustavo/messages");
     expect(res.status).toBe(200);
     const body = WallResponse.parse(await res.json());
     expect(body.messages.find((m) => m.author === `Ana ${run}`)?.body).toBe("Parabéns aos dois!");
@@ -55,7 +55,9 @@ describe("GET /api/messages", () => {
       .update(messages)
       .set({ approved: false })
       .where(eq(messages.author, `Ana ${run}`));
-    const body = WallResponse.parse(await (await app.request("/api/messages")).json());
+    const body = WallResponse.parse(
+      await (await app.request("/api/e/dani-gustavo/messages")).json(),
+    );
     expect(body.messages.some((m) => m.author === `Ana ${run}`)).toBe(false);
   });
 });
@@ -70,7 +72,9 @@ describe("POST /api/messages", () => {
       .where(eq(messages.author, `Zé ${run}`));
     expect(row?.approved).toBe(false);
     expect(row?.giftOrderId).toBeNull();
-    const wall = WallResponse.parse(await (await app.request("/api/messages")).json());
+    const wall = WallResponse.parse(
+      await (await app.request("/api/e/dani-gustavo/messages")).json(),
+    );
     expect(wall.messages.some((m) => m.author === `Zé ${run}`)).toBe(false);
   });
 
@@ -98,7 +102,7 @@ describe("POST /api/messages", () => {
   });
 
   it("exige a X-Web-Key (como toda escrita em /api)", async () => {
-    const res = await app.request("/api/messages", {
+    const res = await app.request("/api/e/dani-gustavo/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ author: "Fulano", body: "oi" }),

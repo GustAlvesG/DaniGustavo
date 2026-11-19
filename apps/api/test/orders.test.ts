@@ -70,7 +70,11 @@ async function makeGift(
 }
 
 const order = (body: Record<string, unknown>, headers = write()) =>
-  app.request("/api/orders", { method: "POST", headers, body: JSON.stringify(body) });
+  app.request("/api/e/dani-gustavo/orders", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
 
 const buyer = {
   buyerName: "Ana Teste",
@@ -80,7 +84,7 @@ const buyer = {
 };
 
 async function getOrder(publicId: string) {
-  const res = await app.request(`/api/orders/${publicId}`);
+  const res = await app.request(`/api/e/dani-gustavo/orders/${publicId}`);
   expect(res.status).toBe(200);
   return OrderView.parse(await res.json());
 }
@@ -129,7 +133,7 @@ afterAll(async () => {
 
 describe("GET /api/gifts", () => {
   it("lista os presentes ativos com cotas restantes, categorias e taxa do cartão", async () => {
-    const res = await app.request("/api/gifts");
+    const res = await app.request("/api/e/dani-gustavo/gifts");
     expect(res.status).toBe(200);
     const body = GiftsResponse.parse(await res.json());
     expect(body.gifts.find((g) => g.slug === "jantar-em-lisboa")).toMatchObject({
@@ -160,7 +164,7 @@ describe("POST /api/orders (Pix)", () => {
     expect(new Date(body.expiresAt).getTime() - clock.getTime()).toBe(30 * 60_000);
     expect(await quotaSold(gift.id)).toBe(2);
 
-    const list = GiftsResponse.parse(await (await app.request("/api/gifts")).json());
+    const list = GiftsResponse.parse(await (await app.request("/api/e/dani-gustavo/gifts")).json());
     expect(list.gifts.find((g) => g.slug === gift.slug)?.quotaLeft).toBe(1);
   });
 
@@ -217,7 +221,7 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     const gift = await makeGift(db, { quotaTotal: 2 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
 
-    const res = await app.request(`/api/dev/orders/${created.publicId}/approve`, {
+    const res = await app.request(`/api/e/dani-gustavo/dev/orders/${created.publicId}/approve`, {
       method: "POST",
       headers: write(),
     });
@@ -319,7 +323,7 @@ describe("cartão (simulado)", () => {
   it("aprovado: paga o pedido com a taxa coberta", async () => {
     const gift = await makeGift(db, { quotaTotal: 1, priceCents: 10000 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
-    const res = await app.request(`/api/orders/${created.publicId}/card`, {
+    const res = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify(card("1111", true)),
@@ -334,7 +338,7 @@ describe("cartão (simulado)", () => {
   it("recusado: o pedido continua pendente e a mensagem diz o que fazer", async () => {
     const gift = await makeGift(db, { quotaTotal: 1 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
-    const res = await app.request(`/api/orders/${created.publicId}/card`, {
+    const res = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify(card("0002", true)),
@@ -376,7 +380,7 @@ describe("expiração", () => {
     expect(await quotaSold(gift.id)).toBe(0);
 
     // Pedido expirado não aceita mais cartão.
-    const late = await app.request(`/api/orders/${created.publicId}/card`, {
+    const late = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify({ token: "sim_1111_x", paymentMethodId: "visa" }),

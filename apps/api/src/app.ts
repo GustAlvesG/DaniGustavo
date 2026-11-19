@@ -17,7 +17,6 @@ import { createPaymentProvider, isSimulated, type PaymentProvider } from "./paym
 import { buildSiteContent, readPublicSettings } from "./site-content.ts";
 import { webKey } from "./middleware/web-key.ts";
 import { painelRoutes } from "./painel.ts";
-import { legacyPublicEvent } from "./tenancy/legacy.ts";
 import { publicEvent } from "./tenancy/public.ts";
 import { createEventResolver, type EventResolver } from "./tenancy/resolver.ts";
 import type { PublicEventEnv } from "./tenancy/types.ts";
@@ -73,7 +72,7 @@ export function createApp({
 
   app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-  app.route("/api/hosts", hostRoutes(eventResolver));
+  app.route("/api/hosts", hostRoutes(eventResolver, db));
 
   const orderDeps: OrderDeps = { env, db, provider, mailer, notifier, now, eventResolver };
 
@@ -123,15 +122,6 @@ export function createApp({
 
   app.use("/api/e/:slug/*", publicEvent(eventResolver));
   app.route("/api/e/:slug", pub);
-
-  // Apelido: as rotas antigas (sem slug) respondem como o evento 1, com os mesmos handlers.
-  // TODO(fase1-etapa7): sai quando o Next passar a chamar /api/e/:slug.
-  const legacy = legacyPublicEvent(eventResolver);
-  for (const path of ["site", "invitations", "messages", "gifts", "orders", "dev"]) {
-    app.use(`/api/${path}`, legacy);
-    app.use(`/api/${path}/*`, legacy);
-  }
-  app.route("/api", pub);
 
   // Global: uma URL por conta do provedor; o evento sai do pedido.
   app.route("/api/webhooks", webhookRoutes(orderDeps));

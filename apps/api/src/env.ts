@@ -26,6 +26,8 @@ export const envSchema = z
     BETTER_AUTH_URL: url("http://localhost:3333"),
     /** URL pública do site, usada nos links dos e-mails (cai em NEXT_PUBLIC_SITE_URL se vazia). */
     SITE_URL: url("http://localhost:3000").default("http://localhost:3000"),
+    /** Endereço interno do site (Next) para a API chamar /api/revalidar; vazio = SITE_URL. */
+    WEB_INTERNAL_URL: url("http://localhost:3000").optional(),
     /** Pasta das imagens dos presentes enviadas pelo painel (servidas em /uploads). */
     UPLOAD_DIR: z.string().default(DEFAULT_UPLOAD_DIR),
     /** SMTP. Com MAIL_HOST vazio, os e-mails só são impressos no console. */

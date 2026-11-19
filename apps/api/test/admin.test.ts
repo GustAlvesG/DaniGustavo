@@ -38,7 +38,7 @@ import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
 const run = Date.now().toString(36);
 const uploadDir = await mkdtemp(join(tmpdir(), "casamento-uploads-"));
-const revalidated: CacheTag[][] = [];
+const revalidated: { eventId: number; tags: CacheTag[] }[] = [];
 const mailer: Mailer = { send: () => Promise.resolve() };
 const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_KEY}` });
 const { app, db } = testApp(
@@ -46,8 +46,8 @@ const { app, db } = testApp(
     mailer,
     provider,
     notifier: { telegram: () => Promise.resolve() },
-    revalidate: (tags) => {
-      revalidated.push(tags);
+    revalidate: (eventId, tags) => {
+      revalidated.push({ eventId, tags });
       return Promise.resolve();
     },
   },
@@ -257,8 +257,8 @@ describe("convites", () => {
     const res = await admin(`/invitations/${inv.id}/token`, { method: "POST" });
     const fresh = ((await res.json()) as { invitation: AdminInvitation }).invitation;
     expect(fresh.token).not.toBe(inv.token);
-    expect((await app.request(`/api/invitations/${inv.token}`)).status).toBe(404);
-    expect((await app.request(`/api/invitations/${fresh.token}`)).status).toBe(200);
+    expect((await app.request(`/api/e/dani-gustavo/invitations/${inv.token}`)).status).toBe(404);
+    expect((await app.request(`/api/e/dani-gustavo/invitations/${fresh.token}`)).status).toBe(200);
   });
 
   it("detalhe traz as respostas de RSVP", async () => {
@@ -319,7 +319,7 @@ describe("presentes", () => {
     gift = ((await res.json()) as { gift: AdminGift }).gift;
     createdGifts.push(gift.id);
     expect(gift.slug).toBe(`jantar-a-luz-de-velas-${run}`);
-    expect(revalidated).toContainEqual(["gifts"]);
+    expect(revalidated).toContainEqual({ eventId: 1, tags: ["gifts"] });
   });
 
   it("envia imagem (só JPG/PNG/WebP de verdade)", async () => {
@@ -366,7 +366,9 @@ describe("presentes", () => {
 
   it("desativa e tira da lista pública", async () => {
     await admin(`/gifts/${gift.id}/active`, { method: "PATCH", body: json({ active: false }) });
-    const pub = (await (await app.request("/api/gifts")).json()) as { gifts: { slug: string }[] };
+    const pub = (await (await app.request("/api/e/dani-gustavo/gifts")).json()) as {
+      gifts: { slug: string }[];
+    };
     expect(pub.gifts.map((g) => g.slug)).not.toContain(gift.slug);
     await admin(`/gifts/${gift.id}/active`, { method: "PATCH", body: json({ active: true }) });
   });
@@ -415,7 +417,7 @@ describe("pedidos", () => {
   });
 
   const buy = (method: "pix" | "card") =>
-    app.request("/api/orders", {
+    app.request("/api/e/dani-gustavo/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -521,7 +523,7 @@ describe("recados", () => {
           })
         ).status,
       ).toBe(200);
-      expect(revalidated).toContainEqual(["messages"]);
+      expect(revalidated).toContainEqual({ eventId: 1, tags: ["messages"] });
       const [m] = await db.select().from(messages).where(eq(messages.id, res.insertId));
       expect(m!.approved).toBe(true);
     } finally {
@@ -555,7 +557,7 @@ describe("configurações", () => {
         body: json({ values: { "payments.card_fee_percent": 3.5 } }),
       });
       expect(ok.status).toBe(200);
-      expect(revalidated).toContainEqual(["site", "gifts"]);
+      expect(revalidated).toContainEqual({ eventId: 1, tags: ["site", "gifts"] });
       const [row] = await db
         .select()
         .from(eventSettings)

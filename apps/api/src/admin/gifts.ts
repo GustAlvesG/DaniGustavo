@@ -10,7 +10,6 @@ import {
   eventSettings,
   giftOrders,
   gifts,
-  LEGACY_EVENT_ID,
   newPublicId,
   sql,
   type Database,
@@ -117,15 +116,11 @@ const BAD_IMAGE = "Imagem de outro evento: envie a foto de novo por este painel.
 const UPLOAD_FILE = /^[0-9A-Z]{26}\.(jpg|png|webp)$/;
 const MIME = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" } as const;
 
-/**
- * Caminho gravado `/uploads/<eventId>/<arquivo>` → pasta e arquivo. O formato antigo
- * (`/uploads/<arquivo>`, sem evento) só existe até rodar `uploads:migrate`.
- * TODO(fase1-etapa7): o formato antigo sai junto com a rota legada.
- */
-function parseUploadPath(path: string | null): { eventId: number | null; file: string } | null {
-  const m = /^\/uploads\/(?:(\d{1,18})\/)?([^/]+)$/.exec(path ?? "");
+/** Caminho gravado `/uploads/<eventId>/<arquivo>` → pasta e arquivo. */
+function parseUploadPath(path: string | null): { eventId: number; file: string } | null {
+  const m = /^\/uploads\/(\d{1,18})\/([^/]+)$/.exec(path ?? "");
   if (!m || !UPLOAD_FILE.test(m[2]!)) return null;
-  return { eventId: m[1] ? Number(m[1]) : null, file: m[2]! };
+  return { eventId: Number(m[1]), file: m[2]! };
 }
 
 /** A imagem de um presente do evento tem de ser do próprio evento (ou continuar a que já tinha). */
@@ -158,25 +153,13 @@ async function sendUpload(c: Context, path: string, file: string) {
   }
 }
 
-/**
- * Imagens públicas dos presentes (o site repassa via rewrite):
- * `GET /uploads/:eventId/:file` (o caminho já diz de qual evento é) e o legado
- * `GET /uploads/:file`, que procura na raiz e, se não achar, em `1/`.
- * TODO(fase1-etapa7): a rota legada sai quando todo caminho gravado tiver o evento.
- */
+/** Imagens públicas dos presentes (o site repassa via rewrite): `GET /uploads/:eventId/:file`. */
 export function uploadFileRoutes(uploadDir: string) {
   const app = new Hono();
   app.get("/uploads/:eventId{[0-9]+}/:file", (c) => {
     const { eventId, file } = c.req.param();
     if (!UPLOAD_FILE.test(file)) return NOT_FOUND_IMAGE(c);
     return sendUpload(c, join(uploadDir, String(Number(eventId)), file), file);
-  });
-  app.get("/uploads/:file", async (c) => {
-    const file = c.req.param("file");
-    if (!UPLOAD_FILE.test(file)) return NOT_FOUND_IMAGE(c);
-    const root = await sendUpload(c, join(uploadDir, file), file);
-    if (root.status !== 404) return root;
-    return sendUpload(c, join(uploadDir, String(LEGACY_EVENT_ID), file), file);
   });
   return app;
 }
@@ -188,7 +171,7 @@ export function uploadFileRoutes(uploadDir: string) {
 export function adminGiftRoutes(deps: AdminDeps) {
   const { db, revalidate, uploadDir } = deps;
   const app = new Hono<EventAdminEnv>();
-  const changed = () => revalidate(["gifts"]);
+  const changed = (ev: EventCtx) => revalidate(ev.id, ["gifts"]);
   app.on(["POST", "PUT", "PATCH", "DELETE"], "*", requirePermission("gifts.write"));
 
   app.get("/", async (c) => {
@@ -220,7 +203,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
       tileDesign: "flor",
       sort: Number(maxSort) + 10,
     });
-    await changed();
+    await changed(c.get("event"));
     const gift = (await listAdminGifts(ev, db)).find((g) => g.id === res.insertId);
     return c.json({ gift }, 201);
   });
@@ -237,7 +220,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
           .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
       }
     });
-    await changed();
+    await changed(c.get("event"));
     return c.json({ gifts: await listAdminGifts(ev, db) });
   });
 
@@ -271,7 +254,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
       })
       .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
     if (current.image !== input.image) await removeUpload(uploadDir, ev, current.image);
-    await changed();
+    await changed(c.get("event"));
     const gift = (await listAdminGifts(ev, db)).find((g) => g.id === id);
     return c.json({ gift });
   });
@@ -288,7 +271,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
       .set({ active: body.active })
       .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
     if (res.affectedRows === 0) return notFound(c, "Presente");
-    await changed();
+    await changed(c.get("event"));
     return c.json({ ok: true });
   });
 
@@ -314,7 +297,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
     }
     await db.delete(gifts).where(and(eq(gifts.id, id), byEvent(gifts, ev)));
     await removeUpload(uploadDir, ev, current.image);
-    await changed();
+    await changed(c.get("event"));
     return c.json({ ok: true });
   });
 

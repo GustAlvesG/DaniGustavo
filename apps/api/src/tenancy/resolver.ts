@@ -74,6 +74,7 @@ const columns = {
   name: events.name,
   type: events.type,
   status: events.status,
+  startsAt: events.startsAt,
 };
 
 /** Resolve slug/id/host → evento com cache em memória (60 s por padrão; por processo). */

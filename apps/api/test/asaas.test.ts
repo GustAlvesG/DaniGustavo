@@ -496,7 +496,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
       sort: 9999,
     });
     giftIds.push(res.insertId);
-    const created = await app.request("/api/orders", {
+    const created = await app.request("/api/e/dani-gustavo/orders", {
       method: "POST",
       headers: write(ip),
       body: JSON.stringify({
@@ -510,7 +510,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   }
 
   const getOrder = async (publicId: string) =>
-    OrderView.parse(await (await app.request(`/api/orders/${publicId}`)).json());
+    OrderView.parse(await (await app.request(`/api/e/dani-gustavo/orders/${publicId}`)).json());
 
   const hook = (eventId: string, paymentId: string, token = TOKEN) => {
     events.push(eventId);
@@ -522,7 +522,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   };
 
   it("a lista avisa que o CPF é obrigatório e o pedido sem CPF é recusado", async () => {
-    const list = GiftsResponse.parse(await (await app.request("/api/gifts")).json());
+    const list = GiftsResponse.parse(await (await app.request("/api/e/dani-gustavo/gifts")).json());
     expect(list.requiresCpf).toBe(true);
     const { created } = await newOrder("10.78.0.1", {});
     expect(created.status).toBe(422);
@@ -562,7 +562,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   it("cartão na fatura: link, taxa, pago sem webhook (consulta ao abrir) e Pix apagado", async () => {
     const { created } = await newOrder("10.78.0.4");
     const order = OrderView.parse(await created.json());
-    const res = await app.request(`/api/orders/${order.publicId}/card-checkout`, {
+    const res = await app.request(`/api/e/dani-gustavo/orders/${order.publicId}/card-checkout`, {
       method: "POST",
       headers: write("10.78.0.4"),
       body: JSON.stringify({ coverFee: true }),

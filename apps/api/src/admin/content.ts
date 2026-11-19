@@ -200,7 +200,7 @@ export function adminMessageRoutes(deps: AdminDeps) {
       .set({ approved: body.approved })
       .where(and(eq(messages.id, Number(c.req.param("id"))), byEvent(messages, ev)));
     if (res.affectedRows === 0) return notFound(c, "Recado");
-    await revalidate(["messages"]);
+    await revalidate(ev.id, ["messages"]);
     return c.json({ ok: true });
   });
 
@@ -268,7 +268,7 @@ export function adminSettingsRoutes(deps: AdminDeps) {
           .onDuplicateKeyUpdate({ set: { value, updatedAt: new Date() } });
       }
     });
-    await revalidate(["site", "gifts"]);
+    await revalidate(ev.id, ["site", "gifts"]);
     return c.json({ ok: true, saved: Object.keys(parsed.data) });
   });
 

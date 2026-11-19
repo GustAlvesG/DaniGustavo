@@ -242,7 +242,7 @@ describe("pedidos", () => {
     });
     expect(approve.status).toBe(404);
     // E pelo apelido do evento 1 também não aparece.
-    expect((await app.request(`/api/orders/${publicIdA}`)).status).toBe(404);
+    expect((await app.request(`/api/e/dani-gustavo/orders/${publicIdA}`)).status).toBe(404);
 
     const [row] = await db.select().from(giftOrders).where(eq(giftOrders.publicId, publicIdA));
     expect(row).toMatchObject({ status: "pending", feeCents: 0 });
@@ -322,7 +322,7 @@ describe("convites e RSVP", () => {
     expect((await rsvp(A, tokens.b, guestB.id)).status).toBe(404);
     expect((await guestOf(tokens.b)).rsvpStatus).toBe("pending");
     // Pelo apelido do evento 1 também não.
-    expect((await app.request(`/api/invitations/${tokens.b}`)).status).toBe(404);
+    expect((await app.request(`/api/e/dani-gustavo/invitations/${tokens.b}`)).status).toBe(404);
   });
 
   it("busca por nome só acha convidados do evento", async () => {
@@ -358,20 +358,14 @@ describe("convites e RSVP", () => {
   });
 });
 
-describe("apelido legado (/api/... = evento 1)", () => {
-  it.each(["site", "gifts", "messages"])(
-    "/api/%s responde igual a /api/e/<evento 1>/%s",
-    async (p) => {
-      const legacy = await app.request(`/api/${p}`);
-      const scoped = await app.request(`/api/e/${legacySlug}/${p}`);
-      expect(legacy.status).toBe(200);
-      expect(scoped.status).toBe(200);
-      expect(await legacy.json()).toEqual(await scoped.json());
-    },
-  );
+describe("evento 1 só pelo slug", () => {
+  it.each(["site", "gifts", "messages"])("/api/%s sem slug não existe mais", async (p) => {
+    expect((await app.request(`/api/${p}`)).status).toBe(404);
+    expect((await app.request(`/api/e/${legacySlug}/${p}`)).status).toBe(200);
+  });
 
   it("presentes de A e B não aparecem no evento 1", async () => {
-    const body = GiftsResponse.parse(await (await app.request("/api/gifts")).json());
+    const body = GiftsResponse.parse(await (await app.request("/api/e/dani-gustavo/gifts")).json());
     expect(body.gifts.map((g) => g.slug)).not.toContain("so-de-b");
   });
 });

@@ -107,7 +107,7 @@ describe("publicEvent", () => {
   it("põe o evento ativo no contexto", async () => {
     const res = await mini().request(`/api/e/${fx.eventA.slug}/ping`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(fx.eventA);
+    expect(await res.json()).toEqual({ ...fx.eventA, startsAt: fx.eventA.startsAt?.toISOString() });
   });
 
   it.each(["inexistente", "rascunho"])(
@@ -256,6 +256,7 @@ describe("GET /api/hosts/:host", () => {
       name: fx.eventA.name,
       type: "wedding",
       timezone: "America/Sao_Paulo",
+      startsAt: "2030-01-01T15:00:00.000Z",
       primaryHost: fx.primaryHostA,
     });
   });
@@ -275,6 +276,22 @@ describe("GET /api/hosts/:host", () => {
       expect(res.status).toBe(404);
       expect(await res.json()).toEqual(notFoundBody("GET", `/api/hosts/${host}`));
     }
+  });
+});
+
+describe("GET /api/hosts", () => {
+  it("lista só o host primário de cada evento ativo", async () => {
+    const draftHost = `rascunho-primario-${fx.run}.teste.local`;
+    await db
+      .insert(eventDomains)
+      .values({ eventId: fx.draftA.id, host: draftHost, isPrimary: true });
+    const res = await app.request("/api/hosts");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    const { hosts } = (await res.json()) as { hosts: string[] };
+    expect(hosts).toContain(fx.primaryHostA);
+    expect(hosts).not.toContain(fx.secondaryHostA);
+    expect(hosts).not.toContain(draftHost);
   });
 });
 

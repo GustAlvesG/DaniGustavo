@@ -27,7 +27,6 @@ import {
   saveReminderSettings,
   sendRemindersNow,
 } from "../src/reminders.ts";
-import { legacyEvent } from "../src/tenancy/legacy.ts";
 import { resolverFor } from "../src/tenancy/resolver.ts";
 import { testApp } from "./helpers.ts";
 
@@ -50,7 +49,7 @@ const mailer: Mailer = {
 };
 let clock = new Date("2027-01-01T12:00:00-03:00");
 const { app, db, env } = testApp({ mailer, now: () => clock });
-const ev = await legacyEvent(resolverFor(db));
+const ev = (await resolverFor(db).byId(LEGACY_EVENT_ID))!;
 const DEADLINE = new Date("2027-03-10T23:59:59-03:00");
 const day = (iso: string) => new Date(`${iso}T12:00:00-03:00`);
 

@@ -88,7 +88,7 @@ export function adminOrderRoutes(deps: AdminDeps) {
     sensitiveLimit(deps.limiter, "reconcile"),
     async (c) => {
       const result = await reconcileOrders(c.get("event"), deps);
-      if (result.changed.length) await deps.revalidate(["gifts"]);
+      if (result.changed.length) await deps.revalidate(c.get("event").id, ["gifts"]);
       return c.json(result);
     },
   );
@@ -136,7 +136,7 @@ export function adminOrderRoutes(deps: AdminDeps) {
         );
       }
       console.log(`[painel] Pedido ${publicId} reembolsado por ${c.get("user").id}.`);
-      await deps.revalidate(["gifts", "messages"]);
+      await deps.revalidate(c.get("event").id, ["gifts", "messages"]);
       return c.json({ ok: true, status: result.order?.status ?? "refunded" });
     },
   );

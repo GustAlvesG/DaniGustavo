@@ -1,3 +1,4 @@
+import { eq, eventSettings, events, organizations } from "@casamento/db";
 import { SiteContent } from "@casamento/shared";
 import { afterAll, describe, expect, it } from "vitest";
 import { testApp } from "./helpers.ts";
@@ -9,9 +10,54 @@ afterAll(async () => {
   await db.$client.end();
 });
 
+describe("rotas antigas sem slug", () => {
+  it("não existem mais", async () => {
+    for (const path of ["/api/site", "/api/gifts", "/api/messages", "/api/invitations/x"]) {
+      expect((await app.request(path)).status).toBe(404);
+    }
+  });
+});
+
+describe("GET /api/e/:slug/site de evento mínimo", () => {
+  it("só com as 4 settings da CLI devolve valores neutros", async () => {
+    const slug = `t-min-${Date.now().toString(36)}`;
+    const [org] = await db.insert(organizations).values({ slug: `org-${slug}`, name: slug });
+    const [ev] = await db.insert(events).values({
+      organizationId: org.insertId,
+      slug,
+      type: "wedding",
+      name: "Ana & Beto",
+      status: "active",
+      timezone: "America/Sao_Paulo",
+    });
+    const base = { eventId: ev.insertId, isPublic: true };
+    await db.insert(eventSettings).values([
+      { ...base, key: "couple.names", value: "Ana & Beto" },
+      { ...base, key: "couple.monogram", value: "AB" },
+      { ...base, key: "wedding.datetime", value: "2030-05-01T16:00:00-03:00" },
+      { ...base, key: "wedding.timezone", value: "America/Sao_Paulo" },
+    ]);
+    try {
+      const res = await app.request(`/api/e/${slug}/site`);
+      expect(res.status).toBe(200);
+      const body = SiteContent.parse(await res.json());
+      expect(body.schedule).toEqual([]);
+      expect(body.faq).toEqual([]);
+      expect(body.dressCode).toEqual({ text: "", palette: [], avoid: [] });
+      expect(body.contact.message).toBe("Alguma dúvida? Fale com a gente.");
+      expect(body.rsvp.deadline).toBe("2030-05-01T16:00:00-03:00");
+      expect(body.seo).toMatchObject({ title: "Ana & Beto", ogTitle: "Ana & Beto" });
+    } finally {
+      await db.delete(eventSettings).where(eq(eventSettings.eventId, ev.insertId));
+      await db.delete(events).where(eq(events.id, ev.insertId));
+      await db.delete(organizations).where(eq(organizations.id, org.insertId));
+    }
+  });
+});
+
 describe("GET /api/site", () => {
   it("devolve o conteúdo completo no formato SiteContent", async () => {
-    const res = await app.request("/api/site");
+    const res = await app.request("/api/e/dani-gustavo/site");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, max-age=60");
     const body = SiteContent.parse(await res.json());

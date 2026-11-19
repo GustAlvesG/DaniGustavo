@@ -53,24 +53,39 @@ export async function readPublicSettings(
 
 /** Monta e valida o conteúdo de GET /api/site. Lança se faltar chave ou o formato estiver errado. */
 export function buildSiteContent(s: Map<string, unknown>): SiteContent {
-  const get = (key: string): unknown => s.get(key);
+  // Chave ausente vira valor neutro (evento criado pela CLI só tem o básico); inválida continua lançando.
+  const get = (key: string, fallback?: unknown): unknown => (s.has(key) ? s.get(key) : fallback);
+  const names = get("couple.names");
+  const datetime = get("wedding.datetime");
   return SiteContent.parse({
-    couple: { names: get("couple.names"), monogram: get("couple.monogram") },
-    wedding: { datetime: get("wedding.datetime"), timezone: get("wedding.timezone") },
+    couple: { names, monogram: get("couple.monogram") },
+    wedding: { datetime, timezone: get("wedding.timezone") },
     ceremony: venue(get("ceremony.venue")),
     reception: venue(get("reception.venue")),
-    schedule: get("schedule.items"),
-    dressCode: get("dresscode"),
+    schedule: get("schedule.items", []),
+    dressCode: get("dresscode", { text: "", palette: [], avoid: [] }),
     accommodation: {
-      items: get("accommodation.items"),
-      howToGetThere: get("accommodation.how_to_get_there"),
+      items: get("accommodation.items", []),
+      howToGetThere: get("accommodation.how_to_get_there", ""),
     },
-    faq: get("faq.items"),
-    story: get("story.items"),
-    godparents: get("godparents.manual"),
-    gallery: { items: get("gallery.items"), officialPhotosSoon: get("gallery.official_soon") },
-    contact: get("couple.contact"),
-    rsvp: { deadline: get("rsvp.deadline") },
-    seo: get("seo"),
+    faq: get("faq.items", []),
+    story: get("story.items", []),
+    godparents: get("godparents.manual", { dressCode: "", schedule: [], palette: [], notes: [] }),
+    gallery: {
+      items: get("gallery.items", []),
+      officialPhotosSoon: get("gallery.official_soon", false),
+    },
+    contact: get("couple.contact", {
+      whatsapp: "",
+      email: "",
+      message: "Alguma dúvida? Fale com a gente.",
+    }),
+    rsvp: { deadline: get("rsvp.deadline", datetime) },
+    seo: get("seo", {
+      title: names,
+      description: "",
+      ogTitle: names,
+      ogDescription: "",
+    }),
   });
 }
