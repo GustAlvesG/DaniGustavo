@@ -137,7 +137,7 @@ export interface AdminRsvpLog {
 /* ------------------------------------------------------------------------ */
 
 /** Caminho das imagens enviadas pelo painel (servidas pela API em /uploads). */
-export const UPLOAD_PATH = /^\/uploads\/[0-9A-Z]{26}\.(?:jpg|png|webp)$/;
+export const UPLOAD_PATH = /^\/uploads\/(?:\d{1,18}\/)?[0-9A-Z]{26}\.(?:jpg|png|webp)$/;
 export const UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
 export const UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 

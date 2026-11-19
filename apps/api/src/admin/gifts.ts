@@ -10,6 +10,7 @@ import {
   eventSettings,
   giftOrders,
   gifts,
+  LEGACY_EVENT_ID,
   newPublicId,
   sql,
   type Database,
@@ -22,7 +23,7 @@ import {
   type AdminGift,
   type GiftCategory,
 } from "@casamento/shared";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { apiError } from "../errors.ts";
 import { invalid, notFound, readJson, sensitiveLimit } from "./context.ts";
@@ -112,31 +113,70 @@ export function sniffImage(bytes: Uint8Array): "jpg" | "png" | "webp" | null {
   return null;
 }
 
+const BAD_IMAGE = "Imagem de outro evento: envie a foto de novo por este painel.";
 const UPLOAD_FILE = /^[0-9A-Z]{26}\.(jpg|png|webp)$/;
 const MIME = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" } as const;
 
-async function removeUpload(uploadDir: string, path: string | null) {
-  const file = path?.replace(/^\/uploads\//, "");
-  if (!file || !UPLOAD_FILE.test(file)) return;
-  await unlink(join(uploadDir, file)).catch(() => undefined);
+/**
+ * Caminho gravado `/uploads/<eventId>/<arquivo>` → pasta e arquivo. O formato antigo
+ * (`/uploads/<arquivo>`, sem evento) só existe até rodar `uploads:migrate`.
+ * TODO(fase1-etapa7): o formato antigo sai junto com a rota legada.
+ */
+function parseUploadPath(path: string | null): { eventId: number | null; file: string } | null {
+  const m = /^\/uploads\/(?:(\d{1,18})\/)?([^/]+)$/.exec(path ?? "");
+  if (!m || !UPLOAD_FILE.test(m[2]!)) return null;
+  return { eventId: m[1] ? Number(m[1]) : null, file: m[2]! };
 }
 
-/** GET /uploads/:file — imagens públicas dos presentes (o site repassa via rewrite). */
+/** A imagem de um presente do evento tem de ser do próprio evento (ou continuar a que já tinha). */
+function imageBelongs(ev: EventCtx, image: string | null, current: string | null = null) {
+  if (image === null || image === current) return true;
+  return parseUploadPath(image)?.eventId === ev.id;
+}
+
+/** Só apaga arquivo do próprio evento: o caminho de outro evento nunca sai da pasta dele. */
+async function removeUpload(uploadDir: string, ev: EventCtx, path: string | null) {
+  const up = parseUploadPath(path);
+  if (!up || up.eventId !== ev.id) return;
+  await unlink(join(uploadDir, String(ev.id), up.file)).catch(() => undefined);
+}
+
+const NOT_FOUND_IMAGE = (c: Context) =>
+  apiError(c, 404, ERROR_CODES.notFound, "Imagem não encontrada.");
+
+async function sendUpload(c: Context, path: string, file: string) {
+  const m = UPLOAD_FILE.exec(file);
+  if (!m) return NOT_FOUND_IMAGE(c);
+  try {
+    const data = await readFile(path);
+    return c.body(data, 200, {
+      "Content-Type": MIME[m[1] as keyof typeof MIME],
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+  } catch {
+    return NOT_FOUND_IMAGE(c);
+  }
+}
+
+/**
+ * Imagens públicas dos presentes (o site repassa via rewrite):
+ * `GET /uploads/:eventId/:file` (o caminho já diz de qual evento é) e o legado
+ * `GET /uploads/:file`, que procura na raiz e, se não achar, em `1/`.
+ * TODO(fase1-etapa7): a rota legada sai quando todo caminho gravado tiver o evento.
+ */
 export function uploadFileRoutes(uploadDir: string) {
   const app = new Hono();
+  app.get("/uploads/:eventId{[0-9]+}/:file", (c) => {
+    const { eventId, file } = c.req.param();
+    if (!UPLOAD_FILE.test(file)) return NOT_FOUND_IMAGE(c);
+    return sendUpload(c, join(uploadDir, String(Number(eventId)), file), file);
+  });
   app.get("/uploads/:file", async (c) => {
     const file = c.req.param("file");
-    const m = UPLOAD_FILE.exec(file);
-    if (!m) return apiError(c, 404, ERROR_CODES.notFound, "Imagem não encontrada.");
-    try {
-      const data = await readFile(join(uploadDir, file));
-      return c.body(data, 200, {
-        "Content-Type": MIME[m[1] as keyof typeof MIME],
-        "Cache-Control": "public, max-age=31536000, immutable",
-      });
-    } catch {
-      return apiError(c, 404, ERROR_CODES.notFound, "Imagem não encontrada.");
-    }
+    if (!UPLOAD_FILE.test(file)) return NOT_FOUND_IMAGE(c);
+    const root = await sendUpload(c, join(uploadDir, file), file);
+    if (root.status !== 404) return root;
+    return sendUpload(c, join(uploadDir, String(LEGACY_EVENT_ID), file), file);
   });
   return app;
 }
@@ -168,6 +208,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
     const parsed = AdminGiftInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
+    if (!imageBelongs(ev, input.image ?? null)) return invalid(c, [{ message: BAD_IMAGE }]);
     const [{ maxSort } = { maxSort: 0 }] = await db
       .select({ maxSort: sql<number>`COALESCE(MAX(${gifts.sort}), 0)` })
       .from(gifts)
@@ -211,6 +252,9 @@ export function adminGiftRoutes(deps: AdminDeps) {
       .from(gifts)
       .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
     if (!current) return notFound(c, "Presente");
+    if (!imageBelongs(ev, input.image ?? null, current.image)) {
+      return invalid(c, [{ message: BAD_IMAGE }]);
+    }
     if (!input.openAmount && input.quotaTotal < current.quotaSold) {
       return invalid(c, [
         {
@@ -226,7 +270,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
           input.title === current.title ? current.slug : await uniqueSlug(ev, db, input.title, id),
       })
       .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
-    if (current.image !== input.image) await removeUpload(uploadDir, current.image);
+    if (current.image !== input.image) await removeUpload(uploadDir, ev, current.image);
     await changed();
     const gift = (await listAdminGifts(ev, db)).find((g) => g.id === id);
     return c.json({ gift });
@@ -269,7 +313,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
       );
     }
     await db.delete(gifts).where(and(eq(gifts.id, id), byEvent(gifts, ev)));
-    await removeUpload(uploadDir, current.image);
+    await removeUpload(uploadDir, ev, current.image);
     await changed();
     return c.json({ ok: true });
   });
@@ -306,9 +350,11 @@ export function adminUploadRoutes(deps: AdminDeps) {
         return invalid(c, [{ message: "Formato não aceito: envie uma foto JPG, PNG ou WebP." }]);
       }
       const name = `${newPublicId()}.${ext}`;
-      await mkdir(deps.uploadDir, { recursive: true });
-      await writeFile(join(deps.uploadDir, name), bytes);
-      return c.json({ path: `/uploads/${name}` }, 201);
+      const ev = c.get("event");
+      const dir = join(deps.uploadDir, String(ev.id));
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, name), bytes);
+      return c.json({ path: `/uploads/${ev.id}/${name}` }, 201);
     },
   );
   return app;

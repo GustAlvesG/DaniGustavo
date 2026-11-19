@@ -36,7 +36,7 @@ Plataforma:
                só adiciona o vínculo
   event:list                   lista id, slug, organização, status e domínios
   uploads:migrate              move UPLOAD_DIR/* para UPLOAD_DIR/1/ e atualiza gifts.image do
-                               evento 1 (a API só serve a nova pasta a partir da etapa 6)
+                               evento 1 (a API serve por evento; a rota antiga ainda acha os arquivos de 1/)
 `;
 
 const UPLOAD_DIR_PADRAO = fileURLToPath(

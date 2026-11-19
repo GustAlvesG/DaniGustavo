@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
   // (proxy no servidor, a URL da API não vai para o navegador).
   async rewrites() {
     const api = process.env.API_URL?.replace(/\/+$/, "");
-    return api ? [{ source: "/uploads/:file", destination: `${api}/uploads/:file` }] : [];
+    return api ? [{ source: "/uploads/:path*", destination: `${api}/uploads/:path*` }] : [];
   },
   // O service worker nunca fica em cache do navegador: uma versão nova vale na hora.
   async headers() {
