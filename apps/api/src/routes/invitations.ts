@@ -1,5 +1,15 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
-import { asc, eq, guests, invitations, rsvpLogs, settings, type Database } from "@casamento/db";
+import {
+  and,
+  asc,
+  eq,
+  eventSettings,
+  guests,
+  invitations,
+  LEGACY_EVENT_ID,
+  rsvpLogs,
+  type Database,
+} from "@casamento/db";
 import {
   ERROR_CODES,
   Invitation,
@@ -43,8 +53,12 @@ export function clientIp(c: Context): string {
 }
 
 async function getSetting(db: Database, key: string): Promise<unknown> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, key));
-  if (!row) throw new Error(`Configuração "${key}" não existe na tabela settings. Rode db:seed.`);
+  const [row] = await db
+    .select()
+    .from(eventSettings)
+    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, key)));
+  if (!row)
+    throw new Error(`Configuração "${key}" não existe na tabela event_settings. Rode db:seed.`);
   return row.value;
 }
 

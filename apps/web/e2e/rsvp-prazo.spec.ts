@@ -9,7 +9,7 @@ import {
 import { apiInvitation, next, prepare } from "./support/rsvp";
 
 /*
- * Prazo do RSVP. O prazo é uma configuração global (`settings.rsvp.deadline`),
+ * Prazo do RSVP. O prazo é uma configuração global (`event_settings` do evento 1, chave `rsvp.deadline`),
  * então este arquivo é o único que a altera e roda sozinho (projeto "prazo",
  * depois de mobile e desktop). O valor original é restaurado no fim; se uma
  * execução anterior morreu no meio, o valor de teste é trocado pelo do seed.

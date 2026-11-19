@@ -2,11 +2,12 @@ import {
   and,
   asc,
   eq,
+  eventSettings,
   guests,
   inArray,
   invitations,
+  LEGACY_EVENT_ID,
   rsvpReminders,
-  settings,
   type Database,
 } from "@casamento/db";
 import { ReminderSettings, type ReminderSendResult, type ReminderStatus } from "@casamento/shared";
@@ -40,7 +41,10 @@ export interface ReminderDeps {
 
 /** Configuração dos lembretes (padrão: ligado, 14 e 3 dias antes do prazo). */
 export async function readReminderSettings(db: Database): Promise<ReminderSettings> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, SETTINGS_KEY));
+  const [row] = await db
+    .select()
+    .from(eventSettings)
+    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, SETTINGS_KEY)));
   const parsed = ReminderSettings.safeParse(row?.value);
   return parsed.success ? parsed.data : DEFAULT_REMINDER_SETTINGS;
 }
@@ -52,21 +56,29 @@ export async function saveReminderSettings(db: Database, value: ReminderSettings
   };
   // Privada (is_public = false): não entra em GET /api/site.
   await db
-    .insert(settings)
-    .values({ key: SETTINGS_KEY, value: clean, isPublic: false })
+    .insert(eventSettings)
+    .values({ eventId: LEGACY_EVENT_ID, key: SETTINGS_KEY, value: clean, isPublic: false })
     .onDuplicateKeyUpdate({ set: { value: clean, updatedAt: new Date() } });
 }
 
 async function readDeadline(db: Database): Promise<Date> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, "rsvp.deadline"));
+  const [row] = await db
+    .select()
+    .from(eventSettings)
+    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")));
   return new Date(String(row?.value));
 }
 
 async function readCouple(db: Database) {
   const rows = await db
     .select()
-    .from(settings)
-    .where(inArray(settings.key, ["couple.names", "wedding.datetime", "wedding.timezone"]));
+    .from(eventSettings)
+    .where(
+      and(
+        eq(eventSettings.eventId, LEGACY_EVENT_ID),
+        inArray(eventSettings.key, ["couple.names", "wedding.datetime", "wedding.timezone"]),
+      ),
+    );
   const get = (k: string) => String(rows.find((r) => r.key === k)?.value ?? "");
   return {
     names: get("couple.names") || "Dani & Gustavo",

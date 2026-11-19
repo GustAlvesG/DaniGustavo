@@ -1,14 +1,16 @@
 import {
+  and,
   asc,
   count,
   desc,
   eq,
+  eventSettings,
   giftOrders,
   gifts,
   guests,
   invitations,
+  LEGACY_EVENT_ID,
   messages,
-  settings,
   type Database,
 } from "@casamento/db";
 import {
@@ -66,7 +68,12 @@ export async function dashboard(db: Database): Promise<DashboardData> {
         .where(eq(giftOrders.status, "paid"))
         .orderBy(desc(giftOrders.paidAt))
         .limit(6),
-      db.select().from(settings).where(eq(settings.key, "rsvp.deadline")),
+      db
+        .select()
+        .from(eventSettings)
+        .where(
+          and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")),
+        ),
       cardFeePercent(db),
       db.select({ n: count() }).from(messages).where(eq(messages.approved, false)),
     ],
@@ -193,7 +200,10 @@ export function adminSettingsRoutes(deps: AdminDeps) {
   const app = new Hono<AdminEnv>();
 
   const readAll = async () => {
-    const rows = await db.select().from(settings);
+    const rows = await db
+      .select()
+      .from(eventSettings)
+      .where(eq(eventSettings.eventId, LEGACY_EVENT_ID));
     return new Map(rows.map((r) => [r.key, { value: r.value, isPublic: r.isPublic }]));
   };
 
@@ -228,8 +238,13 @@ export function adminSettingsRoutes(deps: AdminDeps) {
     await db.transaction(async (tx) => {
       for (const [key, value] of Object.entries(parsed.data)) {
         await tx
-          .insert(settings)
-          .values({ key, value, isPublic: all.get(key)?.isPublic ?? true })
+          .insert(eventSettings)
+          .values({
+            eventId: LEGACY_EVENT_ID,
+            key,
+            value,
+            isPublic: all.get(key)?.isPublic ?? true,
+          })
           .onDuplicateKeyUpdate({ set: { value, updatedAt: new Date() } });
       }
     });

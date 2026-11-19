@@ -15,6 +15,12 @@ export function createAuth(env: Env, db: Database) {
       provider: "mysql",
       schema: { user, session, account, verification },
     }),
+    // Papel na plataforma: definido só pelo seed/CLI, nunca pelo cliente (input: false).
+    user: {
+      additionalFields: {
+        platformRole: { type: "string", required: false, input: false },
+      },
+    },
     // Só os dois usuários criados pelo seed: cadastro público desligado.
     emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 10 },
     // Login só com e-mail e senha (sem 2FA, decisão do casal). O limite vale em todos os

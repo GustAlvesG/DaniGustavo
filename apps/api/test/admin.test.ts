@@ -3,14 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   account,
+  and,
   eq,
+  eventSettings,
   giftOrders,
   gifts,
   inArray,
   invitations,
+  LEGACY_EVENT_ID,
   messages,
   payments,
-  settings,
   user,
 } from "@casamento/db";
 import type {
@@ -554,8 +556,13 @@ describe("configurações", () => {
       expect(revalidated).toContainEqual(["site", "gifts"]);
       const [row] = await db
         .select()
-        .from(settings)
-        .where(eq(settings.key, "payments.card_fee_percent"));
+        .from(eventSettings)
+        .where(
+          and(
+            eq(eventSettings.eventId, LEGACY_EVENT_ID),
+            eq(eventSettings.key, "payments.card_fee_percent"),
+          ),
+        );
       expect(row!.value).toBe(3.5);
     } finally {
       await admin("/settings", {

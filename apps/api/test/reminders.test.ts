@@ -1,12 +1,14 @@
 import {
   account,
+  and,
   eq,
+  eventSettings,
   guests,
   inArray,
   invitations,
+  LEGACY_EVENT_ID,
   newPublicId,
   rsvpReminders,
-  settings,
   user,
 } from "@casamento/db";
 import type { ReminderStatus } from "@casamento/shared";
@@ -76,7 +78,10 @@ const clearSent = () =>
   db.delete(rsvpReminders).where(inArray(rsvpReminders.invitationId, created));
 
 beforeAll(async () => {
-  const [row] = await db.select().from(settings).where(eq(settings.key, "reminders"));
+  const [row] = await db
+    .select()
+    .from(eventSettings)
+    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "reminders")));
   originalSettings = row?.value;
   await invite("a", { email: emailOf("a") });
   await invite("b", { email: emailOf("b") });
@@ -88,7 +93,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(invitations).where(inArray(invitations.id, created)); // cascade nos lembretes
   if (originalSettings === undefined) {
-    await db.delete(settings).where(eq(settings.key, "reminders"));
+    await db
+      .delete(eventSettings)
+      .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "reminders")));
   } else {
     await saveReminderSettings(db, originalSettings as typeof DEFAULT_REMINDER_SETTINGS);
   }
@@ -156,7 +163,9 @@ describe("liga/desliga e configuração", () => {
   it("datas configuradas são ordenadas e sem repetição; padrão 14 e 3", async () => {
     await saveReminderSettings(db, { enabled: true, daysBefore: [3, 7, 7, 30] });
     expect((await readReminderSettings(db)).daysBefore).toEqual([30, 7, 3]);
-    await db.delete(settings).where(eq(settings.key, "reminders"));
+    await db
+      .delete(eventSettings)
+      .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "reminders")));
     expect(await readReminderSettings(db)).toEqual({ enabled: true, daysBefore: [14, 3] });
     await saveReminderSettings(db, DEFAULT_REMINDER_SETTINGS);
   });

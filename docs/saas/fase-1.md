@@ -86,17 +86,17 @@ Teste `packages/db/test/migration.test.ts`: banco temporário `casamento_mig_<ul
 
 ## 8. Etapas
 
-| # | Etapa | Risco | Modelo |
-|---|---|---|---|
-| 1 | Schema + migration 0006 (DEFAULT 1 provisório) + seed (org 1, evento 1, domínios dev) + teste da migration | alto | opus |
-| 2 | CLI: `org:create`, `event:create`, `domain:add`, `user:add`, `uploads:migrate`; papéis no seed | baixo | sonnet |
-| 3 | `apps/api/src/tenancy/` (resolver, `publicEvent`, `requireEventAccess`, permissions, `crossEvent`, urls), auditor avisando, `GET /api/hosts/:host` | médio | opus |
-| 4 | Rotas públicas em `/api/e/:slug`, `EventCtx` nos serviços, `event_settings`; rotas antigas como apelido do evento 1 | médio | sonnet |
-| 5 | Painel: `admin/*` sob `/events/:eventId`, `/me`, seletor, hash com eventId, e2e do painel | médio | sonnet |
-| 6 | Jobs, avisos, links, webhook, uploads por evento | médio | sonnet |
-| 7 | Next: `proxy.ts`, `app/[host]`, lib/api com slug e tags, revalidar, Server Actions, manifest/OG/ícones/agenda, rewrite; sai o apelido legado | alto | opus |
-| 8 | Testes de isolamento, auditor falhando, e2e com dois hosts, migration 0007 (remove DEFAULT 1) | médio | sonnet |
-| 9 | CLAUDE.md, `.env.example` (`WEB_INTERNAL_URL`, `PLATFORM_BASE_DOMAIN`), PERSONALIZAR | baixo | haiku |
+| #   | Etapa                                                                                                                                              | Risco | Modelo |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------ |
+| 1   | Schema + migration 0006 (DEFAULT 1 provisório) + seed (org 1, evento 1, domínios dev) + teste da migration                                         | alto  | opus   |
+| 2   | CLI: `org:create`, `event:create`, `domain:add`, `user:add`, `uploads:migrate`; papéis no seed                                                     | baixo | sonnet |
+| 3   | `apps/api/src/tenancy/` (resolver, `publicEvent`, `requireEventAccess`, permissions, `crossEvent`, urls), auditor avisando, `GET /api/hosts/:host` | médio | opus   |
+| 4   | Rotas públicas em `/api/e/:slug`, `EventCtx` nos serviços, `event_settings`; rotas antigas como apelido do evento 1                                | médio | sonnet |
+| 5   | Painel: `admin/*` sob `/events/:eventId`, `/me`, seletor, hash com eventId, e2e do painel                                                          | médio | sonnet |
+| 6   | Jobs, avisos, links, webhook, uploads por evento                                                                                                   | médio | sonnet |
+| 7   | Next: `proxy.ts`, `app/[host]`, lib/api com slug e tags, revalidar, Server Actions, manifest/OG/ícones/agenda, rewrite; sai o apelido legado       | alto  | opus   |
+| 8   | Testes de isolamento, auditor falhando, e2e com dois hosts, migration 0007 (remove DEFAULT 1)                                                      | médio | sonnet |
+| 9   | CLAUDE.md, `.env.example` (`WEB_INTERNAL_URL`, `PLATFORM_BASE_DOMAIN`), PERSONALIZAR                                                               | baixo | haiku  |
 
 ## 9. Decisões do usuário
 

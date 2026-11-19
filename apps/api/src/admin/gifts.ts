@@ -2,13 +2,15 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  and,
   asc,
   count,
   eq,
+  eventSettings,
   giftOrders,
   gifts,
+  LEGACY_EVENT_ID,
   newPublicId,
-  settings,
   sql,
   type Database,
 } from "@casamento/db";
@@ -140,7 +142,15 @@ export function adminGiftRoutes(deps: AdminDeps) {
   app.get("/", async (c) => {
     const [list, [cats]] = await Promise.all([
       listAdminGifts(db),
-      db.select().from(settings).where(eq(settings.key, "gifts.categories")),
+      db
+        .select()
+        .from(eventSettings)
+        .where(
+          and(
+            eq(eventSettings.eventId, LEGACY_EVENT_ID),
+            eq(eventSettings.key, "gifts.categories"),
+          ),
+        ),
     ]);
     return c.json({ gifts: list, categories: (cats?.value ?? []) as GiftCategory[] });
   });

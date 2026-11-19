@@ -2,13 +2,14 @@ import {
   and,
   asc,
   eq,
+  eventSettings,
   giftOrders,
   gifts,
+  LEGACY_EVENT_ID,
   lt,
   messages,
   newPublicId,
   payments,
-  settings,
   sql,
   type Database,
 } from "@casamento/db";
@@ -71,7 +72,10 @@ const fail = (status: Failure["status"], code: string, message: string): Failure
 });
 
 async function setting<T>(db: Database, key: string, fallback: T): Promise<T> {
-  const [row] = await db.select().from(settings).where(eq(settings.key, key));
+  const [row] = await db
+    .select()
+    .from(eventSettings)
+    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, key)));
   return row ? (row.value as T) : fallback;
 }
 

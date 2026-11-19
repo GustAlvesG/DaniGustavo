@@ -8,15 +8,16 @@ import {
   and,
   db,
   eq,
+  eventSettings,
   giftOrders,
   gifts,
   guests,
   inArray,
   invitations,
+  LEGACY_EVENT_ID,
   messages,
   newPublicId,
   payments,
-  settings,
   sql,
 } from "@casamento/db";
 
@@ -57,14 +58,21 @@ async function main(): Promise<unknown> {
       await db.delete(invitations).where(eq(invitations.token, String(arg)));
       return { ok: true };
     case "get-deadline": {
-      const [row] = await db.select().from(settings).where(eq(settings.key, "rsvp.deadline"));
+      const [row] = await db
+        .select()
+        .from(eventSettings)
+        .where(
+          and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")),
+        );
       return { value: String(row?.value) };
     }
     case "set-deadline":
       await db
-        .update(settings)
+        .update(eventSettings)
         .set({ value: String(arg) })
-        .where(eq(settings.key, "rsvp.deadline"));
+        .where(
+          and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")),
+        );
       return { ok: true };
     case "cleanup-orders": {
       // Apaga os pedidos de teste (pelo e-mail do comprador) e recalcula as cotas vendidas
