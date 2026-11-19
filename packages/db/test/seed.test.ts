@@ -1,10 +1,16 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "../src/client.ts";
 import { runMigrations } from "../src/migrate.ts";
 import { resetDatabase } from "../src/reset.ts";
-import { gifts, guests, invitations, settings } from "../src/schema/app.ts";
+import { eventSettings, gifts, guests, invitations } from "../src/schema/app.ts";
 import { account, user } from "../src/schema/auth.ts";
+import {
+  eventDomains,
+  events,
+  LEGACY_EVENT_ID,
+  organizationMembers,
+} from "../src/schema/tenancy.ts";
 import { seed } from "../src/seed.ts";
 import { createTestDb } from "./helpers.ts";
 
@@ -51,7 +57,12 @@ describe("seed", () => {
   });
 
   it("lê JSON já convertido em objeto (MariaDB e MySQL)", async () => {
-    const [row] = await db.select().from(settings).where(eq(settings.key, "ceremony.venue"));
+    const [row] = await db
+      .select()
+      .from(eventSettings)
+      .where(
+        and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "ceremony.venue")),
+      );
     expect(row?.value).toEqual({
       name: "Solare Roma",
       address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
@@ -78,6 +89,34 @@ describe("seed", () => {
       giftsCreated: 0,
       settingsCreated: 0,
       adminsCreated: 0,
+      domainsCreated: 0,
+      membersCreated: 0,
     });
+  });
+
+  it("tem o evento 1 ativo com os domínios de desenvolvimento", async () => {
+    const [ev] = await db.select().from(events).where(eq(events.id, LEGACY_EVENT_ID));
+    expect(ev).toMatchObject({ slug: "dani-gustavo", status: "active", organizationId: 1 });
+    const domains = await db.select().from(eventDomains).orderBy(eventDomains.id);
+    expect(domains.map((d) => [d.host, d.isPrimary, d.eventId])).toEqual([
+      ["localhost:3000", true, LEGACY_EVENT_ID],
+      ["evento1.localhost:3000", false, LEGACY_EVENT_ID],
+    ]);
+  });
+
+  it("os dois usuários são donos da organização 1 e só o segundo é admin da plataforma", async () => {
+    const members = await db
+      .select({
+        email: user.email,
+        role: organizationMembers.role,
+        platformRole: user.platformRole,
+      })
+      .from(organizationMembers)
+      .innerJoin(user, eq(user.id, organizationMembers.userId))
+      .orderBy(user.email);
+    expect(members).toEqual([
+      { email: env.ADMIN_EMAIL_1, role: "owner", platformRole: null },
+      { email: env.ADMIN_EMAIL_2, role: "owner", platformRole: "admin" },
+    ]);
   });
 });

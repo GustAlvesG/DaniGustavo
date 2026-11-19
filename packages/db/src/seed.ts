@@ -1,17 +1,32 @@
 import { hashPassword } from "better-auth/crypto";
-import { count, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { Database } from "./client.ts";
 import { newPublicId } from "./ids.ts";
-import { gifts, guests, invitations, settings } from "./schema/app.ts";
+import { eventSettings, gifts, guests, invitations } from "./schema/app.ts";
 import { account, user } from "./schema/auth.ts";
+import {
+  eventDomains,
+  events,
+  LEGACY_EVENT_ID,
+  organizationMembers,
+  organizations,
+} from "./schema/tenancy.ts";
 import { ADMIN_NAMES, seedGifts, seedInvitations, seedSettings } from "./seed-data.ts";
+
+/** Organização do casamento (criada também pela migration 0006). */
+const LEGACY_ORG_ID = 1;
+
+/** Hosts de desenvolvimento do evento 1; o primeiro é o primário. */
+export const DEV_EVENT_HOSTS = ["localhost:3000", "evento1.localhost:3000"] as const;
 
 export interface SeedResult {
   invitationsCreated: number;
   giftsCreated: number;
   settingsCreated: number;
   adminsCreated: number;
+  domainsCreated: number;
+  membersCreated: number;
 }
 
 /** Popula o banco com dados fictícios. Idempotente: não duplica nem sobrescreve o que já existe. */
@@ -24,14 +39,19 @@ export async function seed(
     giftsCreated: 0,
     settingsCreated: 0,
     adminsCreated: 0,
+    domainsCreated: 0,
+    membersCreated: 0,
   };
+
+  await seedLegacyEvent(db);
+  result.domainsCreated = await seedDevDomains(db);
 
   for (const s of seedSettings) {
     // INSERT IGNORE: affectedRows = 1 quando inseriu, 0 quando a chave já existia.
     const [res] = await db
-      .insert(settings)
+      .insert(eventSettings)
       .ignore()
-      .values({ key: s.key, value: s.value, isPublic: s.isPublic });
+      .values({ eventId: LEGACY_EVENT_ID, key: s.key, value: s.value, isPublic: s.isPublic });
     if (res.affectedRows === 1) result.settingsCreated++;
   }
 
@@ -39,15 +59,24 @@ export async function seed(
     const [res] = await db
       .insert(gifts)
       .ignore()
-      .values({ ...g, openAmount: g.openAmount ?? false, sort: (i + 1) * 10 });
+      .values({
+        ...g,
+        eventId: LEGACY_EVENT_ID,
+        openAmount: g.openAmount ?? false,
+        sort: (i + 1) * 10,
+      });
     if (res.affectedRows === 1) result.giftsCreated++;
   }
 
-  const [existing] = await db.select({ n: count() }).from(invitations);
+  const [existing] = await db
+    .select({ n: count() })
+    .from(invitations)
+    .where(eq(invitations.eventId, LEGACY_EVENT_ID));
   if ((existing?.n ?? 0) === 0) {
     for (const inv of seedInvitations) {
       await db.transaction(async (tx) => {
         const [res] = await tx.insert(invitations).values({
+          eventId: LEGACY_EVENT_ID,
           token: newPublicId(),
           label: inv.label,
           side: inv.side,
@@ -56,6 +85,7 @@ export async function seed(
         });
         await tx.insert(guests).values(
           inv.guests.map((g) => ({
+            eventId: LEGACY_EVENT_ID,
             invitationId: res.insertId,
             name: g.name,
             isChild: g.isChild ?? false,
@@ -73,7 +103,75 @@ export async function seed(
   }
 
   result.adminsCreated = await seedAdmins(db, env);
+  result.membersCreated = await seedMembers(db, env);
   return result;
+}
+
+/**
+ * Organização 1 e evento 1. A migration 0006 já os cria (com os dados de `settings`); aqui é só
+ * garantia para bancos montados de outro jeito. INSERT IGNORE não mexe no que já existe.
+ */
+async function seedLegacyEvent(db: Database): Promise<void> {
+  await db
+    .insert(organizations)
+    .ignore()
+    .values({ id: LEGACY_ORG_ID, slug: "org-1", name: "Organização 1", status: "active" });
+  await db
+    .insert(events)
+    .ignore()
+    .values({
+      id: LEGACY_EVENT_ID,
+      organizationId: LEGACY_ORG_ID,
+      slug: "dani-gustavo",
+      type: "wedding",
+      name: "Dani & Gustavo",
+      status: "active",
+      timezone: "America/Sao_Paulo",
+      startsAt: new Date("2027-04-10T16:00:00-03:00"),
+    });
+}
+
+/** Domínios de desenvolvimento do evento 1 (em produção, cadastrados pela CLI). */
+async function seedDevDomains(db: Database): Promise<number> {
+  let created = 0;
+  for (const [i, host] of DEV_EVENT_HOSTS.entries()) {
+    const [res] = await db
+      .insert(eventDomains)
+      .ignore()
+      .values({ eventId: LEGACY_EVENT_ID, host, isPrimary: i === 0 });
+    if (res.affectedRows === 1) created++;
+  }
+  return created;
+}
+
+/**
+ * Papéis dos usuários do painel. TODO(fase1-papeis): provisório até o casal decidir; hoje os
+ * dois são donos da organização 1 e o Gustavo (dev, ADMIN_NAMES[1]) é admin da plataforma.
+ */
+async function seedMembers(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
+  const emails = [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2]
+    .filter((e): e is string => Boolean(e))
+    .map((e) => e.trim().toLowerCase());
+  if (emails.length === 0) return 0;
+
+  const users = await db
+    .select({ id: user.id, email: user.email })
+    .from(user)
+    .where(inArray(user.email, emails));
+  let created = 0;
+  for (const u of users) {
+    const [res] = await db
+      .insert(organizationMembers)
+      .ignore()
+      .values({ organizationId: LEGACY_ORG_ID, userId: u.id, role: "owner" });
+    if (res.affectedRows === 1) created++;
+  }
+
+  const platformAdmin = env.ADMIN_EMAIL_2?.trim().toLowerCase();
+  if (platformAdmin) {
+    await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
+  }
+  return created;
 }
 
 /** Convites com token e convidados, para testar manualmente (links /c/<token>). */
