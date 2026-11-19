@@ -1,4 +1,4 @@
-import { eq, inArray, messages } from "@casamento/db";
+import { eq, inArray, LEGACY_EVENT_ID, messages } from "@casamento/db";
 import { ApiError, WallResponse } from "@casamento/shared";
 import { afterAll, describe, expect, it } from "vitest";
 import { createRateLimiter } from "../src/rate-limit.ts";
@@ -34,10 +34,20 @@ describe("GET /api/messages", () => {
   it("mostra só os aprovados, sem dado pessoal", async () => {
     await db
       .insert(messages)
-      .values({ author: `Ana ${run}`, body: "Parabéns aos dois!", approved: true });
+      .values({
+        eventId: LEGACY_EVENT_ID,
+        author: `Ana ${run}`,
+        body: "Parabéns aos dois!",
+        approved: true,
+      });
     await db
       .insert(messages)
-      .values({ author: `Pendente ${run}`, body: "Ainda não aprovado", approved: false });
+      .values({
+        eventId: LEGACY_EVENT_ID,
+        author: `Pendente ${run}`,
+        body: "Ainda não aprovado",
+        approved: false,
+      });
 
     const res = await app.request("/api/e/dani-gustavo/messages");
     expect(res.status).toBe(200);

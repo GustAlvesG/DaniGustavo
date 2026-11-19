@@ -3,6 +3,7 @@ import {
   guests,
   inArray,
   invitations,
+  LEGACY_EVENT_ID,
   newPublicId,
   rsvpLogs,
   type Database,
@@ -47,6 +48,7 @@ async function makeInvitation(
 ) {
   const token = newPublicId();
   const [res] = await database.insert(invitations).values({
+    eventId: LEGACY_EVENT_ID,
     token,
     label: opts.label,
     side: "dani",
@@ -57,6 +59,7 @@ async function makeInvitation(
   created.push(res.insertId);
   await database.insert(guests).values(
     opts.names.map((g) => ({
+      eventId: LEGACY_EVENT_ID,
       invitationId: res.insertId,
       name: g.name,
       isChild: g.isChild ?? false,

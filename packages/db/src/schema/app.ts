@@ -31,12 +31,11 @@ export type PaymentProviderName = (typeof PAYMENT_PROVIDERS)[number];
 
 /**
  * Evento dono da linha. Repetido nas tabelas filhas de propósito (filtro direto, sem join).
- * TODO(fase1-etapa8): o DEFAULT 1 é provisório (dados do casamento); a migration 0007 o remove.
+ * Sem DEFAULT: todo insert informa o evento (a migration 0007 removeu o 1 provisório).
  */
 const eventId = (onDelete: "cascade" | "restrict") =>
   fk("event_id")
     .notNull()
-    .default(1)
     .references(() => events.id, { onDelete });
 
 export const invitations = mysqlTable(

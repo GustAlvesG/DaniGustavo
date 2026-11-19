@@ -9,7 +9,7 @@ import { createDb, type Database } from "../src/client.ts";
 import { requireDatabaseUrl } from "../src/env.ts";
 import { MIGRATIONS_FOLDER, runMigrations } from "../src/migrate.ts";
 
-// Migration 0006 (multi-evento) sobre dados no formato antigo: banco temporário, aplica
+// Migrations 0006 (multi-evento) e 0007 (sem DEFAULT em event_id) sobre dados no formato antigo: banco temporário, aplica
 // 0000–0005, insere um pouco de tudo, aplica a 0006 e confere que nada se perdeu.
 
 const dbName = `casamento_mig_${ulid().toLowerCase()}`;
@@ -127,7 +127,7 @@ afterAll(async () => {
   if (oldFolder) rmSync(oldFolder, { recursive: true, force: true });
 });
 
-describe("migration 0006 (multi-evento)", () => {
+describe("migrations 0006 (multi-evento) e 0007", () => {
   it("cria a organização 1 e o evento 1 com dados lidos de settings", async () => {
     const [org] = await q("SELECT id, slug, name, status FROM organizations");
     expect(org).toMatchObject({ id: 1, slug: "org-1", name: "Organização 1", status: "active" });
@@ -208,5 +208,27 @@ describe("migration 0006 (multi-evento)", () => {
 
   it("não deixa apagar evento com pedidos", async () => {
     await expect(q("DELETE FROM events WHERE id = 1")).rejects.toThrow(/foreign key/i);
+  });
+
+  it("0007: event_id não tem mais DEFAULT e insert sem ele falha", async () => {
+    for (const t of TABLES) {
+      const [col] = await q(
+        `SELECT is_nullable, column_default FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'event_id'`,
+        [t],
+      );
+      expect(col!.is_nullable, t).toBe("NO");
+      expect(col!.column_default, t).toBeNull();
+    }
+    await expect(
+      q(
+        "INSERT INTO gifts (slug, title, price_cents, category, tile_design, created_at, updated_at) VALUES ('sem-evento', 'X', 100, 'casa', 'a', NOW(3), NOW(3))",
+      ),
+    ).rejects.toThrow(/event_id/);
+    await expect(
+      q(
+        "INSERT INTO invitations (token, label, max_guests, side, created_at, updated_at) VALUES ('01JTESTE0000000000000SEMEV', 'X', 1, 'dani', NOW(3), NOW(3))",
+      ),
+    ).rejects.toThrow(/event_id/);
   });
 });

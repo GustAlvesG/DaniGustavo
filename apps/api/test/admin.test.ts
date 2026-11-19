@@ -508,7 +508,9 @@ describe("pedidos", () => {
 
 describe("recados", () => {
   it("lista e aprova/oculta", async () => {
-    const [res] = await db.insert(messages).values({ author: "Tia Teste", body: `Oi ${run}` });
+    const [res] = await db
+      .insert(messages)
+      .values({ eventId: LEGACY_EVENT_ID, author: "Tia Teste", body: `Oi ${run}` });
     try {
       const list = (await (await admin("/messages?status=pending")).json()) as {
         messages: { id: number }[];

@@ -60,6 +60,7 @@ let originalSettings: unknown;
 
 async function invite(key: string, opts: { email?: string; status?: "pending" | "confirmed" }) {
   const [res] = await db.insert(invitations).values({
+    eventId: LEGACY_EVENT_ID,
     token: newPublicId(),
     label: `Lembrete ${key} ${run}`,
     side: "dani",
@@ -69,6 +70,7 @@ async function invite(key: string, opts: { email?: string; status?: "pending" | 
   created.push(res.insertId);
   ids[key] = res.insertId;
   await db.insert(guests).values({
+    eventId: LEGACY_EVENT_ID,
     invitationId: res.insertId,
     name: `Convidado ${key}`,
     rsvpStatus: opts.status ?? "pending",

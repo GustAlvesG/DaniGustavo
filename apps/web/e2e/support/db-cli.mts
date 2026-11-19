@@ -37,6 +37,7 @@ async function main(): Promise<unknown> {
       const opts = JSON.parse(arg ?? "{}") as NewInvitation;
       const token = newPublicId();
       await db.insert(invitations).values({
+        eventId: LEGACY_EVENT_ID,
         token,
         label: opts.label,
         side: "dani",
@@ -46,6 +47,7 @@ async function main(): Promise<unknown> {
       const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
       await db.insert(guests).values(
         opts.guests.map((g) => ({
+          eventId: LEGACY_EVENT_ID,
           invitationId: inv!.id,
           name: g.name,
           isChild: g.isChild ?? false,
@@ -106,6 +108,7 @@ async function main(): Promise<unknown> {
       const run = String(arg);
       const slug = `e2e-painel-${run}`;
       await db.insert(gifts).values({
+        eventId: LEGACY_EVENT_ID,
         slug,
         title: `Presente e2e ${run}`,
         priceCents: 12000,
@@ -119,6 +122,7 @@ async function main(): Promise<unknown> {
       const publicId = newPublicId();
       const now = new Date();
       await db.insert(giftOrders).values({
+        eventId: LEGACY_EVENT_ID,
         publicId,
         giftId: gift!.id,
         quantity: 1,
@@ -134,7 +138,11 @@ async function main(): Promise<unknown> {
         expiresAt: now,
         paidAt: now,
       });
-      await db.insert(messages).values({ author: `Tia E2E ${run}`, body: `Recado e2e ${run}` });
+      await db.insert(messages).values({
+        eventId: LEGACY_EVENT_ID,
+        author: `Tia E2E ${run}`,
+        body: `Recado e2e ${run}`,
+      });
       return { slug, publicId, giftId: gift!.id };
     }
     case "painel-cleanup": {
