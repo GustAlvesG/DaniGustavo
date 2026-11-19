@@ -141,3 +141,16 @@ export function createEventResolver(
     invalidate: (id) => cache.invalidate(id),
   };
 }
+
+const shared = new WeakMap<Database, EventResolver>();
+
+/** Resolver único por conexão, para quem não recebeu um injetado (rotinas, scripts, testes). */
+export function resolverFor(db: Database, given?: EventResolver): EventResolver {
+  if (given) return given;
+  let r = shared.get(db);
+  if (!r) {
+    r = createEventResolver(db);
+    shared.set(db, r);
+  }
+  return r;
+}
