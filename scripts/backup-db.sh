@@ -2,8 +2,8 @@
 # Backup do banco (mysqldump) e das fotos dos presentes (volume de uploads), com retenção local.
 #
 # Uso manual (na pasta do projeto, como o usuário de deploy):  ./scripts/backup-db.sh
-# Cron (todo dia às 3h):  crontab -e  e adicione
-#   0 3 * * * /home/deploy/casamento/scripts/backup-db.sh >> /home/deploy/casamento/backups/backup.log 2>&1
+# Cron: o script `site` instala (BACKUP_CMD no deploy/deploy.conf); manual: crontab -e e adicione
+#   0 3 * * * /root/DaniGustavo/scripts/backup-db.sh >> /root/DaniGustavo/backups/backup.log 2>&1
 #
 # Restaurar o banco (APAGA o que estiver lá e põe o backup no lugar):
 #   gunzip -c backups/db-AAAAMMDD-HHMMSS.sql.gz | docker compose -f docker-compose.prod.yml exec -T db \
