@@ -76,7 +76,8 @@
 
 	@raiz path /
 	handle @raiz {
-		redir /painel/
+		# O "*" é obrigatório: um argumento que começa com / seria lido como matcher de caminho.
+		redir * /painel/ 302
 	}
 
 	handle {
