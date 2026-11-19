@@ -5,8 +5,7 @@ import type { EventResolver } from "./resolver.ts";
 import type { EventCtx, PublicEventEnv } from "./types.ts";
 
 /**
- * O evento 1 (o casamento que já existia). Usado pelas rotas públicas antigas sem slug e pelos
- * jobs enquanto eles não iteram os eventos (etapa 6).
+ * O evento 1 (o casamento que já existia). Usado pelas rotas públicas antigas sem slug.
  * TODO(fase1-etapa7): as rotas públicas antigas saem.
  */
 export async function legacyEvent(resolver: EventResolver): Promise<EventCtx> {

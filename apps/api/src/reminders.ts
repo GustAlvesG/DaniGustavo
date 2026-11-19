@@ -15,7 +15,9 @@ import { invitationLink, invitationStatus } from "./admin/invitations.ts";
 import type { Env } from "./env.ts";
 import type { Mailer } from "./mailer.ts";
 import { buildReminderEmail } from "./reminder-email.ts";
+import { resolverFor, type EventResolver } from "./tenancy/resolver.ts";
 import type { EventCtx } from "./tenancy/types.ts";
+import { eventBaseUrl } from "./tenancy/urls.ts";
 
 /*
  * Lembretes de RSVP por e-mail (Fase 6). Quem recebe: convites ainda pendentes (ninguém
@@ -38,6 +40,7 @@ export interface ReminderDeps {
   db: Database;
   mailer: Mailer;
   now: () => Date;
+  eventResolver?: EventResolver;
   /** Só estes convites (ids). Usado nos testes, para não mexer nos convites reais do banco. */
   only?: number[];
 }
@@ -88,9 +91,9 @@ async function readCouple(ev: EventCtx, db: Database) {
     );
   const get = (k: string) => String(rows.find((r) => r.key === k)?.value ?? "");
   return {
-    names: get("couple.names") || "Dani & Gustavo",
+    names: get("couple.names") || ev.name,
     datetime: get("wedding.datetime"),
-    timezone: get("wedding.timezone") || "America/Sao_Paulo",
+    timezone: get("wedding.timezone") || ev.timezone,
   };
 }
 type Couple = Awaited<ReturnType<typeof readCouple>>;
@@ -222,17 +225,21 @@ async function sendOne(
     throw err;
   }
   try {
-    await mailer.send(
-      buildReminderEmail({
+    await mailer.send({
+      fromName: ev.name,
+      ...buildReminderEmail({
         to: c.email,
         label: c.label,
-        link: invitationLink(env.SITE_URL, c.token),
+        link: invitationLink(
+          await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) }),
+          c.token,
+        ),
         coupleNames: ctx.couple.names,
         weddingDatetime: ctx.couple.datetime,
         timezone: ctx.couple.timezone,
         deadline: ctx.deadline.toISOString(),
       }),
-    );
+    });
     return "sent";
   } catch (err) {
     console.error(`[lembretes] Falha ao enviar para o convite ${c.invitationId}:`, err);

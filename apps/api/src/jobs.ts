@@ -1,7 +1,9 @@
+import { eq, events } from "@casamento/db";
+import type { ReminderSendResult } from "@casamento/shared";
 import { expirePendingOrders, type OrderDeps } from "./orders/service.ts";
 import { reconcileOrders } from "./orders/reconcile.ts";
 import { runAutoReminders, type ReminderDeps } from "./reminders.ts";
-import { legacyEvent } from "./tenancy/legacy.ts";
+import { crossEvent } from "./tenancy/cross-event.ts";
 import { resolverFor } from "./tenancy/resolver.ts";
 
 /** A cada 5 minutos (PROMPT §6). */
@@ -65,6 +67,32 @@ export function startReconcileJob(deps: OrderDeps, intervalMs = RECONCILE_INTERV
 export const REMINDER_INTERVAL_MS = 60 * 60_000;
 
 /**
+ * Uma rodada de lembretes em todos os eventos ativos, cada um com o seu event_settings
+ * (configuração, prazo, fuso) e o seu host nos links. Falha num evento vai para o log e não
+ * interrompe os outros. Devolve o resultado por evento (id → enviados/falhas, ou erro).
+ */
+export async function runReminderRound(
+  deps: Omit<ReminderDeps, "ev">,
+): Promise<Map<number, ReminderSendResult | Error>> {
+  const resolver = resolverFor(deps.db, deps.eventResolver);
+  const ids = await crossEvent("lembretes: eventos ativos", () =>
+    deps.db.select({ id: events.id }).from(events).where(eq(events.status, "active")),
+  );
+  const results = new Map<number, ReminderSendResult | Error>();
+  for (const { id } of ids) {
+    try {
+      const ev = await resolver.byId(id);
+      if (!ev || ev.status !== "active") continue;
+      results.set(id, await runAutoReminders({ ...deps, ev }));
+    } catch (err) {
+      console.error(`[lembretes] Falha no evento ${id}:`, err);
+      results.set(id, err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+  return results;
+}
+
+/**
  * Lembretes automáticos de RSVP (veja reminders.ts). Roda uma vez ao subir e depois a cada
  * hora; o registro em rsvp_reminders garante que reinícios e rodadas repetidas não duplicam
  * e-mails. Desligado no painel, a rodada não faz nada.
@@ -78,11 +106,15 @@ export function startReminderJob(
     if (running) return;
     running = true;
     try {
-      // TODO(fase1-etapa6): iterar os eventos ativos em vez de só o evento 1.
-      const ev = await legacyEvent(resolverFor(deps.db));
-      const r = await runAutoReminders({ ...deps, ev });
-      if (r.sent > 0 || r.failed > 0) {
-        console.log(`[lembretes] ${r.sent} lembrete(s) enviado(s), ${r.failed} falha(s).`);
+      let sent = 0;
+      let failed = 0;
+      for (const r of (await runReminderRound(deps)).values()) {
+        if (r instanceof Error) continue;
+        sent += r.sent;
+        failed += r.failed;
+      }
+      if (sent > 0 || failed > 0) {
+        console.log(`[lembretes] ${sent} lembrete(s) enviado(s), ${failed} falha(s).`);
       }
     } catch (err) {
       console.error("[lembretes] Falha na rotina de lembretes:", err);
