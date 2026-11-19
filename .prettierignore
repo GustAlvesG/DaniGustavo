@@ -8,3 +8,6 @@ pnpm-lock.yaml
 docs/PROMPT.md
 CLAUDE.md
 packages/db/migrations
+
+# O Next reescreve este arquivo no seu próprio formato a cada typegen/dev (e com CRLF no Windows).
+apps/web/tsconfig.json

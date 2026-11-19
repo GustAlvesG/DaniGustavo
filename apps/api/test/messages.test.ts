@@ -32,22 +32,18 @@ afterAll(async () => {
 
 describe("GET /api/messages", () => {
   it("mostra só os aprovados, sem dado pessoal", async () => {
-    await db
-      .insert(messages)
-      .values({
-        eventId: LEGACY_EVENT_ID,
-        author: `Ana ${run}`,
-        body: "Parabéns aos dois!",
-        approved: true,
-      });
-    await db
-      .insert(messages)
-      .values({
-        eventId: LEGACY_EVENT_ID,
-        author: `Pendente ${run}`,
-        body: "Ainda não aprovado",
-        approved: false,
-      });
+    await db.insert(messages).values({
+      eventId: LEGACY_EVENT_ID,
+      author: `Ana ${run}`,
+      body: "Parabéns aos dois!",
+      approved: true,
+    });
+    await db.insert(messages).values({
+      eventId: LEGACY_EVENT_ID,
+      author: `Pendente ${run}`,
+      body: "Ainda não aprovado",
+      approved: false,
+    });
 
     const res = await app.request("/api/e/dani-gustavo/messages");
     expect(res.status).toBe(200);
