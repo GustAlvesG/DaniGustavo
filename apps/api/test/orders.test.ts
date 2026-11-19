@@ -3,22 +3,26 @@ import {
   giftOrders,
   gifts,
   inArray,
-  LEGACY_EVENT_ID,
   messages,
   payments,
   webhookEvents,
   type Database,
 } from "@casamento/db";
 import { ApiError, GiftsResponse, OrderView, PayWithCardResponse } from "@casamento/shared";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MailMessage, Mailer } from "../src/mailer.ts";
 import type { Notifier } from "../src/orders/notify.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
-import { resolverFor } from "../src/tenancy/resolver.ts";
-import { TEST_WEB_KEY, testApp } from "./helpers.ts";
+import {
+  createTestEvents,
+  setEventSetting,
+  TEST_WEB_KEY,
+  testApp,
+  type TestEvents,
+} from "./helpers.ts";
 
-// Usa o banco de DATABASE_URL já migrado e com seed. Cria presentes próprios (slugs únicos)
+// Usa o banco de testes da API (global-setup: migrado e com seed). Cria presentes próprios (slugs únicos)
 // e apaga tudo o que criou no fim; os presentes do seed só são lidos.
 
 const sent: MailMessage[] = [];
@@ -41,6 +45,11 @@ const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_K
 const { app, db, env } = testApp({ mailer, notifier, provider, now: () => clock }, {});
 
 const run = Date.now().toString(36);
+let T: TestEvents; // evento próprio (anfitrião e presentes só deste arquivo)
+beforeAll(async () => {
+  T = await createTestEvents(db);
+  await setEventSetting(db, T.eventA.id, "payments.card_fee_percent", 4.98);
+});
 const createdGifts: number[] = [];
 let n = 0;
 const ip = () => `10.9.${Math.floor(++n / 250)}.${(n % 250) + 1}`;
@@ -56,6 +65,7 @@ async function makeGift(
 ) {
   const slug = `teste-${run}-${++n}`;
   const [res] = await database.insert(gifts).values({
+    eventId: T.eventA.id,
     slug,
     title: `Presente de teste ${n}`,
     priceCents: opts.priceCents ?? 10000,
@@ -70,7 +80,7 @@ async function makeGift(
 }
 
 const order = (body: Record<string, unknown>, headers = write()) =>
-  app.request("/api/e/dani-gustavo/orders", {
+  app.request(`/api/e/${T.eventA.slug}/orders`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -84,7 +94,7 @@ const buyer = {
 };
 
 async function getOrder(publicId: string) {
-  const res = await app.request(`/api/e/dani-gustavo/orders/${publicId}`);
+  const res = await app.request(`/api/e/${T.eventA.slug}/orders/${publicId}`);
   expect(res.status).toBe(200);
   return OrderView.parse(await res.json());
 }
@@ -128,12 +138,13 @@ afterAll(async () => {
     }
     await db.delete(gifts).where(inArray(gifts.id, createdGifts));
   }
+  await T?.cleanup();
   await db.$client.end();
 });
 
 describe("GET /api/gifts", () => {
   it("lista os presentes ativos com cotas restantes, categorias e taxa do cartão", async () => {
-    const res = await app.request("/api/e/dani-gustavo/gifts");
+    const res = await app.request("/api/e/dani-gustavo/gifts"); // seed do evento 1 (só leitura)
     expect(res.status).toBe(200);
     const body = GiftsResponse.parse(await res.json());
     expect(body.gifts.find((g) => g.slug === "jantar-em-lisboa")).toMatchObject({
@@ -164,7 +175,9 @@ describe("POST /api/orders (Pix)", () => {
     expect(new Date(body.expiresAt).getTime() - clock.getTime()).toBe(30 * 60_000);
     expect(await quotaSold(gift.id)).toBe(2);
 
-    const list = GiftsResponse.parse(await (await app.request("/api/e/dani-gustavo/gifts")).json());
+    const list = GiftsResponse.parse(
+      await (await app.request(`/api/e/${T.eventA.slug}/gifts`)).json(),
+    );
     expect(list.gifts.find((g) => g.slug === gift.slug)?.quotaLeft).toBe(1);
   });
 
@@ -221,10 +234,13 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     const gift = await makeGift(db, { quotaTotal: 2 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
 
-    const res = await app.request(`/api/e/dani-gustavo/dev/orders/${created.publicId}/approve`, {
-      method: "POST",
-      headers: write(),
-    });
+    const res = await app.request(
+      `/api/e/${T.eventA.slug}/dev/orders/${created.publicId}/approve`,
+      {
+        method: "POST",
+        headers: write(),
+      },
+    );
     expect(res.status).toBe(200);
 
     const paid = await getOrder(created.publicId);
@@ -244,17 +260,14 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     expect(msgs[0]).toMatchObject({ author: "Ana Teste", body: "Felicidades!", approved: false });
 
     await flush();
-    // Destinatários = anfitriões do evento 1 (ADMIN_EMAIL_* não é mais usado fora do seed).
-    // Outros arquivos de teste, em paralelo, entram e saem dos membros do evento 1: não fixa
-    // nomes (a regra dos destinatários tem teste próprio em events-jobs.test.ts).
-    const ev1 = (await resolverFor(db).byId(LEGACY_EVENT_ID))!;
+    // Destinatários = anfitriões do evento (aqui, o da fixture: só este arquivo o usa).
     expect(sent.map((m) => m.to)).toContain("ana@exemplo.com");
     expect(sent.find((m) => m.to === "ana@exemplo.com")?.subject).toBe("Presente enviado");
     const hostMails = sent.filter((m) => m.to !== "ana@exemplo.com");
-    expect(hostMails.length).toBeGreaterThan(0);
+    expect(hostMails.map((m) => m.to)).toEqual([T.users.host.email]);
     for (const m of hostMails) {
       expect(m.text).toContain("Felicidades!");
-      expect(m.fromName).toBe(ev1.name);
+      expect(m.fromName).toBe(T.eventA.name);
     }
     expect(telegrams[0]).toContain("Ana Teste");
     expect(telegrams[0]).toMatch(/^\[.+\] Presente recebido/);
@@ -323,7 +336,7 @@ describe("cartão (simulado)", () => {
   it("aprovado: paga o pedido com a taxa coberta", async () => {
     const gift = await makeGift(db, { quotaTotal: 1, priceCents: 10000 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
-    const res = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
+    const res = await app.request(`/api/e/${T.eventA.slug}/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify(card("1111", true)),
@@ -338,7 +351,7 @@ describe("cartão (simulado)", () => {
   it("recusado: o pedido continua pendente e a mensagem diz o que fazer", async () => {
     const gift = await makeGift(db, { quotaTotal: 1 });
     const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
-    const res = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
+    const res = await app.request(`/api/e/${T.eventA.slug}/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify(card("0002", true)),
@@ -369,18 +382,18 @@ describe("expiração", () => {
 
     const deps = { env, db, provider, mailer, notifier, now: () => clock };
     clock = new Date(clock.getTime() + 29 * 60_000);
-    await expirePendingOrders(deps);
+    await expirePendingOrders(deps, T.eventA.id);
     expect((await getOrder(created.publicId)).status).toBe("pending");
 
     clock = new Date(clock.getTime() + 2 * 60_000);
-    expect(await expirePendingOrders(deps)).toBeGreaterThanOrEqual(1);
+    expect(await expirePendingOrders(deps, T.eventA.id)).toBeGreaterThanOrEqual(1);
     const expired = await getOrder(created.publicId);
     expect(expired.status).toBe("expired");
     expect(expired.pix).toBeNull();
     expect(await quotaSold(gift.id)).toBe(0);
 
     // Pedido expirado não aceita mais cartão.
-    const late = await app.request(`/api/e/dani-gustavo/orders/${created.publicId}/card`, {
+    const late = await app.request(`/api/e/${T.eventA.slug}/orders/${created.publicId}/card`, {
       method: "POST",
       headers: write(),
       body: JSON.stringify({ token: "sim_1111_x", paymentMethodId: "visa" }),
@@ -405,7 +418,10 @@ describe("expiração", () => {
       .where(eq(giftOrders.publicId, created.publicId));
     provider.approve(row!.providerOrderId!); // pago, mas o webhook se perdeu
     clock = new Date(clock.getTime() + 31 * 60_000);
-    await expirePendingOrders({ env, db, provider, mailer, notifier, now: () => clock });
+    await expirePendingOrders(
+      { env, db, provider, mailer, notifier, now: () => clock },
+      T.eventA.id,
+    );
     expect((await getOrder(created.publicId)).status).toBe("paid");
     expect(await quotaSold(gift.id)).toBe(1);
   });

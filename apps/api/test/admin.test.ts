@@ -33,7 +33,7 @@ import type { Mailer } from "../src/mailer.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
 import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
-// Usa o banco de DATABASE_URL já migrado e com seed. Cria um usuário do painel, convites e
+// Usa o banco de testes da API (global-setup: migrado e com seed). Cria um usuário do painel, convites e
 // presentes próprios e apaga tudo no fim.
 
 const run = Date.now().toString(36);

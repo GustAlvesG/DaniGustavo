@@ -1,6 +1,6 @@
 import { eq, giftOrders, gifts, inArray, payments, webhookEvents } from "@casamento/db";
 import { GiftsResponse, OrderView, isValidCpf } from "@casamento/shared";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseEnv } from "../src/env.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
 import {
@@ -10,7 +10,13 @@ import {
   type AsaasPayment,
   type WebhookRequest,
 } from "../src/payments/index.ts";
-import { TEST_WEB_KEY, testApp } from "./helpers.ts";
+import {
+  createTestEvents,
+  setEventSetting,
+  TEST_WEB_KEY,
+  testApp,
+  type TestEvents,
+} from "./helpers.ts";
 
 // Respostas gravadas no formato da documentação do Asaas (API v3, docs.asaas.com).
 
@@ -462,6 +468,11 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   const { app, db, env } = testApp({ provider: asaas, now: () => clock });
   const giftIds: number[] = [];
   const events: string[] = [];
+  let T: TestEvents; // evento próprio: pedidos e expiração não esbarram em outros arquivos
+  beforeAll(async () => {
+    T = await createTestEvents(db);
+    await setEventSetting(db, T.eventA.id, "payments.card_fee_percent", 4.98);
+  });
 
   afterAll(async () => {
     if (giftIds.length) {
@@ -475,6 +486,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
         await db.delete(webhookEvents).where(inArray(webhookEvents.eventId, events));
       await db.delete(gifts).where(inArray(gifts.id, giftIds));
     }
+    await T?.cleanup();
     await db.$client.end();
   });
 
@@ -487,6 +499,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   async function newOrder(ip: string, extra: Record<string, unknown> = { buyerCpf: CPF }) {
     const slug = `teste-asaas-${Date.now().toString(36)}-${++seq}`;
     const [res] = await db.insert(gifts).values({
+      eventId: T.eventA.id,
       slug,
       title: "Presente Asaas",
       priceCents: 10000,
@@ -496,7 +509,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
       sort: 9999,
     });
     giftIds.push(res.insertId);
-    const created = await app.request("/api/e/dani-gustavo/orders", {
+    const created = await app.request(`/api/e/${T.eventA.slug}/orders`, {
       method: "POST",
       headers: write(ip),
       body: JSON.stringify({
@@ -510,7 +523,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   }
 
   const getOrder = async (publicId: string) =>
-    OrderView.parse(await (await app.request(`/api/e/dani-gustavo/orders/${publicId}`)).json());
+    OrderView.parse(await (await app.request(`/api/e/${T.eventA.slug}/orders/${publicId}`)).json());
 
   const hook = (eventId: string, paymentId: string, token = TOKEN) => {
     events.push(eventId);
@@ -522,7 +535,9 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   };
 
   it("a lista avisa que o CPF é obrigatório e o pedido sem CPF é recusado", async () => {
-    const list = GiftsResponse.parse(await (await app.request("/api/e/dani-gustavo/gifts")).json());
+    const list = GiftsResponse.parse(
+      await (await app.request(`/api/e/${T.eventA.slug}/gifts`)).json(),
+    );
     expect(list.requiresCpf).toBe(true);
     const { created } = await newOrder("10.78.0.1", {});
     expect(created.status).toBe(422);
@@ -562,11 +577,14 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   it("cartão na fatura: link, taxa, pago sem webhook (consulta ao abrir) e Pix apagado", async () => {
     const { created } = await newOrder("10.78.0.4");
     const order = OrderView.parse(await created.json());
-    const res = await app.request(`/api/e/dani-gustavo/orders/${order.publicId}/card-checkout`, {
-      method: "POST",
-      headers: write("10.78.0.4"),
-      body: JSON.stringify({ coverFee: true }),
-    });
+    const res = await app.request(
+      `/api/e/${T.eventA.slug}/orders/${order.publicId}/card-checkout`,
+      {
+        method: "POST",
+        headers: write("10.78.0.4"),
+        body: JSON.stringify({ coverFee: true }),
+      },
+    );
     expect(res.status).toBe(200);
     const { url } = (await res.json()) as { url: string };
     expect(url).toMatch(/^https:\/\/sandbox\.asaas\.com\/i\//);
@@ -589,13 +607,16 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
     const { created, giftId } = await newOrder("10.78.0.5");
     const order = OrderView.parse(await created.json());
     clock = new Date(clock.getTime() + 31 * 60_000);
-    await expirePendingOrders({
-      env,
-      db,
-      provider: asaas,
-      mailer: { send: () => Promise.resolve() },
-      now: () => clock,
-    });
+    await expirePendingOrders(
+      {
+        env,
+        db,
+        provider: asaas,
+        mailer: { send: () => Promise.resolve() },
+        now: () => clock,
+      },
+      T.eventA.id,
+    );
     expect((await getOrder(order.publicId)).status).toBe("expired");
     const pix = [...remote.values()].find((p) => p.externalReference === order.publicId)!;
     expect(pix.deleted).toBe(true);

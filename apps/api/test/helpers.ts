@@ -3,6 +3,7 @@ import {
   createDb,
   eventDomains,
   eventMembers,
+  eventSettings,
   events,
   giftOrders,
   inArray,
@@ -21,15 +22,16 @@ import { createAuth } from "../src/auth.ts";
 import { parseEnv } from "../src/env.ts";
 import type { EventCtx } from "../src/tenancy/types.ts";
 import { sqlAuditLogger } from "./sql-audit.ts";
+import { apiTestDatabaseUrl } from "./test-database.ts";
 
 export const TEST_WEB_KEY = "chave-de-teste-com-mais-de-32-caracteres";
 
-/** Ambiente válido de teste; DATABASE_URL vem do .env/CI (o pool só conecta na primeira query). */
+/** Ambiente válido de teste; o banco é o dedicado da suíte (criado no global-setup), nunca o de dev. */
 export function testEnv(extra: Record<string, string> = {}) {
   loadRootEnv();
   return parseEnv({
     NODE_ENV: "test",
-    DATABASE_URL: process.env.DATABASE_URL ?? "mysql://root:@127.0.0.1:3306/casamento",
+    DATABASE_URL: apiTestDatabaseUrl(),
     API_URL: "http://localhost:3333",
     WEB_KEY: TEST_WEB_KEY,
     BETTER_AUTH_SECRET: "segredo-de-teste-com-mais-de-32-caracteres",
@@ -202,4 +204,18 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
       await db.delete(user).where(inArray(user.id, userIds));
     },
   };
+}
+
+/** Grava (ou troca) uma configuração do evento; para montar o cenário de um teste. */
+export async function setEventSetting(
+  db: Database,
+  eventId: number,
+  key: string,
+  value: unknown,
+  isPublic = true,
+) {
+  await db
+    .insert(eventSettings)
+    .values({ eventId, key, value, isPublic })
+    .onDuplicateKeyUpdate({ set: { value, isPublic } });
 }

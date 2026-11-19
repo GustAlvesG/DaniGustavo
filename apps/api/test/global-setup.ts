@@ -1,7 +1,13 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createDb, loadRootEnv } from "@casamento/db";
+import { runMigrations } from "@casamento/db/migrate";
+import { resetDatabase } from "@casamento/db/reset";
+import { seed } from "@casamento/db/seed";
+import { ensureDatabase } from "@casamento/db/testing";
 import type { TestProject } from "vitest/node";
+import { apiTestDatabaseUrl, TEST_SEED_ENV } from "./test-database.ts";
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -10,7 +16,21 @@ declare module "vitest" {
 }
 
 /** Resumo do auditor de SQL: consulta normalizada → quantas vezes rodou sem event_id. */
-export default function setup(project: TestProject) {
+export default async function setup(project: TestProject) {
+  // Banco próprio da suíte (nunca o de desenvolvimento): recriado do zero a cada execução,
+  // com as migrations e o seed mínimo (organização 1, evento 1, configurações e presentes).
+  loadRootEnv();
+  const url = apiTestDatabaseUrl();
+  await ensureDatabase(url);
+  const db = createDb(url);
+  try {
+    await resetDatabase(db);
+    await runMigrations(db);
+    await seed(db, TEST_SEED_ENV);
+  } finally {
+    await db.$client.end();
+  }
+
   const dir = mkdtempSync(join(tmpdir(), "casamento-sql-audit-"));
   project.provide("sqlAuditDir", dir);
   return () => {
@@ -31,7 +51,7 @@ export default function setup(project: TestProject) {
     const lines = [
       "",
       `[auditor de SQL] ${rows.length} consultas distintas sem event_id (${sum} execuções).` +
-        " Só aviso até a etapa 8 (AUDIT_STRICT=1 faz falhar).",
+        " Os testes já falham ao ver uma (AUDIT_STRICT=0 desliga).",
       "Por módulo:",
       ...[...modules]
         .sort((a, b) => b[1] - a[1])

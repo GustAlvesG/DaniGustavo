@@ -3,8 +3,8 @@ import { currentQueryOrigin, trackQueryOrigins } from "@casamento/db/testing";
 import { isCrossEvent } from "../src/tenancy/cross-event.ts";
 
 // Auditor de escopo: SELECT/UPDATE/DELETE em tabela com event_id, sem `event_id` depois do FROM
-// (WHERE/ON) e fora de crossEvent(), é registrado. Hoje só avisa (resumo ao fim da suíte);
-// com AUDIT_STRICT=1 a consulta falha na hora (etapa 8).
+// (WHERE/ON) e fora de crossEvent(), falha na hora. Só AUDIT_STRICT=0 (manual) volta ao modo
+// que apenas registra e resume no fim da suíte.
 
 export const SCOPED_TABLES = [
   "invitations",
@@ -19,7 +19,7 @@ export const SCOPED_TABLES = [
 ] as const;
 
 const SCOPED = new Set<string>(SCOPED_TABLES);
-export const AUDIT_STRICT = process.env.AUDIT_STRICT === "1";
+export const AUDIT_STRICT = process.env.AUDIT_STRICT !== "0";
 
 export interface SqlAnalysis {
   kind: "select" | "update" | "delete";

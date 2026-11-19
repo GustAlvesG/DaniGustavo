@@ -5,7 +5,7 @@ import { createRateLimiter } from "../src/rate-limit.ts";
 import { cleanText, MESSAGE_LIMIT } from "../src/routes/messages.ts";
 import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
-// Usa o banco de DATABASE_URL já migrado. Os recados do teste levam um sufixo único no
+// Usa o banco de testes da API. Os recados do teste levam um sufixo único no
 // autor e são apagados no fim; os recados reais do banco não são tocados.
 
 const run = Date.now().toString(36);

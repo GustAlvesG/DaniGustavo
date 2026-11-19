@@ -820,12 +820,22 @@ function expireLocally(ev: EventCtx, deps: OrderDeps, order: OrderRow): Promise<
  * Expira todos os pendentes vencidos, de todos os eventos (a busca é a única consulta sem
  * escopo; cada pedido segue no seu evento). Devolve quantos expiraram.
  */
-export async function expirePendingOrders(deps: OrderDeps): Promise<number> {
+export async function expirePendingOrders(
+  deps: OrderDeps,
+  /** Só para testes: limita a rotina a um evento (a rotina real roda sobre todos). */
+  onlyEventId?: number,
+): Promise<number> {
   const due = await crossEvent("rotina de expiração: pendentes vencidos de todos os eventos", () =>
     deps.db
       .select()
       .from(giftOrders)
-      .where(and(eq(giftOrders.status, "pending"), lt(giftOrders.expiresAt, deps.now())))
+      .where(
+        and(
+          eq(giftOrders.status, "pending"),
+          lt(giftOrders.expiresAt, deps.now()),
+          onlyEventId === undefined ? undefined : eq(giftOrders.eventId, onlyEventId),
+        ),
+      )
       .execute(),
   );
   let expired = 0;

@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Mailer, MailMessage } from "../src/mailer.ts";
 import { TEST_WEB_KEY, testApp } from "./helpers.ts";
 
-// Usa o banco de DATABASE_URL já migrado e com seed. Cria os próprios convites (nomes
+// Usa o banco de testes da API (global-setup: migrado e com seed). Cria os próprios convites (nomes
 // únicos) e remove tudo no fim; não mexe nos convites do seed.
 
 const sent: MailMessage[] = [];

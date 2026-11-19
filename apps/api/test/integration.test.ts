@@ -2,8 +2,9 @@ import { eq, eventSettings, events, organizations } from "@casamento/db";
 import { SiteContent } from "@casamento/shared";
 import { afterAll, describe, expect, it } from "vitest";
 import { testApp } from "./helpers.ts";
+import { TEST_SEED_ENV } from "./test-database.ts";
 
-// Usa o banco de DATABASE_URL já migrado e com seed (no CI: pnpm db:migrate && pnpm db:seed).
+// Usa o banco de testes da API (global-setup: migrado e com seed).
 const { app, db } = testApp();
 
 afterAll(async () => {
@@ -116,22 +117,19 @@ describe("Better Auth", () => {
     expect(statuses[5]).toBe(429);
   });
 
-  it.runIf(process.env.ADMIN_EMAIL_1 && process.env.ADMIN_PASSWORD_INICIAL)(
-    "faz login com um admin do seed",
-    async () => {
-      const res = await app.request("/api/auth/sign-in/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: process.env.ADMIN_EMAIL_1,
-          password: process.env.ADMIN_PASSWORD_INICIAL,
-        }),
-      });
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { user?: unknown };
-      // Sem 2FA: e-mail e senha bastam; devolve o usuário e o cookie de sessão.
-      expect(body.user).toBeDefined();
-      expect(res.headers.get("set-cookie")).toBeTruthy();
-    },
-  );
+  it("faz login com um admin do seed", async () => {
+    const res = await app.request("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: TEST_SEED_ENV.ADMIN_EMAIL_1,
+        password: TEST_SEED_ENV.ADMIN_PASSWORD_INICIAL,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { user?: unknown };
+    // Sem 2FA: e-mail e senha bastam; devolve o usuário e o cookie de sessão.
+    expect(body.user).toBeDefined();
+    expect(res.headers.get("set-cookie")).toBeTruthy();
+  });
 });

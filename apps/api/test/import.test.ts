@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readXlsx } from "../src/admin/spreadsheet.ts";
 import { testApp } from "./helpers.ts";
 
-// Importação de convidados e listas pelo painel, contra o banco de DATABASE_URL. Os convites
+// Importação de convidados e listas pelo painel, contra o banco de testes da API. Os convites
 // do teste levam o sufixo `run` no nome e são apagados no fim.
 
 const run = Date.now().toString(36);

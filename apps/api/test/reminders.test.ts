@@ -30,7 +30,7 @@ import {
 import { resolverFor } from "../src/tenancy/resolver.ts";
 import { testApp } from "./helpers.ts";
 
-// Usa o banco de DATABASE_URL já migrado e com seed. Cria convites próprios (e-mails
+// Usa o banco de testes da API (global-setup: migrado e com seed). Cria convites próprios (e-mails
 // únicos) e restringe as rodadas a eles (`only`), sem tocar nos convites reais. A
 // configuração dos lembretes é restaurada no fim.
 
