@@ -18,3 +18,11 @@ export function apiError(
 ) {
   return c.json(errorBody(code, message), status, headers);
 }
+
+/**
+ * O 404 padrão de rota inexistente. Também usado para evento sem acesso: quem não é do evento
+ * recebe exatamente o mesmo corpo, sem saber se ele existe.
+ */
+export function routeNotFound(c: Context) {
+  return apiError(c, 404, ERROR_CODES.notFound, `Rota ${c.req.method} ${c.req.path} não existe.`);
+}

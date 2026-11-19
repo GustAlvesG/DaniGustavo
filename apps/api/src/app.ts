@@ -4,10 +4,12 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { Auth } from "./auth.ts";
 import type { Env } from "./env.ts";
-import { apiError } from "./errors.ts";
+import { apiError, routeNotFound } from "./errors.ts";
 import { createMailer, type Mailer } from "./mailer.ts";
 import { createRateLimiter, type RateLimiter } from "./rate-limit.ts";
+import { hostRoutes } from "./routes/hosts.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
+import { createEventResolver, type EventResolver } from "./tenancy/resolver.ts";
 import { messageRoutes } from "./routes/messages.ts";
 import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
 import type { Notifier } from "./orders/notify.ts";
@@ -41,6 +43,8 @@ export interface AppDeps {
   notifier?: Notifier;
   /** Invalida o cache do site depois de uma mudança no painel (padrão: POST no /api/revalidar do Next). */
   revalidate?: Revalidate;
+  /** Slug/id/host → evento, com cache em memória (padrão: LRU de 60 s). */
+  eventResolver?: EventResolver;
 }
 
 /** Monta a aplicação sem abrir porta: o servidor fica em server.ts e os testes usam app.request(). */
@@ -55,6 +59,7 @@ export function createApp({
   provider = createPaymentProvider(env),
   notifier,
   revalidate = createWebRevalidator(env),
+  eventResolver = createEventResolver(db),
 }: AppDeps) {
   const app = new Hono();
 
@@ -70,6 +75,8 @@ export function createApp({
     c.header("Cache-Control", "public, max-age=60");
     return c.json(content);
   });
+
+  app.route("/api/hosts", hostRoutes(eventResolver));
 
   app.route("/api/invitations", invitationRoutes({ env, db, mailer, limiter: rateLimiter, now }));
 
@@ -116,9 +123,7 @@ export function createApp({
 
   app.route("/", painelRoutes(painelDist));
 
-  app.notFound((c) =>
-    apiError(c, 404, ERROR_CODES.notFound, `Rota ${c.req.method} ${c.req.path} não existe.`),
-  );
+  app.notFound(routeNotFound);
 
   app.onError((err, c) => {
     console.error(err);

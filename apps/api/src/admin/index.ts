@@ -6,6 +6,7 @@ import { adminGuestListRoutes, adminImportRoutes } from "./guest-routes.ts";
 import { adminInvitationRoutes } from "./invitations.ts";
 import { adminOrderRoutes } from "./orders.ts";
 import { adminReminderRoutes } from "./reminders.ts";
+import { listAccessibleEvents } from "../tenancy/access.ts";
 
 export { uploadFileRoutes } from "./gifts.ts";
 export { createWebRevalidator, type CacheTag, type Revalidate } from "./revalidate.ts";
@@ -21,6 +22,13 @@ export function adminRoutes(deps: AdminDeps) {
   const origins = [new URL(deps.env.BETTER_AUTH_URL).origin];
   app.use("*", requireSession(deps.auth));
   app.use("*", sameOrigin(origins));
+
+  // Quem está logado e quais eventos pode abrir (com o papel em cada um).
+  app.get("/me", async (c) => {
+    const user = c.get("user");
+    const events = await listAccessibleEvents(deps.db, user);
+    return c.json({ user, events });
+  });
 
   app.route("/dashboard", adminDashboardRoutes(deps));
   app.route("/invitations/import", adminImportRoutes(deps));

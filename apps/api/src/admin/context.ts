@@ -22,6 +22,8 @@ export interface AdminUser {
   id: string;
   name: string;
   email: string;
+  /** "admin" para quem administra a plataforma; null para os demais. */
+  platformRole: string | null;
 }
 
 export type AdminEnv = { Variables: { user: AdminUser } };
@@ -41,7 +43,12 @@ export function requireSession(auth: Auth): MiddlewareHandler<AdminEnv> {
         "Sua sessão expirou. Entre de novo no painel.",
       );
     }
-    c.set("user", { id: session.user.id, name: session.user.name, email: session.user.email });
+    c.set("user", {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      platformRole: session.user.platformRole ?? null,
+    });
     c.header("Cache-Control", "no-store");
     await next();
   };
