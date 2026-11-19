@@ -86,7 +86,10 @@ export function createApp({
     c.header("Cache-Control", "public, max-age=60");
     return c.json(content);
   });
-  pub.route("/invitations", invitationRoutes({ env, db, mailer, limiter: rateLimiter, now }));
+  pub.route(
+    "/invitations",
+    invitationRoutes({ env, db, mailer, limiter: rateLimiter, now, eventResolver }),
+  );
   pub.route("/messages", messageRoutes({ db, limiter: rateLimiter }));
   pub.route("/gifts", giftRoutes(orderDeps));
   pub.route("/orders", orderRoutes({ ...orderDeps, limiter: rateLimiter }));

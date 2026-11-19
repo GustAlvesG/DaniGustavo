@@ -23,6 +23,8 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { cardFeePercent } from "../orders/service.ts";
+import { resolverFor } from "../tenancy/resolver.ts";
+import { eventBaseUrl } from "../tenancy/urls.ts";
 import { buildSiteContent } from "../site-content.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
@@ -222,7 +224,13 @@ export function adminSettingsRoutes(deps: AdminDeps) {
     const all = await readAll(c.get("event"));
     const values: Record<string, unknown> = {};
     for (const key of SETTINGS_KEYS) values[key] = all.get(key)?.value ?? null;
-    return c.json({ values, siteUrl: env.SITE_URL });
+    return c.json({
+      values,
+      siteUrl: await eventBaseUrl(c.get("event"), {
+        env,
+        resolver: resolverFor(db, deps.eventResolver),
+      }),
+    });
   });
 
   app.put("/", requirePermission("settings.write"), async (c) => {

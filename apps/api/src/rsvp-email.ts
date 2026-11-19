@@ -6,6 +6,8 @@ export interface RsvpEmailInput {
   invitation: Invitation;
   token: string;
   siteUrl: string;
+  /** Nome de exibição do remetente (nome do evento). */
+  fromName?: string;
   coupleNames: string;
   weddingDatetime: string;
   timezone: string;
@@ -75,5 +77,5 @@ export function buildRsvpEmail(input: RsvpEmailInput): MailMessage {
     `</div>`,
   ].join("");
 
-  return { to: input.to, subject, text, html };
+  return { to: input.to, fromName: input.fromName, subject, text, html };
 }

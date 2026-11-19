@@ -35,6 +35,7 @@ import {
 import { crossEvent } from "../tenancy/cross-event.ts";
 import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx } from "../tenancy/types.ts";
+import { eventBaseUrl } from "../tenancy/urls.ts";
 import { notifyPaid, type Notifier } from "./notify.ts";
 
 /*
@@ -499,7 +500,10 @@ export async function startCardCheckout(
       amountCents: order.amountCents + feeCents,
       description: `Presente: ${loaded.gift.title}`,
       baseChargeId: order.providerOrderId,
-      successUrl: hostedReturnUrl(env.SITE_URL, publicId),
+      successUrl: hostedReturnUrl(
+        await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) }),
+        publicId,
+      ),
     });
     await db
       .update(giftOrders)
@@ -682,7 +686,7 @@ export async function applyCharge(
     const loaded = await loadOrder(ev, db, result.order.publicId);
     if (loaded) {
       // Sem await: e-mail e Telegram não seguram a resposta (falha vai para o log).
-      void notifyPaid(deps, loaded.order, loaded.gift).catch((err: unknown) => {
+      void notifyPaid(deps, ev, loaded.order, loaded.gift).catch((err: unknown) => {
         console.error("[pedidos] Falha ao avisar sobre o presente:", err);
       });
     }

@@ -22,7 +22,9 @@ import {
 import { Hono } from "hono";
 import { invalid, iso, notFound, readJson, sensitiveLimit } from "./context.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
+import { resolverFor } from "../tenancy/resolver.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
+import { eventBaseUrl } from "../tenancy/urls.ts";
 import type { AdminDeps } from "./context.ts";
 
 type InvitationRow = typeof invitations.$inferSelect;
@@ -156,15 +158,17 @@ export function toCsv(rows: (string | number | null)[][]): string {
 export function adminInvitationRoutes(deps: AdminDeps) {
   const { db, env, now } = deps;
   const app = new Hono<EventAdminEnv>();
-  const siteUrl = env.SITE_URL;
+  const resolver = resolverFor(db, deps.eventResolver);
+  const baseUrl = (ev: EventCtx) => eventBaseUrl(ev, { env, resolver });
   app.on("GET", "*", requirePermission("invitations.read"));
   app.on(["POST", "PUT", "PATCH", "DELETE"], "*", requirePermission("invitations.write"));
 
   app.get("/", async (c) => {
     const q = fold(c.req.query("q")?.trim() ?? "");
     const status = InvitationStatus.safeParse(c.req.query("status"));
+    const base = await baseUrl(c.get("event"));
     const all = (await loadAll(c.get("event"), db)).map(({ inv, guests: g }) =>
-      invitationDto(siteUrl, inv, g),
+      invitationDto(base, inv, g),
     );
     const list = all.filter(
       (i) =>
@@ -230,7 +234,10 @@ export function adminInvitationRoutes(deps: AdminDeps) {
       createdAt: l.createdAt.toISOString(),
       lines: describeRsvp(l.payload, names),
     }));
-    return c.json({ invitation: invitationDto(siteUrl, found.inv, found.guests), responses });
+    return c.json({
+      invitation: invitationDto(await baseUrl(ev), found.inv, found.guests),
+      responses,
+    });
   });
 
   app.post("/", async (c) => {
@@ -269,7 +276,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
       return res.insertId;
     });
     const found = await loadOne(ev, db, id);
-    return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) }, 201);
+    return c.json({ invitation: invitationDto(await baseUrl(ev), found!.inv, found!.guests) }, 201);
   });
 
   app.put("/:id{[0-9]+}", async (c) => {
@@ -337,7 +344,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
         await tx.delete(guests).where(and(inArray(guests.id, removed), byEvent(guests, ev)));
     });
     const found = await loadOne(ev, db, id);
-    return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) });
+    return c.json({ invitation: invitationDto(await baseUrl(ev), found!.inv, found!.guests) });
   });
 
   app.delete("/:id{[0-9]+}", async (c) => {
@@ -360,7 +367,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
       .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
     if (res.affectedRows === 0) return notFound(c, "Convite");
     const found = await loadOne(ev, db, id);
-    return c.json({ invitation: invitationDto(siteUrl, found!.inv, found!.guests) });
+    return c.json({ invitation: invitationDto(await baseUrl(ev), found!.inv, found!.guests) });
   });
 
   /** Marca como enviado (o painel chama ao abrir o WhatsApp ou copiar o link). */

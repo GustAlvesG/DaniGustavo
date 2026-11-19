@@ -25,7 +25,9 @@ import type { Mailer } from "../mailer.ts";
 import { nameMatches } from "../names.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import { buildRsvpEmail } from "../rsvp-email.ts";
+import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx, PublicEventEnv } from "../tenancy/types.ts";
+import { eventBaseUrl } from "../tenancy/urls.ts";
 
 export interface InvitationDeps {
   env: Env;
@@ -33,6 +35,7 @@ export interface InvitationDeps {
   mailer: Mailer;
   limiter: RateLimiter;
   now: () => Date;
+  eventResolver?: EventResolver;
 }
 
 const MINUTE = 60_000;
@@ -142,8 +145,9 @@ export function invitationRoutes(deps: InvitationDeps) {
         to,
         invitation,
         token,
-        siteUrl: env.SITE_URL,
-        coupleNames: String(coupleNames),
+        siteUrl: await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) }),
+        fromName: ev.name,
+        coupleNames: String(coupleNames || ev.name),
         weddingDatetime: String(weddingDatetime),
         timezone: String(timezone),
       }),

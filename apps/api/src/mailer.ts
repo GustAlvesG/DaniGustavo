@@ -6,6 +6,16 @@ export interface MailMessage {
   subject: string;
   text: string;
   html: string;
+  /** Nome de exibição do remetente (o nome do evento); o endereço continua o de MAIL_FROM. */
+  fromName?: string;
+}
+
+/** Remetente: o endereço de MAIL_FROM com o nome do evento, se houver. */
+export function fromHeader(mailFrom: string, fromName?: string): string {
+  const name = fromName?.replace(/[\r\n"<>\\]/g, " ").trim();
+  if (!name) return mailFrom;
+  const address = /<([^>]+)>\s*$/.exec(mailFrom)?.[1] ?? mailFrom.trim();
+  return `"${name}" <${address}>`;
 }
 
 /** Envio de e-mail injetável: SMTP em produção, console sem MAIL_HOST, mock nos testes. */
@@ -32,7 +42,8 @@ export function createMailer(env: Env): Mailer {
   });
   return {
     async send(message) {
-      await transport.sendMail({ from: env.MAIL_FROM, ...message });
+      const { fromName, ...rest } = message;
+      await transport.sendMail({ from: fromHeader(env.MAIL_FROM, fromName), ...rest });
     },
   };
 }
