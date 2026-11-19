@@ -44,7 +44,7 @@ export function startReconcileJob(deps: OrderDeps, intervalMs = RECONCILE_INTERV
     if (running) return;
     running = true;
     try {
-      const r = await reconcileOrders(deps);
+      const r = await reconcileOrders(null, deps);
       console.log(
         `[conciliação] ${r.checked} pedido(s) conferido(s), ${r.changed.length} corrigido(s), ${r.errors} falha(s).`,
       );

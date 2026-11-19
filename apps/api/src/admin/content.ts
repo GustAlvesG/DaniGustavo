@@ -24,6 +24,8 @@ import {
 import { Hono } from "hono";
 import { cardFeePercent } from "../orders/service.ts";
 import { buildSiteContent } from "../site-content.ts";
+import { legacyEvent } from "../tenancy/legacy.ts";
+import { resolverFor } from "../tenancy/resolver.ts";
 import { invalid, notFound, readJson } from "./context.ts";
 import type { AdminDeps, AdminEnv } from "./context.ts";
 import { invitationStatus } from "./invitations.ts";
@@ -74,7 +76,8 @@ export async function dashboard(db: Database): Promise<DashboardData> {
         .where(
           and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "rsvp.deadline")),
         ),
-      cardFeePercent(db),
+      // TODO(fase1-etapa5): o evento da rota em vez do evento 1.
+      legacyEvent(resolverFor(db)).then((ev) => cardFeePercent(ev, db)),
       db.select({ n: count() }).from(messages).where(eq(messages.approved, false)),
     ],
   );

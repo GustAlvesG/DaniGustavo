@@ -1,7 +1,9 @@
-import { and, eq, giftOrders, gt, messages, or, sql } from "@casamento/db";
+import { and, byEvent, eq, giftOrders, gt, messages, or, sql } from "@casamento/db";
 import type { ReconcileResult } from "@casamento/shared";
 import { PaymentProviderError, type ChargeSnapshot } from "../payments/index.ts";
-import { applyCharge, type OrderDeps, type OrderRow } from "./service.ts";
+import { crossEvent } from "../tenancy/cross-event.ts";
+import type { EventCtx } from "../tenancy/types.ts";
+import { applyCharge, eventOfOrder, type OrderDeps, type OrderRow } from "./service.ts";
 
 /** Quantos dias para trás a conciliação revisa pedidos já resolvidos. */
 export const RECONCILE_DAYS = 3;
@@ -10,18 +12,27 @@ export const RECONCILE_DAYS = 3;
  * Conciliação (PROMPT §6): consulta no provedor os pedidos pendentes e os recentes e corrige
  * divergências pelo mesmo caminho do webhook (`applyCharge`). Pega, por exemplo, um Pix pago
  * cujo webhook se perdeu ou um reembolso feito direto no painel do provedor.
+ *
+ * Com `ev`, só os pedidos daquele evento (botão do painel); sem, todos os eventos (rotina
+ * diária, numa busca em crossEvent; cada pedido segue no seu evento).
  */
-export async function reconcileOrders(deps: OrderDeps): Promise<ReconcileResult> {
+export async function reconcileOrders(
+  ev: EventCtx | null,
+  deps: OrderDeps,
+): Promise<ReconcileResult> {
   const since = new Date(deps.now().getTime() - RECONCILE_DAYS * 24 * 60 * 60_000);
-  const rows = await deps.db
-    .select()
-    .from(giftOrders)
-    .where(
-      and(
-        sql`${giftOrders.providerOrderId} IS NOT NULL`,
-        or(eq(giftOrders.status, "pending"), gt(giftOrders.updatedAt, since)),
-      ),
-    );
+  const filter = and(
+    sql`${giftOrders.providerOrderId} IS NOT NULL`,
+    or(eq(giftOrders.status, "pending"), gt(giftOrders.updatedAt, since)),
+  );
+  const rows = ev
+    ? await deps.db
+        .select()
+        .from(giftOrders)
+        .where(and(byEvent(giftOrders, ev), filter))
+    : await crossEvent("conciliação diária: pedidos recentes de todos os eventos", () =>
+        deps.db.select().from(giftOrders).where(filter).execute(),
+      );
   const result: ReconcileResult = { checked: 0, changed: [], errors: 0 };
   for (const order of rows) {
     let charge: ChargeSnapshot;
@@ -36,7 +47,8 @@ export async function reconcileOrders(deps: OrderDeps): Promise<ReconcileResult>
       continue;
     }
     result.checked++;
-    const { changedTo } = await applyCharge(deps, charge);
+    const orderEv = ev ?? (await eventOfOrder(deps, order));
+    const { changedTo } = await applyCharge(orderEv, deps, charge);
     if (changedTo)
       result.changed.push({ publicId: order.publicId, from: order.status, to: changedTo });
   }
@@ -50,8 +62,15 @@ export type RefundOutcome =
  * Reembolso pelo painel: pede ao provedor e aplica o resultado (pedido `refunded`, cotas
  * devolvidas). O recado que veio com o presente sai do mural.
  */
-export async function refundOrder(deps: OrderDeps, publicId: string): Promise<RefundOutcome> {
-  const [order] = await deps.db.select().from(giftOrders).where(eq(giftOrders.publicId, publicId));
+export async function refundOrder(
+  ev: EventCtx,
+  deps: OrderDeps,
+  publicId: string,
+): Promise<RefundOutcome> {
+  const [order] = await deps.db
+    .select()
+    .from(giftOrders)
+    .where(and(eq(giftOrders.publicId, publicId), byEvent(giftOrders, ev)));
   if (!order) return { ok: false, status: 404, message: "Pedido não encontrado." };
   if (order.status !== "paid" || !order.providerOrderId) {
     return {
@@ -88,9 +107,15 @@ export async function refundOrder(deps: OrderDeps, publicId: string): Promise<Re
       message: `O provedor respondeu "${charge.statusDetail ?? charge.status}" em vez de reembolsado. Confira no painel do provedor.`,
     };
   }
-  await applyCharge(deps, { ...charge, externalReference: order.publicId });
-  await deps.db.update(messages).set({ approved: false }).where(eq(messages.giftOrderId, order.id));
-  const [fresh] = await deps.db.select().from(giftOrders).where(eq(giftOrders.id, order.id));
+  await applyCharge(ev, deps, { ...charge, externalReference: order.publicId });
+  await deps.db
+    .update(messages)
+    .set({ approved: false })
+    .where(and(eq(messages.giftOrderId, order.id), byEvent(messages, ev)));
+  const [fresh] = await deps.db
+    .select()
+    .from(giftOrders)
+    .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
   return { ok: true, order: fresh ?? null };
 }
 

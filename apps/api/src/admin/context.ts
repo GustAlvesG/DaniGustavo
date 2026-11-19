@@ -5,6 +5,8 @@ import type { Env } from "../env.ts";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import type { OrderDeps } from "../orders/service.ts";
 import type { RateLimiter } from "../rate-limit.ts";
+import { legacyEvent } from "../tenancy/legacy.ts";
+import { resolverFor } from "../tenancy/resolver.ts";
 import type { Revalidate } from "./revalidate.ts";
 
 /** Dependências das rotas do painel (/api/admin/*). */
@@ -122,3 +124,10 @@ export const notFound = (c: Context, what: string) =>
   apiError(c, 404, ERROR_CODES.notFound, `${what} não encontrado.`);
 
 export const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+
+/**
+ * Evento das rotas do painel: por ora sempre o evento 1.
+ * TODO(fase1-etapa5): vem de /api/admin/events/:eventId (requireEventAccess).
+ */
+export const adminEvent = (deps: Pick<AdminDeps, "db" | "eventResolver">) =>
+  legacyEvent(resolverFor(deps.db, deps.eventResolver));

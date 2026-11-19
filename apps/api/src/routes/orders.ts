@@ -12,6 +12,7 @@ import {
   checkOrderCharges,
   createOrder,
   expireOrder,
+  findChargeEvent,
   listGifts,
   loadOrder,
   orderView,
@@ -22,6 +23,7 @@ import {
 } from "../orders/service.ts";
 import { PaymentProviderError, type WebhookRequest } from "../payments/index.ts";
 import type { RateLimiter } from "../rate-limit.ts";
+import type { PublicEventEnv } from "../tenancy/types.ts";
 import { clientIp } from "./invitations.ts";
 
 const MINUTE = 60_000;
@@ -51,20 +53,21 @@ function limited(c: Context, limiter: RateLimiter, bucket: string) {
   );
 }
 
-/** GET /api/gifts */
+/** GET /api/e/:slug/gifts (o evento vem do contexto, posto por publicEvent). */
 export function giftRoutes(deps: OrderDeps) {
-  const app = new Hono();
+  const app = new Hono<PublicEventEnv>();
   app.get("/", async (c) => {
     c.header("Cache-Control", "public, max-age=15");
-    return c.json({ ...(await listGifts(deps.db)), requiresCpf: !!deps.provider.requiresCpf });
+    const gifts = await listGifts(c.get("event"), deps.db);
+    return c.json({ ...gifts, requiresCpf: !!deps.provider.requiresCpf });
   });
   return app;
 }
 
-/** /api/orders */
+/** /api/e/:slug/orders: publicId de outro evento → 404. */
 export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
   const { db, limiter, now, provider } = deps;
-  const app = new Hono();
+  const app = new Hono<PublicEventEnv>();
   // Última consulta ao provedor por pedido (memória do processo; some ao reiniciar).
   const lastCheck = new Map<string, number>();
 
@@ -88,20 +91,21 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
         parsed.error.issues[0]?.message ?? "Corpo da requisição inválido.",
       );
     }
-    const result = await createOrder(deps, parsed.data);
+    const result = await createOrder(c.get("event"), deps, parsed.data);
     if (!result.ok) return failure(c, result);
     return c.json(result.order, 201);
   });
 
   app.get("/:publicId", async (c) => {
     c.header("Cache-Control", "no-store");
-    const loaded = await loadOrder(db, c.req.param("publicId"));
+    const ev = c.get("event");
+    const loaded = await loadOrder(ev, db, c.req.param("publicId"));
     if (!loaded) return apiError(c, 404, ERROR_CODES.notFound, "Pedido não encontrado.");
     let { order, gift } = loaded;
     // Vencido e o job ainda não passou: expira agora, para o status não mentir.
     if (order.status === "pending" && now() > order.expiresAt) {
-      await expireOrder(deps, order);
-      ({ order, gift } = (await loadOrder(db, order.publicId))!);
+      await expireOrder(ev, deps, order);
+      ({ order, gift } = (await loadOrder(ev, db, order.publicId))!);
     } else if (order.status === "pending" && provider.listCharges) {
       // Sem webhook (dev sem túnel, webhook atrasado): confere no provedor de tempos em
       // tempos, assim o Pix e a volta do cartão aparecem pagos mesmo assim.
@@ -109,11 +113,11 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
       if (t - (lastCheck.get(order.publicId) ?? 0) >= PROVIDER_CHECK_MS) {
         lastCheck.set(order.publicId, t);
         if (lastCheck.size > 1000) lastCheck.delete(lastCheck.keys().next().value!);
-        const checked = await checkOrderCharges(deps, order.publicId).catch(() => null);
-        if (checked?.paid) ({ order, gift } = (await loadOrder(db, order.publicId))!);
+        const checked = await checkOrderCharges(ev, deps, order.publicId).catch(() => null);
+        if (checked?.paid) ({ order, gift } = (await loadOrder(ev, db, order.publicId))!);
       }
     }
-    return c.json(await orderView(deps, order, gift));
+    return c.json(await orderView(ev, deps, order, gift));
   });
 
   app.post("/:publicId/card", async (c) => {
@@ -129,7 +133,7 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
         parsed.error.issues[0]?.message ?? "Dados do cartão inválidos.",
       );
     }
-    const result = await payWithCard(deps, c.req.param("publicId"), parsed.data);
+    const result = await payWithCard(c.get("event"), deps, c.req.param("publicId"), parsed.data);
     if (!result.ok) return failure(c, result);
     return c.json({ outcome: result.outcome, message: result.message, order: result.order });
   });
@@ -143,7 +147,12 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
     if (!parsed.success) {
       return apiError(c, 422, ERROR_CODES.invalidRequest, "Corpo da requisição inválido.");
     }
-    const result = await startCardCheckout(deps, c.req.param("publicId"), parsed.data.coverFee);
+    const result = await startCardCheckout(
+      c.get("event"),
+      deps,
+      c.req.param("publicId"),
+      parsed.data.coverFee,
+    );
     if (!result.ok) return failure(c, result);
     return c.json({ url: result.url });
   });
@@ -156,6 +165,9 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
  * bater), registra o evento (idempotente pelo id do evento) e consulta o status no
  * provedor: o corpo do aviso nunca é usado como verdade. Processa na própria requisição
  * (milissegundos) e responde 500 em falha para o provedor reenviar.
+ *
+ * Global (uma URL por conta do provedor): o evento sai do pedido que a cobrança aponta
+ * (findChargeEvent) e fica gravado em webhook_events.app_event_id.
  */
 export function webhookRoutes(deps: OrderDeps) {
   const { db, provider, now } = deps;
@@ -194,10 +206,13 @@ export function webhookRoutes(deps: OrderDeps) {
       }
       throw err;
     }
-    const { order, changedTo } = await applyCharge(deps, charge);
+    const ev = await findChargeEvent(deps, charge);
+    const { order, changedTo } = ev
+      ? await applyCharge(ev, deps, charge)
+      : { order: null, changedTo: null };
     await db
       .update(webhookEvents)
-      .set({ processedAt: now() })
+      .set({ processedAt: now(), ...(ev ? { appEventId: ev.id } : {}) })
       .where(eq(webhookEvents.eventId, notice.eventId));
     return c.json({ ok: true, order: order?.publicId ?? null, changedTo });
   });

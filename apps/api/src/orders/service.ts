@@ -1,11 +1,11 @@
 import {
   and,
   asc,
+  byEvent,
   eq,
   eventSettings,
   giftOrders,
   gifts,
-  LEGACY_EVENT_ID,
   lt,
   messages,
   newPublicId,
@@ -32,10 +32,18 @@ import {
   type ChargeSnapshot,
   type PaymentProvider,
 } from "../payments/index.ts";
+import { crossEvent } from "../tenancy/cross-event.ts";
+import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
+import type { EventCtx } from "../tenancy/types.ts";
 import { notifyPaid, type Notifier } from "./notify.ts";
 
 /*
  * Regras dos pedidos de presente. As rotas só traduzem HTTP ↔ estas funções.
+ *
+ * Escopo: toda função recebe o evento (`ev`) e toda consulta leva `byEvent`; um publicId de
+ * outro evento é "não encontrado". Só a expiração e a localização do pedido pela cobrança
+ * (webhook, conciliação) atravessam eventos, em `crossEvent`, e daí seguem com o evento do
+ * pedido.
  *
  * Reserva de cotas: `gifts.quota_sold` conta cotas vendidas **e** reservadas por pedidos
  * pendentes. Criar o pedido soma (com `SELECT … FOR UPDATE` no presente, dentro de uma
@@ -50,6 +58,18 @@ export interface OrderDeps {
   mailer: Mailer;
   notifier?: Notifier;
   now: () => Date;
+  /** Id → evento (padrão: um resolver por conexão, ver resolverFor). */
+  eventResolver?: EventResolver;
+}
+
+/** Evento de um pedido achado sem escopo (rotina, webhook). Lança se o evento sumiu. */
+export async function eventOfOrder(
+  deps: Pick<OrderDeps, "db" | "eventResolver">,
+  order: Pick<OrderRow, "eventId" | "publicId">,
+): Promise<EventCtx> {
+  const ev = await resolverFor(deps.db, deps.eventResolver).byId(order.eventId);
+  if (!ev) throw new Error(`Evento ${order.eventId} do pedido ${order.publicId} não existe.`);
+  return ev;
 }
 
 export type OrderRow = typeof giftOrders.$inferSelect;
@@ -71,26 +91,33 @@ const fail = (status: Failure["status"], code: string, message: string): Failure
   message,
 });
 
-async function setting<T>(db: Database, key: string, fallback: T): Promise<T> {
+async function setting<T>(ev: EventCtx, db: Database, key: string, fallback: T): Promise<T> {
   const [row] = await db
     .select()
     .from(eventSettings)
-    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, key)));
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, key)));
   return row ? (row.value as T) : fallback;
 }
 
-export const cardFeePercent = (db: Database) =>
-  setting<number>(db, "payments.card_fee_percent", 0).then((v) => Number(v) || 0);
+export const cardFeePercent = (ev: EventCtx, db: Database) =>
+  setting<number>(ev, db, "payments.card_fee_percent", 0).then((v) => Number(v) || 0);
 
 /* ------------------------------------------------------------------------ */
 /* Lista de presentes                                                        */
 /* ------------------------------------------------------------------------ */
 
-export async function listGifts(db: Database): Promise<Omit<GiftsResponse, "requiresCpf">> {
+export async function listGifts(
+  ev: EventCtx,
+  db: Database,
+): Promise<Omit<GiftsResponse, "requiresCpf">> {
   const [rows, categories, feePercent] = await Promise.all([
-    db.select().from(gifts).where(eq(gifts.active, true)).orderBy(asc(gifts.sort), asc(gifts.id)),
-    setting<GiftCategory[]>(db, "gifts.categories", []),
-    cardFeePercent(db),
+    db
+      .select()
+      .from(gifts)
+      .where(and(byEvent(gifts, ev), eq(gifts.active, true)))
+      .orderBy(asc(gifts.sort), asc(gifts.id)),
+    setting<GiftCategory[]>(ev, db, "gifts.categories", []),
+    cardFeePercent(ev, db),
   ]);
   return {
     gifts: rows.map((g) => ({
@@ -113,16 +140,18 @@ export async function listGifts(db: Database): Promise<Omit<GiftsResponse, "requ
 /* Visão pública do pedido                                                   */
 /* ------------------------------------------------------------------------ */
 
-export async function loadOrder(db: Database, publicId: string) {
+/** Pedido do evento pelo publicId; de outro evento → null (404 para quem chamou). */
+export async function loadOrder(ev: EventCtx, db: Database, publicId: string) {
   const [row] = await db
     .select({ order: giftOrders, gift: gifts })
     .from(giftOrders)
-    .innerJoin(gifts, eq(gifts.id, giftOrders.giftId))
-    .where(eq(giftOrders.publicId, publicId));
+    .innerJoin(gifts, and(eq(gifts.id, giftOrders.giftId), eq(gifts.eventId, giftOrders.eventId)))
+    .where(and(eq(giftOrders.publicId, publicId), byEvent(giftOrders, ev)));
   return row ?? null;
 }
 
 export async function orderView(
+  ev: EventCtx,
   deps: Pick<OrderDeps, "db" | "provider">,
   order: OrderRow,
   gift: GiftRow,
@@ -152,7 +181,7 @@ export async function orderView(
       : null,
     card: {
       publicKey: deps.provider.publicKey,
-      feePercent: await cardFeePercent(deps.db),
+      feePercent: await cardFeePercent(ev, deps.db),
       checkout: deps.provider.createCardCheckout ? "hosted" : "form",
     },
   });
@@ -168,11 +197,18 @@ async function releaseQuota(tx: Tx, order: OrderRow) {
   await tx
     .update(gifts)
     .set({ quotaSold: sql`GREATEST(${gifts.quotaSold} - ${order.quantity}, 0)` })
-    .where(and(eq(gifts.id, order.giftId), eq(gifts.openAmount, false)));
+    .where(
+      and(
+        eq(gifts.id, order.giftId),
+        byEvent(gifts, { id: order.eventId }),
+        eq(gifts.openAmount, false),
+      ),
+    );
 }
 
 /** Cria o pedido reservando as cotas e, no Pix, já gera a cobrança. */
 export async function createOrder(
+  ev: EventCtx,
   deps: OrderDeps,
   req: ParsedCreate,
 ): Promise<Result<{ order: OrderView; outcome?: CardOutcome }>> {
@@ -180,7 +216,7 @@ export async function createOrder(
   const [gift] = await db
     .select()
     .from(gifts)
-    .where(and(eq(gifts.slug, req.giftSlug), eq(gifts.active, true)));
+    .where(and(byEvent(gifts, ev), eq(gifts.slug, req.giftSlug), eq(gifts.active, true)));
   if (!gift) {
     return fail(
       404,
@@ -217,16 +253,21 @@ export async function createOrder(
 
   const reserved = await db.transaction(async (tx) => {
     // Trava a linha do presente até o fim da transação: a próxima compra espera aqui.
-    const [locked] = await tx.select().from(gifts).where(eq(gifts.id, gift.id)).for("update");
+    const [locked] = await tx
+      .select()
+      .from(gifts)
+      .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)))
+      .for("update");
     if (!locked) return false;
     if (!locked.openAmount) {
       if (locked.quotaTotal - locked.quotaSold < quantity) return false;
       await tx
         .update(gifts)
         .set({ quotaSold: sql`${gifts.quotaSold} + ${quantity}` })
-        .where(eq(gifts.id, gift.id));
+        .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)));
     }
     await tx.insert(giftOrders).values({
+      eventId: ev.id,
       publicId,
       giftId: gift.id,
       quantity,
@@ -246,7 +287,10 @@ export async function createOrder(
   });
 
   if (!reserved) {
-    const [fresh] = await db.select().from(gifts).where(eq(gifts.id, gift.id));
+    const [fresh] = await db
+      .select()
+      .from(gifts)
+      .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)));
     const left = fresh ? Math.max(0, fresh.quotaTotal - fresh.quotaSold) : 0;
     return fail(
       409,
@@ -258,10 +302,10 @@ export async function createOrder(
   }
 
   if (req.method === "card" && req.card) {
-    return payWithCard(deps, publicId, req.card);
+    return payWithCard(ev, deps, publicId, req.card);
   }
 
-  const loaded = await loadOrder(db, publicId);
+  const loaded = await loadOrder(ev, db, publicId);
   if (!loaded) throw new Error(`Pedido ${publicId} sumiu logo depois de criado.`);
 
   try {
@@ -284,20 +328,20 @@ export async function createOrder(
         pixQrBase64: charge.pix?.qrImageBase64 ?? null,
         pixTicketUrl: charge.pix?.ticketUrl ?? null,
       })
-      .where(eq(giftOrders.id, loaded.order.id));
+      .where(and(eq(giftOrders.id, loaded.order.id), byEvent(giftOrders, ev)));
   } catch (err) {
     console.error(`[pedidos] Falha ao gerar o Pix do pedido ${publicId}:`, describeError(err));
     await db.transaction(async (tx) => {
       const [o] = await tx
         .select()
         .from(giftOrders)
-        .where(eq(giftOrders.id, loaded.order.id))
+        .where(and(eq(giftOrders.id, loaded.order.id), byEvent(giftOrders, ev)))
         .for("update");
       if (o?.status !== "pending") return;
       await tx
         .update(giftOrders)
         .set({ status: "failed", statusDetail: "pix_creation_failed" })
-        .where(eq(giftOrders.id, o.id));
+        .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
       await releaseQuota(tx, o);
     });
     return fail(
@@ -307,8 +351,8 @@ export async function createOrder(
     );
   }
 
-  const fresh = await loadOrder(db, publicId);
-  return { ok: true, order: await orderView(deps, fresh!.order, fresh!.gift) };
+  const fresh = await loadOrder(ev, db, publicId);
+  return { ok: true, order: await orderView(ev, deps, fresh!.order, fresh!.gift) };
 }
 
 /* ------------------------------------------------------------------------ */
@@ -337,19 +381,20 @@ export function rejectionMessage(detail: string | null): string {
 }
 
 export async function payWithCard(
+  ev: EventCtx,
   deps: OrderDeps,
   publicId: string,
   card: z.output<typeof CardPayment>,
 ): Promise<Result<{ order: OrderView; outcome: CardOutcome; message: string }>> {
   const { db, provider, now } = deps;
-  const loaded = await loadOrder(db, publicId);
+  const loaded = await loadOrder(ev, db, publicId);
   if (!loaded) return fail(404, ERROR_CODES.notFound, "Pedido não encontrado.");
   let { order } = loaded;
   const { gift } = loaded;
 
   if (order.status === "pending" && now() > order.expiresAt) {
-    await expireOrder(deps, order);
-    order = (await loadOrder(db, publicId))!.order;
+    await expireOrder(ev, deps, order);
+    order = (await loadOrder(ev, db, publicId))!.order;
   }
   if (order.status !== "pending") {
     return fail(
@@ -361,7 +406,7 @@ export async function payWithCard(
     );
   }
 
-  const feePercent = await cardFeePercent(db);
+  const feePercent = await cardFeePercent(ev, db);
   const feeCents = card.coverFee ? cardFeeCents(order.amountCents, feePercent) : 0;
 
   let charge: ChargeSnapshot;
@@ -390,13 +435,13 @@ export async function payWithCard(
     await db
       .update(giftOrders)
       .set({ feeCents, feeCovered: card.coverFee })
-      .where(eq(giftOrders.id, order.id));
+      .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
   }
 
   let outcome: CardOutcome;
   let message: string;
   if (charge.status === "approved") {
-    await applyCharge(deps, charge);
+    await applyCharge(ev, deps, charge);
     outcome = "approved";
     message = "Presente enviado.";
   } else if (charge.status === "pending") {
@@ -407,8 +452,13 @@ export async function payWithCard(
     message = rejectionMessage(charge.statusDetail);
   }
 
-  const fresh = await loadOrder(db, publicId);
-  return { ok: true, outcome, message, order: await orderView(deps, fresh!.order, fresh!.gift) };
+  const fresh = await loadOrder(ev, db, publicId);
+  return {
+    ok: true,
+    outcome,
+    message,
+    order: await orderView(ev, deps, fresh!.order, fresh!.gift),
+  };
 }
 
 /**
@@ -417,6 +467,7 @@ export async function payWithCard(
  * com Pix, `applyCharge` zera a taxa.
  */
 export async function startCardCheckout(
+  ev: EventCtx,
   deps: OrderDeps,
   publicId: string,
   coverFee: boolean,
@@ -425,12 +476,12 @@ export async function startCardCheckout(
   if (!provider.createCardCheckout) {
     return fail(422, ERROR_CODES.invalidRequest, "Este pagamento usa o formulário de cartão.");
   }
-  const loaded = await loadOrder(db, publicId);
+  const loaded = await loadOrder(ev, db, publicId);
   if (!loaded) return fail(404, ERROR_CODES.notFound, "Pedido não encontrado.");
   let { order } = loaded;
   if (order.status === "pending" && now() > order.expiresAt) {
-    await expireOrder(deps, order);
-    order = (await loadOrder(db, publicId))!.order;
+    await expireOrder(ev, deps, order);
+    order = (await loadOrder(ev, db, publicId))!.order;
   }
   if (order.status !== "pending") {
     return fail(
@@ -441,7 +492,7 @@ export async function startCardCheckout(
         : "Este pedido expirou. Volte à lista de presentes e escolha de novo.",
     );
   }
-  const feeCents = coverFee ? cardFeeCents(order.amountCents, await cardFeePercent(db)) : 0;
+  const feeCents = coverFee ? cardFeeCents(order.amountCents, await cardFeePercent(ev, db)) : 0;
   try {
     const charge = await provider.createCardCheckout({
       publicId,
@@ -453,7 +504,9 @@ export async function startCardCheckout(
     await db
       .update(giftOrders)
       .set({ feeCents, feeCovered: coverFee })
-      .where(and(eq(giftOrders.id, order.id), eq(giftOrders.status, "pending")));
+      .where(
+        and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev), eq(giftOrders.status, "pending")),
+      );
     return { ok: true, url: charge.checkoutUrl };
   } catch (err) {
     console.error(`[pedidos] Falha ao abrir o cartão do pedido ${publicId}:`, describeError(err));
@@ -492,13 +545,12 @@ function describeError(err: unknown) {
  * cobrança duas vezes não muda nada. É o único lugar que marca um pedido como pago.
  */
 export async function applyCharge(
+  ev: EventCtx,
   deps: OrderDeps,
   charge: ChargeSnapshot,
 ): Promise<{ order: OrderRow | null; changedTo: OrderStatus | null }> {
   const { db, now } = deps;
-  const where = charge.externalReference
-    ? eq(giftOrders.publicId, charge.externalReference)
-    : eq(giftOrders.providerOrderId, charge.providerOrderId);
+  const where = and(chargeOrderFilter(charge), byEvent(giftOrders, ev));
 
   const result = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(giftOrders).where(where).for("update");
@@ -510,7 +562,11 @@ export async function applyCharge(
       if (order.status !== "paid" && order.status !== "refunded") {
         if (order.status !== "pending") {
           // Pago depois de expirar (Pix no último segundo): reserva as cotas de novo.
-          const [g] = await tx.select().from(gifts).where(eq(gifts.id, order.giftId)).for("update");
+          const [g] = await tx
+            .select()
+            .from(gifts)
+            .where(and(eq(gifts.id, order.giftId), byEvent(gifts, ev)))
+            .for("update");
           if (g && !g.openAmount) {
             if (g.quotaTotal - g.quotaSold < order.quantity) {
               console.warn(
@@ -520,7 +576,7 @@ export async function applyCharge(
             await tx
               .update(gifts)
               .set({ quotaSold: sql`${gifts.quotaSold} + ${order.quantity}` })
-              .where(eq(gifts.id, g.id));
+              .where(and(eq(gifts.id, g.id), byEvent(gifts, ev)));
           }
         }
         await tx
@@ -537,13 +593,14 @@ export async function applyCharge(
             pixQrBase64: null,
             pixTicketUrl: null,
           })
-          .where(eq(giftOrders.id, order.id));
+          .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
         const gross =
           charge.amountCents || order.amountCents + (charge.method === "pix" ? 0 : order.feeCents);
         await tx
           .insert(payments)
           .ignore()
           .values({
+            eventId: order.eventId,
             orderId: order.id,
             gateway: order.provider,
             gatewayId: charge.paymentId ?? charge.providerOrderId,
@@ -555,10 +612,12 @@ export async function applyCharge(
             raw: charge.raw,
           });
         if (order.message && order.showOnWall) {
-          await tx
-            .insert(messages)
-            .ignore()
-            .values({ author: order.buyerName, body: order.message, giftOrderId: order.id });
+          await tx.insert(messages).ignore().values({
+            eventId: order.eventId,
+            author: order.buyerName,
+            body: order.message,
+            giftOrderId: order.id,
+          });
         }
         changedTo = "paid";
       }
@@ -567,7 +626,7 @@ export async function applyCharge(
         await tx
           .update(giftOrders)
           .set({ status: "refunded", statusDetail: charge.statusDetail })
-          .where(eq(giftOrders.id, order.id));
+          .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
         await releaseQuota(tx, order);
         changedTo = "refunded";
       }
@@ -576,7 +635,7 @@ export async function applyCharge(
         await tx
           .update(giftOrders)
           .set({ statusDetail: charge.statusDetail })
-          .where(eq(giftOrders.id, order.id));
+          .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
       }
     } else if (order.status === "pending" && isActiveCharge) {
       // Pix vencido/cancelado no provedor. Cartão recusado não mexe no pedido: dá para
@@ -585,7 +644,7 @@ export async function applyCharge(
       await tx
         .update(giftOrders)
         .set({ status, statusDetail: charge.statusDetail })
-        .where(eq(giftOrders.id, order.id));
+        .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
       await releaseQuota(tx, order);
       changedTo = status;
     }
@@ -620,7 +679,7 @@ export async function applyCharge(
   }
 
   if (result.changedTo === "paid" && result.order) {
-    const loaded = await loadOrder(db, result.order.publicId);
+    const loaded = await loadOrder(ev, db, result.order.publicId);
     if (loaded) {
       // Sem await: e-mail e Telegram não seguram a resposta (falha vai para o log).
       void notifyPaid(deps, loaded.order, loaded.gift).catch((err: unknown) => {
@@ -629,6 +688,33 @@ export async function applyCharge(
     }
   }
   return { order: result.order, changedTo: result.changedTo };
+}
+
+/** Como a cobrança aponta o pedido: publicId (externalReference) ou id da cobrança. */
+function chargeOrderFilter(charge: ChargeSnapshot) {
+  return charge.externalReference
+    ? eq(giftOrders.publicId, charge.externalReference)
+    : eq(giftOrders.providerOrderId, charge.providerOrderId);
+}
+
+/**
+ * Evento do pedido de uma cobrança que chegou sem contexto (webhook, conciliação). publicId e
+ * id da cobrança são únicos globais, então a busca sem escopo é segura; daí em diante tudo
+ * segue escopado no evento achado. null se nenhum pedido bate.
+ */
+export async function findChargeEvent(
+  deps: Pick<OrderDeps, "db" | "eventResolver">,
+  charge: ChargeSnapshot,
+): Promise<EventCtx | null> {
+  const [row] = await crossEvent("cobrança do provedor → evento do pedido", async () =>
+    deps.db
+      .select({ eventId: giftOrders.eventId, publicId: giftOrders.publicId })
+      .from(giftOrders)
+      .where(chargeOrderFilter(charge))
+      .limit(1)
+      .execute(),
+  );
+  return row ? eventOfOrder(deps, row) : null;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -641,6 +727,7 @@ export async function applyCharge(
  * `listCharges` (Asaas); null nos outros.
  */
 export async function checkOrderCharges(
+  ev: EventCtx,
   deps: OrderDeps,
   publicId: string,
 ): Promise<{ paid: boolean; pending: string[] } | null> {
@@ -648,7 +735,7 @@ export async function checkOrderCharges(
   const charges = await deps.provider.listCharges(publicId);
   const approved = charges.find((c) => c.status === "approved");
   if (approved) {
-    await applyCharge(deps, { ...approved, externalReference: publicId });
+    await applyCharge(ev, deps, { ...approved, externalReference: publicId });
     return { paid: true, pending: [] };
   }
   return {
@@ -658,11 +745,15 @@ export async function checkOrderCharges(
 }
 
 /** Expira um pedido pendente e devolve as cotas. Antes, confere se não foi pago. */
-export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
+export async function expireOrder(
+  ev: EventCtx,
+  deps: OrderDeps,
+  order: OrderRow,
+): Promise<OrderStatus> {
   if (deps.provider.listCharges) {
     let pending: string[];
     try {
-      const checked = await checkOrderCharges(deps, order.publicId);
+      const checked = await checkOrderCharges(ev, deps, order.publicId);
       if (checked?.paid) return "paid";
       pending = checked?.pending ?? [];
     } catch (err) {
@@ -673,7 +764,7 @@ export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<Ord
       );
       return "pending";
     }
-    const status = await expireLocally(deps, order);
+    const status = await expireLocally(ev, deps, order);
     // O QR do Asaas valeria por meses: apaga as cobranças abertas para ninguém pagar depois.
     for (const id of pending) {
       await deps.provider.cancel(id).catch((err: unknown) => {
@@ -686,7 +777,7 @@ export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<Ord
     try {
       const charge = await deps.provider.getCharge(order.providerOrderId);
       if (charge.status === "approved") {
-        await applyCharge(deps, charge);
+        await applyCharge(ev, deps, charge);
         return "paid";
       }
     } catch (err) {
@@ -695,12 +786,16 @@ export async function expireOrder(deps: OrderDeps, order: OrderRow): Promise<Ord
       }
     }
   }
-  return expireLocally(deps, order);
+  return expireLocally(ev, deps, order);
 }
 
-function expireLocally(deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
+function expireLocally(ev: EventCtx, deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
   return deps.db.transaction(async (tx) => {
-    const [o] = await tx.select().from(giftOrders).where(eq(giftOrders.id, order.id)).for("update");
+    const [o] = await tx
+      .select()
+      .from(giftOrders)
+      .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)))
+      .for("update");
     if (!o || o.status !== "pending") return o?.status ?? "expired";
     await tx
       .update(giftOrders)
@@ -711,21 +806,28 @@ function expireLocally(deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
         pixQrBase64: null,
         pixTicketUrl: null,
       })
-      .where(eq(giftOrders.id, o.id));
+      .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
     await releaseQuota(tx, o);
     return "expired";
   });
 }
 
-/** Expira todos os pendentes vencidos. Devolve quantos expiraram. */
+/**
+ * Expira todos os pendentes vencidos, de todos os eventos (a busca é a única consulta sem
+ * escopo; cada pedido segue no seu evento). Devolve quantos expiraram.
+ */
 export async function expirePendingOrders(deps: OrderDeps): Promise<number> {
-  const due = await deps.db
-    .select()
-    .from(giftOrders)
-    .where(and(eq(giftOrders.status, "pending"), lt(giftOrders.expiresAt, deps.now())));
+  const due = await crossEvent("rotina de expiração: pendentes vencidos de todos os eventos", () =>
+    deps.db
+      .select()
+      .from(giftOrders)
+      .where(and(eq(giftOrders.status, "pending"), lt(giftOrders.expiresAt, deps.now())))
+      .execute(),
+  );
   let expired = 0;
   for (const order of due) {
-    if ((await expireOrder(deps, order)) === "expired") expired++;
+    const ev = await eventOfOrder(deps, order);
+    if ((await expireOrder(ev, deps, order)) === "expired") expired++;
   }
   return expired;
 }

@@ -1,5 +1,6 @@
-import { and, eq, eventSettings, LEGACY_EVENT_ID, type Database } from "@casamento/db";
+import { and, byEvent, eq, eventSettings, type Database } from "@casamento/db";
 import { SiteContent, type Venue } from "@casamento/shared";
+import type { EventCtx } from "./tenancy/types.ts";
 
 interface StoredVenue {
   name?: string;
@@ -38,12 +39,15 @@ function venue(raw: unknown): Venue {
   };
 }
 
-/** Lê as configurações públicas (`event_settings.is_public`) como mapa chave → valor. */
-export async function readPublicSettings(db: Database): Promise<Map<string, unknown>> {
+/** Lê as configurações públicas do evento (`event_settings.is_public`) como mapa chave → valor. */
+export async function readPublicSettings(
+  ev: EventCtx,
+  db: Database,
+): Promise<Map<string, unknown>> {
   const rows = await db
     .select()
     .from(eventSettings)
-    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.isPublic, true)));
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.isPublic, true)));
   return new Map(rows.map((r) => [r.key, r.value]));
 }
 

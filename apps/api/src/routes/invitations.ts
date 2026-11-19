@@ -2,11 +2,11 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import {
   and,
   asc,
+  byEvent,
   eq,
   eventSettings,
   guests,
   invitations,
-  LEGACY_EVENT_ID,
   rsvpLogs,
   type Database,
 } from "@casamento/db";
@@ -25,6 +25,7 @@ import type { Mailer } from "../mailer.ts";
 import { nameMatches } from "../names.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import { buildRsvpEmail } from "../rsvp-email.ts";
+import type { EventCtx, PublicEventEnv } from "../tenancy/types.ts";
 
 export interface InvitationDeps {
   env: Env;
@@ -52,25 +53,29 @@ export function clientIp(c: Context): string {
   }
 }
 
-async function getSetting(db: Database, key: string): Promise<unknown> {
+async function getSetting(ev: EventCtx, db: Database, key: string): Promise<unknown> {
   const [row] = await db
     .select()
     .from(eventSettings)
-    .where(and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, key)));
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, key)));
   if (!row)
     throw new Error(`Configuração "${key}" não existe na tabela event_settings. Rode db:seed.`);
   return row.value;
 }
 
-async function loadInvitation(db: Database, token: string, now: Date) {
-  const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+/** Convite do evento pelo token; token de outro evento → null (404). */
+async function loadInvitation(ev: EventCtx, db: Database, token: string, now: Date) {
+  const [inv] = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.token, token), byEvent(invitations, ev)));
   if (!inv) return null;
   const rows = await db
     .select()
     .from(guests)
-    .where(eq(guests.invitationId, inv.id))
+    .where(and(eq(guests.invitationId, inv.id), byEvent(guests, ev)))
     .orderBy(asc(guests.isPlusOne), asc(guests.id));
-  const deadline = String(await getSetting(db, "rsvp.deadline"));
+  const deadline = String(await getSetting(ev, db, "rsvp.deadline"));
   const dto: Invitation = Invitation.parse({
     label: inv.label,
     side: inv.side,
@@ -124,13 +129,13 @@ function invitationNotFound(c: Context) {
 
 export function invitationRoutes(deps: InvitationDeps) {
   const { db, env, mailer, limiter, now } = deps;
-  const app = new Hono();
+  const app = new Hono<PublicEventEnv>();
 
-  async function sendConfirmation(invitation: Invitation, to: string, token: string) {
+  async function sendConfirmation(ev: EventCtx, invitation: Invitation, to: string, token: string) {
     const [coupleNames, weddingDatetime, timezone] = await Promise.all([
-      getSetting(db, "couple.names"),
-      getSetting(db, "wedding.datetime"),
-      getSetting(db, "wedding.timezone"),
+      getSetting(ev, db, "couple.names"),
+      getSetting(ev, db, "wedding.datetime"),
+      getSetting(ev, db, "wedding.timezone"),
     ]);
     await mailer.send(
       buildRsvpEmail({
@@ -167,7 +172,11 @@ export function invitationRoutes(deps: InvitationDeps) {
     const rows = await db
       .select({ name: guests.name, token: invitations.token, label: invitations.label })
       .from(guests)
-      .innerJoin(invitations, eq(guests.invitationId, invitations.id));
+      .innerJoin(
+        invitations,
+        and(eq(guests.invitationId, invitations.id), eq(guests.eventId, invitations.eventId)),
+      )
+      .where(byEvent(guests, c.get("event")));
     const found = new Map<string, string>();
     for (const r of rows) {
       if (nameMatches(r.name, firstName, lastName)) found.set(r.token, r.label);
@@ -181,7 +190,7 @@ export function invitationRoutes(deps: InvitationDeps) {
   });
 
   app.get("/:token", async (c) => {
-    const loaded = await loadInvitation(db, c.req.param("token"), now());
+    const loaded = await loadInvitation(c.get("event"), db, c.req.param("token"), now());
     if (!loaded) return invitationNotFound(c);
     c.header("Cache-Control", "no-store");
     return c.json(loaded.dto);
@@ -192,8 +201,9 @@ export function invitationRoutes(deps: InvitationDeps) {
     const limit = limiter.hit(`rsvp:${ip}`, RSVP_LIMIT, MINUTE);
     if (!limit.allowed) return tooMany(c, limit.retryAfter);
 
+    const ev = c.get("event");
     const token = c.req.param("token");
-    const loaded = await loadInvitation(db, token, now());
+    const loaded = await loadInvitation(ev, db, token, now());
     if (!loaded) return invitationNotFound(c);
     const { inv, dto } = loaded;
     c.header("Cache-Control", "no-store");
@@ -208,7 +218,7 @@ export function invitationRoutes(deps: InvitationDeps) {
     }
 
     if (dto.isClosed) {
-      const contact = (await getSetting(db, "couple.contact")) as {
+      const contact = (await getSetting(ev, db, "couple.contact")) as {
         whatsapp?: string;
         email?: string;
       };
@@ -276,7 +286,7 @@ export function invitationRoutes(deps: InvitationDeps) {
             dietaryNotes: a.attending ? (a.dietaryNotes ?? null) : null,
             respondedAt: moment,
           })
-          .where(eq(guests.id, id));
+          .where(and(eq(guests.id, id), byEvent(guests, ev)));
       }
 
       const existingPlusOne = dto.guests.find((g) => g.isPlusOne);
@@ -285,9 +295,10 @@ export function invitationRoutes(deps: InvitationDeps) {
           await tx
             .update(guests)
             .set({ name: plusOneName, rsvpStatus: "confirmed", respondedAt: moment })
-            .where(eq(guests.id, existingPlusOne.id));
+            .where(and(eq(guests.id, existingPlusOne.id), byEvent(guests, ev)));
         } else {
           await tx.insert(guests).values({
+            eventId: ev.id,
             invitationId: inv.id,
             name: plusOneName,
             isPlusOne: true,
@@ -296,27 +307,32 @@ export function invitationRoutes(deps: InvitationDeps) {
           });
         }
       } else if (existingPlusOne) {
-        await tx.delete(guests).where(eq(guests.id, existingPlusOne.id));
+        await tx.delete(guests).where(and(eq(guests.id, existingPlusOne.id), byEvent(guests, ev)));
       }
 
       const contactUpdate: { contactEmail?: string | null; contactPhone?: string | null } = {};
       if (req.contact?.email !== undefined) contactUpdate.contactEmail = req.contact.email;
       if (req.contact?.phone !== undefined) contactUpdate.contactPhone = req.contact.phone;
       if (Object.keys(contactUpdate).length > 0) {
-        await tx.update(invitations).set(contactUpdate).where(eq(invitations.id, inv.id));
+        await tx
+          .update(invitations)
+          .set(contactUpdate)
+          .where(and(eq(invitations.id, inv.id), byEvent(invitations, ev)));
       }
 
       const logged = { ...req, website: undefined };
-      await tx.insert(rsvpLogs).values({ invitationId: inv.id, payload: logged, ip });
+      await tx
+        .insert(rsvpLogs)
+        .values({ eventId: ev.id, invitationId: inv.id, payload: logged, ip });
     });
 
-    const updated = await loadInvitation(db, token, now());
+    const updated = await loadInvitation(ev, db, token, now());
     if (!updated) return invitationNotFound(c);
 
     const to = updated.dto.contact.email;
     if (to) {
       // Sem await: o convidado não espera o SMTP. Falha de envio só vai para o log.
-      void sendConfirmation(updated.dto, to, token).catch((err: unknown) => {
+      void sendConfirmation(ev, updated.dto, to, token).catch((err: unknown) => {
         console.error("Falha ao enviar o e-mail de confirmação:", err);
       });
     }

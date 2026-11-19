@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { apiError } from "../errors.ts";
 import { reconcileOrders, refundOrder } from "../orders/reconcile.ts";
 import type { GiftRow, OrderRow } from "../orders/service.ts";
-import { invalid, iso, notFound, sensitiveLimit } from "./context.ts";
+import { adminEvent, invalid, iso, notFound, sensitiveLimit } from "./context.ts";
 import type { AdminDeps, AdminEnv } from "./context.ts";
 
 function orderDto(order: OrderRow, gift: Pick<GiftRow, "id" | "title">): AdminOrder {
@@ -68,7 +68,7 @@ export function adminOrderRoutes(deps: AdminDeps) {
   });
 
   app.post("/reconcile", sensitiveLimit(deps.limiter, "reconcile"), async (c) => {
-    const result = await reconcileOrders(deps);
+    const result = await reconcileOrders(await adminEvent(deps), deps);
     if (result.changed.length) await deps.revalidate(["gifts"]);
     return c.json(result);
   });
@@ -97,7 +97,7 @@ export function adminOrderRoutes(deps: AdminDeps) {
 
   app.post("/:publicId/refund", sensitiveLimit(deps.limiter, "refund"), async (c) => {
     const publicId = c.req.param("publicId");
-    const result = await refundOrder(deps, publicId);
+    const result = await refundOrder(await adminEvent(deps), deps, publicId);
     if (!result.ok) {
       const code = result.status === 502 ? ERROR_CODES.paymentFailed : ERROR_CODES.invalidRequest;
       return apiError(

@@ -1,8 +1,9 @@
-import { desc, eq, messages, type Database } from "@casamento/db";
+import { and, byEvent, desc, eq, messages, type Database } from "@casamento/db";
 import { CreateMessageRequest, ERROR_CODES, type WallResponse } from "@casamento/shared";
 import { Hono } from "hono";
 import { apiError } from "../errors.ts";
 import type { RateLimiter } from "../rate-limit.ts";
+import type { PublicEventEnv } from "../tenancy/types.ts";
 import { clientIp } from "./invitations.ts";
 
 const MINUTE = 60_000;
@@ -30,19 +31,19 @@ export function cleanText(value: string): string {
 }
 
 /**
- * /api/messages
+ * /api/e/:slug/messages (só os recados do evento do contexto)
  * - GET: só recados aprovados (autor, texto e data; nunca e-mail, IP ou dados do pedido).
  * - POST: "Deixe um recado" sem presente; entra como pendente e só aparece depois que os
  *   noivos aprovam no painel. Honeypot + limite por IP; o IP não é guardado.
  */
 export function messageRoutes({ db, limiter }: MessageDeps) {
-  const app = new Hono();
+  const app = new Hono<PublicEventEnv>();
 
   app.get("/", async (c) => {
     const rows = await db
       .select({ author: messages.author, body: messages.body, createdAt: messages.createdAt })
       .from(messages)
-      .where(eq(messages.approved, true))
+      .where(and(byEvent(messages, c.get("event")), eq(messages.approved, true)))
       .orderBy(desc(messages.createdAt), desc(messages.id))
       .limit(WALL_LIMIT);
     const body: WallResponse = {
@@ -93,7 +94,7 @@ export function messageRoutes({ db, limiter }: MessageDeps) {
     if (author.length < 2 || body.length < 2) {
       return apiError(c, 422, ERROR_CODES.invalidRequest, "Escreva o seu nome e o seu recado.");
     }
-    await db.insert(messages).values({ author, body, approved: false });
+    await db.insert(messages).values({ eventId: c.get("event").id, author, body, approved: false });
     return c.json({ ok: true }, 201);
   });
 
