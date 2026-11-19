@@ -128,6 +128,12 @@ externa `edge`. O projeto precisa cumprir o contrato abaixo, que o `site verific
   `edge`. Se o banco não precisa de internet, use uma rede com `internal: true`.
 - Todo serviço de longa duração: `restart: unless-stopped`, `healthcheck`, e log com rotação
   (`driver: json-file`, `max-size: 10m`, `max-file: 3`).
+- O `healthcheck` não pode depender das migrations: o script espera os healthchecks
+  (`up -d --build --wait`) e só depois roda o `pos_subida`.
+- Sem `container_name` (nomes de container são globais na VPS). Serviço com `build:` e
+  `image:` usa `image: <slug>/<serviço>`, senão dois projetos com `image: app` se sobrescrevem.
+- Toda variável usada no compose existe no `.env.production.example` (mesmo vazia): o
+  `site verificar` roda `docker compose config` com um `.env` fictício gerado do exemplo.
 - Dados persistentes em volumes nomeados (banco, uploads), nunca dentro da imagem.
 - Ferramentas avulsas (migrations, primeira carga) como serviços com `profiles: [tools]`,
   rodados com `docker compose run --rm <serviço>`.
@@ -138,8 +144,11 @@ externa `edge`. O projeto precisa cumprir o contrato abaixo, que o `site verific
 ### `deploy/site.caddy`
 
 Contém só blocos de site, sem o bloco global `{ ... }`. O script troca `${VAR}` pelos valores
-do `.env` do projeto; só as variáveis que aparecem no arquivo são trocadas. Os upstreams usam
-o alias da rede `edge`. Dois snippets do edge estão disponíveis:
+do `.env` do projeto; só as variáveis que aparecem no arquivo são trocadas (linhas só de
+comentário são descartadas). Não use `{$VAR}`: isso é variável de ambiente do container do
+Caddy, que não tem o `.env` do projeto. Os upstreams usam o alias da rede `edge`. Snippets
+próprios ficam globais no edge: prefixe com `<slug>_`. Dois snippets do edge estão
+disponíveis (não os redefina):
 
 - `import seguranca`: HSTS, `nosniff`, `Referrer-Policy`, remove `Server` e `X-Powered-By`.
 - `import ip_real` (dentro de `reverse_proxy`): sobrescreve `X-Forwarded-For` e `X-Real-IP`
@@ -169,7 +178,11 @@ HEALTH_URLS='https://${DOMAIN}/api/health'  # conferidas depois de subir (aspas 
 # BACKUP_CMD="scripts/backup-db.sh"     # vai para o cron do root
 # BACKUP_CRON="0 3 * * *"
 
-# Ganchos opcionais (rodam na pasta do projeto, depois do `up -d --build`):
+# Ganchos opcionais: rodam num bash novo com `set -euo pipefail`, na pasta do projeto, depois
+# do `up -d --build --wait`, com COMPOSE_FILE exportado (o `docker compose` puro já usa o de
+# produção). Um erro interrompe o deploy. primeira_vez roda uma vez e grava .site/instalado
+# (ignorado pelo git); se os volumes do projeto já existirem, o script pergunta antes.
+# Os ganchos são lidos com `source`: no nível do arquivo, só atribuições.
 primeira_vez() {   # só no primeiro deploy
   docker compose run --rm setup
 }
@@ -182,7 +195,8 @@ pos_subida() {     # em todo deploy e atualização
 
 - Escuta em `0.0.0.0` numa porta interna. O app não faz TLS: o HTTPS termina no edge.
 - Tem uma rota de saúde barata (`/api/health` ou `/health`), sem autenticação. É a mesma que
-  o `healthcheck` do compose e o `HEALTH_URLS` usam.
+  o `healthcheck` do compose e o `HEALTH_URLS` usam. O script confere `HEALTH_URLS` direto
+  no edge da própria VPS (sem depender do DNS) e espera HTTP 2xx/3xx.
 - Atrás do proxy, o IP do visitante vem de `X-Forwarded-For` (um único valor, já tratado pelo
   edge) ou `X-Real-IP`. Rate limit e log de IP leem desses headers.
 - Segredos gerados em hex (`openssl rand -hex 32`), porque `@ / : #` quebram URLs de conexão.

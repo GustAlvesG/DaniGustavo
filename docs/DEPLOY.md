@@ -196,7 +196,7 @@ docker compose run --rm setup     # configurações + os dois usuários do paine
 
 ```bash
 docker compose ps                    # web, api e db "healthy"
-docker logs edge-caddy 2>&1 | grep -i "certificate obtained"   # nome do container: README do kit
+docker logs edge-caddy-1 2>&1 | grep -i "certificate obtained"
 docker compose logs -f api           # "Pagamentos: provedor ..." e nenhum erro de configuração
 curl -I https://danigustavo.artzan.tech
 curl https://painel-danigustavo.artzan.tech/api/health
