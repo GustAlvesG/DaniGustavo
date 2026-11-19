@@ -8,7 +8,7 @@ import {
   type Gift,
   type GiftCategory,
 } from "@casamento/shared";
-import { createOrderAction, type OrderFormState } from "@/app/(site)/presentes/actions";
+import { createOrderAction, type OrderFormState } from "@/app/[host]/(site)/presentes/actions";
 import { Button, Checkbox, TextArea, TextField } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { formatBRL } from "@/lib/format";

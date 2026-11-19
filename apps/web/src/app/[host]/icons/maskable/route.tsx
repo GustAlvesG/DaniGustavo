@@ -1,3 +1,10 @@
+import { getEvent } from "@/lib/api/event";
+import { contentFor } from "@/lib/legacy-content";
+import { decodeHostParam } from "@/lib/host";
 import { pwaIcon } from "@/lib/pwa-icon";
 
-export const GET = () => pwaIcon(512, { maskable: true });
+// Route Handler não lê root params: o host vem de `params` (o segmento [host] da URL).
+export async function GET(_req: Request, ctx: RouteContext<"/[host]/icons/maskable">) {
+  const ev = await getEvent(decodeHostParam((await ctx.params).host));
+  return pwaIcon(512, { maskable: true, iniciais: contentFor(ev).iniciais });
+}

@@ -1,13 +1,14 @@
 import { FotoImg } from "@/components/album";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
 const DELAYS = ["", "d1", "d2", "d3"];
 
 /** Versículo sobre foto escura: as linhas sobem uma depois da outra. */
-export function Versiculo() {
+export function Versiculo({ home }: { home: HomeContent }) {
   const { versiculo } = home;
+  if (!versiculo.foto || !versiculo.linhas.length) return null;
   return (
     <section className={styles.versiculo} id="versiculo" aria-label="Versículo">
       <div className={styles.versiculoBg}>

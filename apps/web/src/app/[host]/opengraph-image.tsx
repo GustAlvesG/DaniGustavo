@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { MONOGRAM_VIEWBOX, monogramMarkup } from "@/components/brand";
-import { home } from "@/content/home";
-import { getSite } from "@/lib/api/site";
+import { getEvent } from "@/lib/api/event";
+import { getContent, getSite } from "@/lib/api/site";
+import { decodeHostParam } from "@/lib/host";
 import { formatWeddingDate } from "@/lib/countdown";
 import { cityFromAddress } from "@/lib/site";
 
@@ -17,7 +18,7 @@ import { cityFromAddress } from "@/lib/site";
  * estáticos da Pinyon Script e da Jost (SIL Open Font License) em `_og/`.
  */
 
-export const alt = "Dani & Gustavo";
+export const alt = "Convite do evento";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -31,17 +32,20 @@ const svgUri = (viewBox: string, body: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${body}</svg>`,
   ).toString("base64")}`;
 
-export default async function OpengraphImage() {
+export default async function OpengraphImage({ params }: { params: Promise<{ host: string }> }) {
+  const ev = await getEvent(decodeHostParam((await params).host));
+  const { home, iniciais } = await getContent(ev);
+  const fotoArco = home.hero.fotoCelular;
   const [pinyon, jost, photo, site] = await Promise.all([
     readFile(join(fontDir, "PinyonScript-Regular.ttf")),
     readFile(join(fontDir, "Jost-Medium.ttf")),
-    readFile(join(photoDir, home.hero.fotoCelular.arquivo)),
-    getSite(),
+    fotoArco ? readFile(join(photoDir, fotoArco.arquivo)) : null,
+    getSite(ev),
   ]);
   const date = formatWeddingDate(site.wedding.datetime, site.wedding.timezone);
   const city = cityFromAddress(site.ceremony.address);
   const mono = svgUri(MONOGRAM_VIEWBOX, monogramMarkup({ ink: COLORS.branco, bold: 8 }));
-  const photoUri = `data:image/jpeg;base64,${photo.toString("base64")}`;
+  const photoUri = photo ? `data:image/jpeg;base64,${photo.toString("base64")}` : null;
 
   const archW = 360;
   const archH = 540;
@@ -65,8 +69,16 @@ export default async function OpengraphImage() {
           padding: "72px 0 64px",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img> */}
-        <img src={mono} width={140} height={84} alt="" />
+        {iniciais ? (
+          <div
+            style={{ fontFamily: "Jost", fontSize: 64, letterSpacing: 12, color: COLORS.branco }}
+          >
+            {iniciais}
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img>
+          <img src={mono} width={140} height={84} alt="" />
+        )}
         <div
           style={{
             fontFamily: "Pinyon",
@@ -105,30 +117,34 @@ export default async function OpengraphImage() {
         </div>
       </div>
 
-      {/* A foto do casal no arco, com moldura branca. */}
-      <div
-        style={{
-          display: "flex",
-          alignSelf: "center",
-          width: archW,
-          height: archH,
-          border: `10px solid ${COLORS.branco}`,
-          borderTopLeftRadius: archW / 2,
-          borderTopRightRadius: archW / 2,
-          borderBottomLeftRadius: 14,
-          borderBottomRightRadius: 14,
-          overflow: "hidden",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img> */}
-        <img
-          src={photoUri}
-          width={archW - 20}
-          height={archH - 20}
-          alt=""
-          style={{ objectFit: "cover" }}
-        />
-      </div>
+      {photoUri ? (
+        <>
+          {/* A foto do casal no arco, com moldura branca. */}
+          <div
+            style={{
+              display: "flex",
+              alignSelf: "center",
+              width: archW,
+              height: archH,
+              border: `10px solid ${COLORS.branco}`,
+              borderTopLeftRadius: archW / 2,
+              borderTopRightRadius: archW / 2,
+              borderBottomLeftRadius: 14,
+              borderBottomRightRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img> */}
+            <img
+              src={photoUri}
+              width={archW - 20}
+              height={archH - 20}
+              alt=""
+              style={{ objectFit: "cover" }}
+            />
+          </div>
+        </>
+      ) : null}
     </div>,
     {
       ...size,

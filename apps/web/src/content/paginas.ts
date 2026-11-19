@@ -11,7 +11,7 @@ export const paginas = {
       arquivo: "img_7871.jpg",
       alt: "Dani e Gustavo abraçados, com o sol se pondo atrás",
       posicao: "40% center",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
   },
   /** /recados: o mural e o formulário "Deixe um recado". */
   recados: {
@@ -34,7 +34,9 @@ export const paginas = {
     foto: {
       arquivo: "img_7977.jpg",
       alt: "Dani e Gustavo pequenos no topo da pedra, com a trilha e as montanhas",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     legenda: "Pegamos o caminho errado também.",
   },
 };
+
+export type Paginas = typeof paginas;

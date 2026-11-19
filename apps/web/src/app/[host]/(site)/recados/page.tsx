@@ -6,21 +6,20 @@ import styles from "@/components/recados/recados.module.css";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
-import { paginas } from "@/content/paginas";
-import { getSite } from "@/lib/api/site";
+import { getContent, getSite } from "@/lib/api/site";
 import { getWall } from "@/lib/api/messages";
 
 export const metadata: Metadata = {
   title: "Mural de recados",
-  description: "Recados de quem torce por Dani e Gustavo.",
+  description: "Mural de recados para os anfitriões.",
 };
 
 /**
- * /recados: o mural com os recados aprovados pelos noivos (cache de /api/messages, tag
- * "messages") e o formulário para deixar um recado novo, que entra como pendente.
+ * /recados: o mural com os recados aprovados pelos noivos (cache de /api/e/<slug>/messages,
+ * tag "messages:<id>") e o formulário para deixar um recado novo, que entra como pendente.
  */
 export default async function RecadosPage() {
-  const [site, wall] = await Promise.all([getSite(), getWall()]);
+  const [site, wall, { paginas }] = await Promise.all([getSite(), getWall(), getContent()]);
   const t = paginas.recados;
   return (
     <PageTransition>
@@ -44,7 +43,7 @@ export default async function RecadosPage() {
           )}
 
           <div className="mt-16 sm:mt-20">
-            <RecadoForm />
+            <RecadoForm t={t} />
           </div>
         </div>
       </main>

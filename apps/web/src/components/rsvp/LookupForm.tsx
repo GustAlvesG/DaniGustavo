@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { lookupInvitation, type LookupState } from "@/app/(site)/confirmar/actions";
+import { lookupInvitation, type LookupState } from "@/app/[host]/(site)/confirmar/actions";
 import { Button, TextField } from "@/components/ui";
 import { ContactLinks, type CoupleContact } from "./ContactLinks";
 

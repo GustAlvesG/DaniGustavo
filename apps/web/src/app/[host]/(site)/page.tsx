@@ -13,36 +13,49 @@ import { Versiculo } from "@/components/home/Versiculo";
 import styles from "@/components/home/home.module.css";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
-import { home, type SecaoHome } from "@/content/home";
+import type { SecaoHome } from "@/content/home";
+import { currentEvent } from "@/lib/api/event";
 import { getWall } from "@/lib/api/messages";
-import { getSite } from "@/lib/api/site";
+import { getContent, getSite } from "@/lib/api/site";
+import { hostUrl } from "@/lib/site";
 
 /*
- * Home (Proposta C, "Álbum"). Página estática: pré-renderizada com o cache
- * de /api/site, então o hero sai pronto no HTML. Textos e fotos de
- * apresentação vêm de src/content/home.ts; dados do evento, da API.
+ * Home (Proposta C, "Álbum"). Página estática por host: pré-renderizada com o
+ * cache de /api/e/<slug>/site, então o hero sai pronto no HTML. Textos e fotos
+ * de apresentação vêm de lib/legacy-content (o casamento original ou a versão
+ * neutra); dados do evento, da API.
  *
  * A ordem das seções é a de `home.secoes`; seções sem dado no banco
  * (ex.: programação vazia) somem sozinhas.
  */
 export default async function Home() {
-  const [site, wall] = await Promise.all([getSite(), getWall()]);
+  const ev = await currentEvent();
+  const [site, wall] = await Promise.all([getSite(ev), getWall(ev)]);
+  const { home, iniciais } = await getContent(ev);
+  const agenda = { slug: ev.slug, type: ev.type, baseUrl: hostUrl(ev.primaryHost) };
 
   // Numeração "Página N" só nas seções com rótulo (o versículo não conta).
   let page = 0;
   const next = () => (home.numerarPaginas ? ++page : undefined);
 
   const render: Record<SecaoHome, () => ReactNode> = {
-    historia: () => (home.historia.momentos.length ? <Historia pagina={next()} /> : null),
-    album: () => (home.album.fotos.length ? <Album pagina={next()} /> : null),
-    casamento: () => <Casamento site={site} pagina={next()} />,
-    versiculo: () => <Versiculo />,
-    programacao: () => (site.schedule.length ? <Programacao site={site} pagina={next()} /> : null),
-    traje: () => <Traje site={site} pagina={next()} />,
-    presentes: () => <Presentes pagina={next()} />,
-    recados: () => <Recados wall={wall} timeZone={site.wedding.timezone} pagina={next()} />,
-    rsvp: () => <Rsvp site={site} pagina={next()} />,
-    duvidas: () => (site.faq.length ? <Duvidas site={site} pagina={next()} /> : null),
+    historia: () =>
+      home.historia.momentos.length ? <Historia home={home} pagina={next()} /> : null,
+    album: () => (home.album.fotos.length ? <Album home={home} pagina={next()} /> : null),
+    casamento: () => <Casamento home={home} site={site} agenda={agenda} pagina={next()} />,
+    versiculo: () => <Versiculo home={home} />,
+    programacao: () =>
+      site.schedule.length ? <Programacao home={home} site={site} pagina={next()} /> : null,
+    traje: () =>
+      site.dressCode.text || site.dressCode.palette.length || home.traje.foto ? (
+        <Traje home={home} site={site} pagina={next()} />
+      ) : null,
+    presentes: () => <Presentes home={home} pagina={next()} />,
+    recados: () => (
+      <Recados home={home} wall={wall} timeZone={site.wedding.timezone} pagina={next()} />
+    ),
+    rsvp: () => <Rsvp home={home} site={site} iniciais={iniciais} pagina={next()} />,
+    duvidas: () => (site.faq.length ? <Duvidas home={home} site={site} pagina={next()} /> : null),
   };
 
   return (
@@ -51,7 +64,7 @@ export default async function Home() {
       <div className={styles.page}>
         <SiteNav site={site} variant="home" />
         <main id="conteudo">
-          <Hero site={site} />
+          <Hero home={home} site={site} iniciais={iniciais} />
           {home.secoes.map((s) => (
             <Fragment key={s}>{render[s]()}</Fragment>
           ))}

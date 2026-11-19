@@ -6,9 +6,9 @@ import { OrderSummary } from "@/components/presentes/OrderSummary";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { ButtonLink, SectionHeading } from "@/components/ui";
-import { home } from "@/content/home";
 import { apiReadFresh } from "@/lib/api/client";
-import { getSite } from "@/lib/api/site";
+import { currentEvent, eventPath } from "@/lib/api/event";
+import { getContent, getSite } from "@/lib/api/site";
 import { firstName } from "@/lib/presentes";
 import { noindex } from "@/lib/seo";
 
@@ -21,7 +21,7 @@ export const instant = false;
 
 export default async function ObrigadoRoute({
   params,
-}: PageProps<"/presentes/obrigado/[publicId]">) {
+}: PageProps<"/[host]/presentes/obrigado/[publicId]">) {
   const site = await getSite();
   return (
     <PageTransition>
@@ -40,10 +40,14 @@ export default async function ObrigadoRoute({
 async function Obrigado({
   params,
 }: {
-  params: PageProps<"/presentes/obrigado/[publicId]">["params"];
+  params: PageProps<"/[host]/presentes/obrigado/[publicId]">["params"];
 }) {
   const { publicId } = await params;
-  const result = await apiReadFresh(`/api/orders/${encodeURIComponent(publicId)}`, OrderView);
+  const ev = await currentEvent();
+  const [result, { home }] = await Promise.all([
+    apiReadFresh(eventPath(ev, `/orders/${encodeURIComponent(publicId)}`), OrderView),
+    getContent(ev),
+  ]);
   if (!result.ok) {
     if (result.status === 404) notFound();
     return (
@@ -77,12 +81,14 @@ async function Obrigado({
       </div>
       <OrderSummary order={order} className="r6 lg:col-span-5 lg:col-start-8 lg:row-span-2" />
       {/* Celular: depois do resumo. Desktop: na coluna do título, abaixo dos botões. */}
-      <Polaroid
-        foto={home.presentes.foto}
-        sizes="240px"
-        legenda={home.presentes.legendaFoto}
-        className="r1 mx-auto w-[220px] lg:col-span-4 lg:col-start-2 lg:row-start-2 lg:mx-0 lg:w-[210px]"
-      />
+      {home.presentes.foto ? (
+        <Polaroid
+          foto={home.presentes.foto}
+          sizes="240px"
+          legenda={home.presentes.legendaFoto}
+          className="r1 mx-auto w-[220px] lg:col-span-4 lg:col-start-2 lg:row-start-2 lg:mx-0 lg:w-[210px]"
+        />
+      ) : null}
     </div>
   );
 }

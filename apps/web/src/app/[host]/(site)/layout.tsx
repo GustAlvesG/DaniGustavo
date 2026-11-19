@@ -6,7 +6,7 @@ import { getSite } from "@/lib/api/site";
  * mora aqui, então persiste entre as páginas; o conteúdo vem do cache de
  * `/api/site` (pré-renderizado, refeito a cada 60 s).
  */
-export default async function SiteLayout({ children }: LayoutProps<"/">) {
+export default async function SiteLayout({ children }: LayoutProps<"/[host]">) {
   const site = await getSite();
   return (
     <>

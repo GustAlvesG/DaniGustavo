@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ERROR_CODES, LookupRequest, LookupResponse } from "@casamento/shared";
 import { apiWrite, clientIpFrom } from "@/lib/api/client";
+import { eventPath, requestEvent } from "@/lib/api/event";
 
 export type LookupValues = { firstName: string; lastName: string };
 
@@ -39,8 +40,17 @@ export async function lookupInvitation(_prev: LookupState, data: FormData): Prom
     };
   }
 
+  // Server Action não tem root params: o evento sai do header que o proxy gravou.
+  const ev = await requestEvent();
+  if (!ev) {
+    return {
+      status: "error",
+      message: "Não encontramos o evento deste site. Recarregue a página.",
+      values,
+    };
+  }
   const clientIp = clientIpFrom(await headers());
-  const result = await apiWrite("POST", "/api/invitations/lookup", parsed.data, {
+  const result = await apiWrite("POST", eventPath(ev, "/invitations/lookup"), parsed.data, {
     clientIp,
     schema: LookupResponse,
   });
@@ -54,7 +64,7 @@ export async function lookupInvitation(_prev: LookupState, data: FormData): Prom
       status: "error",
       message:
         result.error.code === "unavailable"
-          ? "Não conseguimos buscar agora. Espere um pouco e tente de novo, ou fale com os noivos."
+          ? "Não conseguimos buscar agora. Espere um pouco e tente de novo, ou fale com quem te convidou."
           : result.error.message,
       values,
     };

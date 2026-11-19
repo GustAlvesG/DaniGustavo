@@ -15,9 +15,16 @@ export function splitCoupleNames(names: string): CoupleNames {
   return second ? { first: first.trim(), second } : { first: names.trim(), second: "" };
 }
 
-/** URL pública do site (sem barra no fim). */
+/** URL pública do site (sem barra no fim), do .env; reserva quando não há host do evento. */
 export function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
+
+/** URL base de um host de evento: http em localhost/*.localhost, https no resto. */
+export function hostUrl(host: string): string {
+  const name = host.replace(/:\d+$/, "");
+  const local = name === "localhost" || name.endsWith(".localhost") || name === "127.0.0.1";
+  return `${local ? "http" : "https"}://${host}`;
 }
 
 const tzOf = (site: SiteContent) => site.wedding.timezone || WEDDING_TIME_ZONE;
@@ -190,8 +197,14 @@ export function whatsappUrl(digits: string, text?: string): string | null {
   return `https://wa.me/${clean}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 }
 
+/** De qual evento é a agenda: slug (no UID), tipo (no título) e a URL do site. */
+export type CalendarSource = { slug: string; type: string; baseUrl: string };
+
 /** Evento da agenda: da cerimônia até o fim da festa. */
-export function weddingEvent(site: SiteContent): CalendarEvent {
+export function weddingEvent(
+  site: SiteContent,
+  source: CalendarSource = { slug: "dani-gustavo", type: "wedding", baseUrl: siteUrl() },
+): CalendarEvent {
   const start = site.wedding.datetime;
   const date = start.slice(0, 10).replace(/-/g, "");
   const blocks = venueBlocks(site);
@@ -199,14 +212,19 @@ export function weddingEvent(site: SiteContent): CalendarEvent {
     .map((b) => venueLine(b.venue))
     .filter((l, i, all) => l && all.indexOf(l) === i)
     .join(" / ");
-  const url = `${siteUrl()}/`;
+  const wedding = source.type === "wedding";
+  // O UID do casamento original não muda: quem já salvou na agenda não ganha um duplicado.
+  const uid =
+    source.slug === "dani-gustavo"
+      ? `casamento-${date}@dani-e-gustavo`
+      : `evento-${date}@${source.slug}`;
   return {
-    uid: `casamento-${date}@dani-e-gustavo`,
-    title: `Casamento de ${site.couple.names}`,
+    uid,
+    title: wedding ? `Casamento de ${site.couple.names}` : site.couple.names,
     start,
     end: addHours(start, DEFAULT_EVENT_HOURS),
     location: location || undefined,
-    description: `Cerimônia às ${formatHour(start, tzOf(site))}. Programação, local e confirmação de presença no site.`,
-    url,
+    description: `${wedding ? "Cerimônia" : "Início"} às ${formatHour(start, tzOf(site))}. Programação, local e confirmação de presença no site.`,
+    url: `${source.baseUrl}/`,
   };
 }

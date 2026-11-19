@@ -5,20 +5,19 @@ import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { getGifts } from "@/lib/api/gifts";
-import { getSite } from "@/lib/api/site";
+import { getContent, getSite } from "@/lib/api/site";
 
 export const metadata: Metadata = {
   title: "Lista de presentes",
-  description:
-    "Presentes para a casa nova e para a lua de mel de Dani e Gustavo, no Pix ou no cartão.",
+  description: "Lista de presentes, no Pix ou no cartão.",
 };
 
 /**
- * /presentes: a lista vem do cache de `/api/gifts` (30 s, tag "gifts"), então
+ * /presentes: a lista vem do cache de `/api/e/<slug>/gifts` (30 s, tag "gifts:<id>"), então
  * a página sai pré-renderizada; os filtros rodam no navegador.
  */
 export default async function PresentesPage() {
-  const [site, list] = await Promise.all([getSite(), getGifts()]);
+  const [site, list, { legado }] = await Promise.all([getSite(), getGifts(), getContent()]);
   return (
     <PageTransition>
       <SiteNav site={site} current="/presentes" />
@@ -28,9 +27,21 @@ export default async function PresentesPage() {
             as="h1"
             rotulo="Lista de presentes"
             className="mx-auto mb-14 max-w-[640px] items-center text-center"
-            lead="Presença é o que mais importa. Se quiser nos presentear, escolha um item para a casa ou para a lua de mel, ou contribua com o valor que quiser."
+            lead={
+              legado
+                ? "Presença é o que mais importa. Se quiser nos presentear, escolha um item para a casa ou para a lua de mel, ou contribua com o valor que quiser."
+                : "Presença é o que mais importa. Se quiser presentear, escolha um item ou contribua com o valor que quiser."
+            }
           >
-            Um presente <em>para nós dois</em>
+            {legado ? (
+              <>
+                Um presente <em>para nós dois</em>
+              </>
+            ) : (
+              <>
+                Lista de <em>presentes</em>
+              </>
+            )}
           </SectionHeading>
 
           {list.available ? (

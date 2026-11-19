@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { notFound } from "next/navigation";
 import { LineIcon, MonogramDG, iconForText } from "@/components/brand";
 import { Swatches } from "@/components/home/Swatches";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { FotoImg } from "@/components/album";
-import { paginas } from "@/content/paginas";
 import { ButtonLink, SectionHeading } from "@/components/ui";
-import { getSite } from "@/lib/api/site";
+import { getContent, getSite } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 import { formatHour, monthGrid } from "@/lib/site";
 
@@ -51,6 +51,9 @@ function Block({
  * no fim. Todo o texto vem de /api/site; a foto da capa, de content/paginas.ts.
  */
 export default async function GodparentsPage() {
+  // Manual dos padrinhos só no casamento original (lib/legacy-content); nos outros, 404.
+  const { padrinhos, paginas } = await getContent();
+  if (!padrinhos) notFound();
   const site = await getSite();
   const g = site.godparents;
   const tz = site.wedding.timezone;
@@ -79,15 +82,17 @@ export default async function GodparentsPage() {
               </p>
             </div>
             {/* A capa do manual: uma foto do casal no arco. */}
-            <figure className="arco r3 assenta w-[min(80%,22rem)] lg:col-span-4 lg:col-start-9">
-              <div className="relative aspect-[3/4.3]">
-                <FotoImg
-                  foto={paginas.padrinhos.foto}
-                  sizes="(max-width: 1024px) 80vw, 360px"
-                  fill
-                />
-              </div>
-            </figure>
+            {paginas.padrinhos.foto ? (
+              <figure className="arco r3 assenta w-[min(80%,22rem)] lg:col-span-4 lg:col-start-9">
+                <div className="relative aspect-[3/4.3]">
+                  <FotoImg
+                    foto={paginas.padrinhos.foto}
+                    sizes="(max-width: 1024px) 80vw, 360px"
+                    fill
+                  />
+                </div>
+              </figure>
+            ) : null}
           </div>
         </section>
 

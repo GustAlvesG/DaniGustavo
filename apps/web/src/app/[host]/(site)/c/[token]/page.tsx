@@ -9,12 +9,13 @@ import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
+import { currentEvent, eventPath } from "@/lib/api/event";
 import { getSite } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 
 export const metadata = noindex({
   title: "Confirmar presença",
-  description: "Responda ao convite de Dani e Gustavo.",
+  description: "Responda ao convite.",
 });
 
 /*
@@ -23,7 +24,7 @@ export const metadata = noindex({
  */
 export const instant = false;
 
-export default async function ConviteRoute({ params }: PageProps<"/c/[token]">) {
+export default async function ConviteRoute({ params }: PageProps<"/[host]/c/[token]">) {
   // Cacheado ("use cache" em apiGet): não bloqueia por pedido.
   const site = await getSite();
   return (
@@ -39,11 +40,12 @@ export default async function ConviteRoute({ params }: PageProps<"/c/[token]">) 
   );
 }
 
-async function InvitationView({ params }: { params: PageProps<"/c/[token]">["params"] }) {
+async function InvitationView({ params }: { params: PageProps<"/[host]/c/[token]">["params"] }) {
   const { token } = await params;
+  const ev = await currentEvent();
   const [result, site] = await Promise.all([
-    apiReadFresh(`/api/invitations/${encodeURIComponent(token)}`, Invitation),
-    getSite(),
+    apiReadFresh(eventPath(ev, `/invitations/${encodeURIComponent(token)}`), Invitation),
+    getSite(ev),
   ]);
 
   if (!result.ok) {
@@ -53,7 +55,8 @@ async function InvitationView({ params }: { params: PageProps<"/c/[token]">["par
         <div className="flex flex-col gap-6 lg:col-span-6 lg:col-start-2">
           <SectionHeading as="h1">Não conseguimos abrir o convite</SectionHeading>
           <p className="max-w-[56ch] text-lg text-ink" role="alert">
-            O servidor não respondeu. Recarregue a página em alguns instantes ou fale com os noivos.
+            O servidor não respondeu. Recarregue a página em alguns instantes ou fale com quem te
+            convidou.
           </p>
           <ContactLinks contact={site.contact} />
         </div>

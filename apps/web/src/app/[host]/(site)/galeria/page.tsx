@@ -3,8 +3,8 @@ import { Polaroid } from "@/components/album";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
-import { galeria } from "@/content/galeria";
-import { getSite } from "@/lib/api/site";
+import { notFound } from "next/navigation";
+import { getContent, getSite } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 import { foto } from "@/lib/fotos";
 
@@ -21,6 +21,9 @@ const TILTS = ["r2", "r1", "r4", "r3", "r6", "r5"];
  * O aviso de "fotos oficiais em breve" é uma chave do banco.
  */
 export default async function GalleryPage() {
+  // Só o casamento original tem galeria (lib/legacy-content); nos outros eventos, 404.
+  const { galeria } = await getContent();
+  if (!galeria) notFound();
   const site = await getSite();
   return (
     <PageTransition>

@@ -1,21 +1,23 @@
 import { Cabecalho, Polaroid } from "@/components/album";
 import { ButtonLink } from "@/components/ui";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
 /** Presentes: cartão de fio duplo com uma polaroid e a chamada para a lista. */
-export function Presentes({ pagina }: { pagina?: number }) {
+export function Presentes({ home, pagina }: { home: HomeContent; pagina?: number }) {
   const { presentes } = home;
   return (
     <section className={styles.sec} id="presentes" aria-labelledby="presentes-titulo">
       <div className={cx(styles.presentesBox, "rv")}>
-        <Polaroid
-          foto={presentes.foto}
-          sizes="300px"
-          legenda={presentes.legendaFoto}
-          className={cx(styles.presentesFoto, "r1 assenta-d")}
-        />
+        {presentes.foto ? (
+          <Polaroid
+            foto={presentes.foto}
+            sizes="300px"
+            legenda={presentes.legendaFoto}
+            className={cx(styles.presentesFoto, "r1 assenta-d")}
+          />
+        ) : null}
         <div>
           <Cabecalho
             id="presentes-titulo"

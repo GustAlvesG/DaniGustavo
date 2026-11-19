@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useForm, useWatch } from "react-hook-form";
 import type { Invitation } from "@casamento/shared";
-import { submitRsvp, type RsvpActionResult } from "@/app/(site)/c/[token]/actions";
+import { submitRsvp, type RsvpActionResult } from "@/app/[host]/(site)/c/[token]/actions";
 import { Button, ButtonLink, Radio, RadioGroup, TextField } from "@/components/ui";
 import {
   attendingCount,

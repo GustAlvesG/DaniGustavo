@@ -1,7 +1,7 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, FotoImg } from "@/components/album";
 import { ButtonLink, buttonStyles } from "@/components/ui";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { cx } from "@/lib/cx";
 import {
@@ -11,6 +11,7 @@ import {
   mapsLink,
   venueBlocks,
   weddingEvent,
+  type CalendarSource,
   weddingHeadline,
 } from "@/lib/site";
 import styles from "./home.module.css";
@@ -20,7 +21,18 @@ import styles from "./home.module.css";
  * cartões de fio duplo com quando, onde e onde ficar. Tudo do banco
  * (/api/site), menos a foto, a legenda e a frase de apoio (content/home.ts).
  */
-export function Casamento({ site, pagina }: { site: SiteContent; pagina?: number }) {
+export function Casamento({
+  home,
+  site,
+  agenda,
+  pagina,
+}: {
+  home: HomeContent;
+  site: SiteContent;
+  /** De qual evento é a agenda (UID, título e link do site). */
+  agenda: CalendarSource;
+  pagina?: number;
+}) {
   const { casamento } = home;
   const tz = site.wedding.timezone;
   const start = site.wedding.datetime;
@@ -50,16 +62,18 @@ export function Casamento({ site, pagina }: { site: SiteContent; pagina?: number
           lead={casamento.lead}
         />
         <div className={styles.casamentoGrid}>
-          <figure className="moldura-papel r1 assenta">
-            <span className="canto a" />
-            <span className="canto b" />
-            <span className="canto c" />
-            <span className="canto d" />
-            <div className={styles.fotoPaisagem}>
-              <FotoImg foto={casamento.foto} sizes="(max-width: 860px) 92vw, 560px" fill />
-            </div>
-            <figcaption>{casamento.legendaFoto}</figcaption>
-          </figure>
+          {casamento.foto ? (
+            <figure className="moldura-papel r1 assenta">
+              <span className="canto a" />
+              <span className="canto b" />
+              <span className="canto c" />
+              <span className="canto d" />
+              <div className={styles.fotoPaisagem}>
+                <FotoImg foto={casamento.foto} sizes="(max-width: 860px) 92vw, 560px" fill />
+              </div>
+              <figcaption>{casamento.legendaFoto}</figcaption>
+            </figure>
+          ) : null}
 
           <div className={styles.pilha}>
             <article className={cx("cartao de-dir", styles.cartao)} aria-labelledby="quando">
@@ -76,7 +90,7 @@ export function Casamento({ site, pagina }: { site: SiteContent; pagina?: number
                   Adicionar à agenda
                 </a>
                 <a
-                  href={googleCalendarUrl(weddingEvent(site), tz)}
+                  href={googleCalendarUrl(weddingEvent(site, agenda), tz)}
                   target="_blank"
                   rel="noopener"
                   className={buttonStyles({ variant: "secondary" })}

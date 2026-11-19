@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { SiteContent } from "@casamento/shared";
-import { MonogramDG } from "@/components/brand";
+import { Monograma } from "@/components/brand";
 import { ContactLinks } from "@/components/rsvp/ContactLinks";
 import { ButtonLink } from "@/components/ui";
-import { home } from "@/content/home";
+import { getContent } from "@/lib/api/site";
 import { cityFromAddress, formatDayMonth, formatDotDate } from "@/lib/site";
 
 const small =
@@ -15,14 +15,20 @@ const small =
  * frase do versículo. Sem revelações na rolagem aqui: no fim da página
  * não há rolagem suficiente para elas terminarem.
  */
-export function SiteFooter({ site }: { site: SiteContent }) {
+export async function SiteFooter({ site }: { site: SiteContent }) {
+  const { home, iniciais } = await getContent();
   const tz = site.wedding.timezone;
   const place = [site.ceremony.name, cityFromAddress(site.ceremony.address)]
     .filter(Boolean)
     .join(" · ");
   return (
     <footer className="surface-marinho px-4 pt-[90px] pb-10 text-center" id="contato">
-      <MonogramDG className="mx-auto w-[120px]" bold={6} label={site.couple.names} />
+      <Monograma
+        iniciais={iniciais}
+        className="mx-auto w-[120px]"
+        bold={6}
+        label={site.couple.names}
+      />
       <p className="mt-[18px] mb-0 font-script text-[clamp(2.6rem,6vw,3.8rem)] leading-[1.1]">
         {site.couple.names}
       </p>
@@ -46,7 +52,9 @@ export function SiteFooter({ site }: { site: SiteContent }) {
         </ButtonLink>
       </div>
 
-      <p className="mx-auto mt-10 max-w-[520px] text-[#e1e8f5] italic">{home.rodape.frase}</p>
+      {home.rodape.frase ? (
+        <p className="mx-auto mt-10 max-w-[520px] text-[#e1e8f5] italic">{home.rodape.frase}</p>
+      ) : null}
 
       <nav aria-label="Rodapé" className="mt-8">
         <ul className="flex flex-wrap justify-center gap-x-6 gap-y-1">

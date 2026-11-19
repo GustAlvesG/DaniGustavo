@@ -1,13 +1,21 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho } from "@/components/album";
 import { ContactLinks } from "@/components/rsvp/ContactLinks";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import { Faq } from "./Faq";
 import styles from "./home.module.css";
 
 /** Dúvidas: perguntas e respostas do banco, num acordeão, e o contato dos noivos. */
-export function Duvidas({ site, pagina }: { site: SiteContent; pagina?: number }) {
+export function Duvidas({
+  home,
+  site,
+  pagina,
+}: {
+  home: HomeContent;
+  site: SiteContent;
+  pagina?: number;
+}) {
   const { duvidas } = home;
   return (
     <section className={styles.sec} id="duvidas" aria-labelledby="duvidas-titulo">

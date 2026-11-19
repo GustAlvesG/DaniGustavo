@@ -1,13 +1,13 @@
 import { Cabecalho, FotoImg } from "@/components/album";
 import { ButtonLink } from "@/components/ui";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
 const TILTS = ["r2", "r1", "r4", "r3", "r6", "r5"];
 
 /** Do nosso álbum: polaroids na proporção de cada foto, em colunas. */
-export function Album({ pagina }: { pagina?: number }) {
+export function Album({ home, pagina }: { home: HomeContent; pagina?: number }) {
   const { album } = home;
   return (
     <section className={cx(styles.sec, styles.semTopo)} id="album" aria-labelledby="album-titulo">

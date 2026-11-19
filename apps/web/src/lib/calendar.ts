@@ -76,7 +76,7 @@ export function buildIcs(event: CalendarEvent, now: Date = new Date()): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Dani & Gustavo//Casamento//PT-BR",
+    "PRODID:-//Site do evento//Agenda//PT-BR",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

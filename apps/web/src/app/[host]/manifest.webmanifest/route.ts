@@ -1,14 +1,18 @@
 import type { MetadataRoute } from "next";
+import { getEvent } from "@/lib/api/event";
 import { getSite } from "@/lib/api/site";
+import { decodeHostParam } from "@/lib/host";
 
 /**
- * Manifest do app instalável (PWA). Nome vem de /api/site (cacheado); cores do design
- * "Álbum": marinho na barra e papel no fundo da abertura. `start_url` "/" e
- * `display: standalone` bastam para o Chrome oferecer "Instalar app".
+ * Manifest do app instalável (PWA), um por host. A convenção `app/manifest.ts` só existe na
+ * raiz do `app` (fora de `[host]`), então aqui é um Route Handler comum em
+ * /manifest.webmanifest, ligado pelo `metadata.manifest` do layout. Nome vem de
+ * /api/e/<slug>/site (cacheado); cores do design "Álbum".
  */
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const { couple, seo } = await getSite();
-  return {
+export async function GET(_req: Request, ctx: RouteContext<"/[host]/manifest.webmanifest">) {
+  const ev = await getEvent(decodeHostParam((await ctx.params).host));
+  const { couple, seo } = await getSite(ev);
+  const manifest: MetadataRoute.Manifest = {
     id: "/",
     name: couple.names,
     short_name: couple.names,
@@ -26,4 +30,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
       { src: "/icons/maskable", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
+  return Response.json(manifest, {
+    headers: { "content-type": "application/manifest+json; charset=utf-8" },
+  });
 }

@@ -9,6 +9,7 @@ import {
   type RsvpRequest as RsvpBody,
 } from "@casamento/shared";
 import { apiWrite, clientIpFrom } from "@/lib/api/client";
+import { eventPath, requestEvent } from "@/lib/api/event";
 
 export type RsvpActionResult =
   | { ok: true; invitation: Invitation }
@@ -34,10 +35,15 @@ export async function submitRsvp(token: string, body: RsvpBody): Promise<RsvpAct
     };
   }
 
+  // Server Action não tem root params: o evento sai do header que o proxy gravou.
+  const ev = await requestEvent();
+  if (!ev) {
+    return { ok: false, reason: "not_found", message: "Não encontramos o evento deste site." };
+  }
   const clientIp = clientIpFrom(await headers());
   const result = await apiWrite(
     "PUT",
-    `/api/invitations/${encodeURIComponent(token)}/rsvp`,
+    eventPath(ev, `/invitations/${encodeURIComponent(token)}/rsvp`),
     parsed.data,
     { clientIp, schema: RsvpResponse },
   );

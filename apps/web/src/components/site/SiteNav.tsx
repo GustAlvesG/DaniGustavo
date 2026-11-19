@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { SiteContent } from "@casamento/shared";
-import { MonogramDG } from "@/components/brand";
-import { home } from "@/content/home";
+import { Monograma } from "@/components/brand";
+import { getContent } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 import { formatDotDate } from "@/lib/site";
 import { MobileMenu } from "./MobileMenu";
@@ -26,15 +26,16 @@ export type SiteNavProps = {
  * encolhe ao rolar. Server Component; só a data e o menu do celular são
  * ilhas cliente.
  */
-export function SiteNav({ site, variant = "pagina", current }: SiteNavProps) {
-  const items = navItems();
+export async function SiteNav({ site, variant = "pagina", current }: SiteNavProps) {
+  const { home, iniciais } = await getContent();
+  const items = navItems(home, site);
   const cta = { href: "/confirmar", label: home.menu.cta };
   const tz = site.wedding.timezone;
   return (
     <header className={cx(styles.nav, variant === "home" && styles.navHome)} data-nav="">
       <div className={styles.inner}>
         <Link href="/" className={styles.logo} aria-label={`${site.couple.names}, página inicial`}>
-          <MonogramDG bold={14} className={styles.mono} />
+          <Monograma iniciais={iniciais} bold={14} className={styles.mono} />
         </Link>
         <NavDate
           long={formatDotDate(site.wedding.datetime, tz)}

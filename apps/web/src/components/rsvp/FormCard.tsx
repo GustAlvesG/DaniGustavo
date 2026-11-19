@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { MonogramDG } from "@/components/brand";
+import { Monograma } from "@/components/brand";
+import { getContent } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 
 /**
@@ -7,7 +8,14 @@ import { cx } from "@/lib/cx";
  * fio a 9px da borda e sombra de papel), com o DG no topo. Os formulários
  * ficam no claro: campos brancos, texto marinho, erro escuro.
  */
-export function FormCard({ children, className }: { children: ReactNode; className?: string }) {
+export async function FormCard({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const { iniciais } = await getContent();
   return (
     <div
       className={cx(
@@ -15,7 +23,7 @@ export function FormCard({ children, className }: { children: ReactNode; classNa
         className,
       )}
     >
-      <MonogramDG bold={10} className="mx-auto mb-8 w-16 text-ink sm:w-20" />
+      <Monograma iniciais={iniciais} bold={10} className="mx-auto mb-8 w-16 text-ink sm:w-20" />
       {children}
     </div>
   );

@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { cardFeeCents, type OrderStatus, type OrderView } from "@casamento/shared";
 import {
@@ -8,8 +16,8 @@ import {
   simulateApprovalAction,
   startCardCheckoutAction,
   type CardActionResult,
-} from "@/app/(site)/presentes/actions";
-import { MonogramDG } from "@/components/brand";
+} from "@/app/[host]/(site)/presentes/actions";
+import { Monograma } from "@/components/brand";
 import { Button, ButtonLink, Checkbox, TextField } from "@/components/ui";
 import { cx } from "@/lib/cx";
 import { formatBRL } from "@/lib/format";
@@ -29,7 +37,17 @@ import styles from "./pagamento.module.css";
 const POLL_MS = 3_000;
 const STAMP_MS = 1_300;
 
-export function PaymentPanel({ order }: { order: OrderView }) {
+/** Monograma do evento para o carimbo (evita passar a prop por PixPanel/CardPanel). */
+const IniciaisContext = createContext<string | null>(null);
+
+export function PaymentPanel({
+  order,
+  iniciais = null,
+}: {
+  order: OrderView;
+  /** Monograma do evento em texto (null = DG). */
+  iniciais?: string | null;
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [status, setStatus] = useState<OrderStatus>(order.status);
@@ -84,39 +102,41 @@ export function PaymentPanel({ order }: { order: OrderView }) {
 
   const paid = status === "paid";
   return (
-    <div className="flex flex-col">
-      <div className={styles.abas} role="tablist" aria-label="Forma de pagamento">
-        <TabButton id="pix" current={tab} onSelect={setTab} disabled={paid}>
-          Pix
-        </TabButton>
-        <TabButton id="card" current={tab} onSelect={setTab} disabled={paid}>
-          Cartão
-        </TabButton>
-      </div>
+    <IniciaisContext value={iniciais}>
+      <div className="flex flex-col">
+        <div className={styles.abas} role="tablist" aria-label="Forma de pagamento">
+          <TabButton id="pix" current={tab} onSelect={setTab} disabled={paid}>
+            Pix
+          </TabButton>
+          <TabButton id="card" current={tab} onSelect={setTab} disabled={paid}>
+            Cartão
+          </TabButton>
+        </div>
 
-      <div
-        role="tabpanel"
-        id="painel-pix"
-        aria-labelledby="aba-pix"
-        hidden={tab !== "pix"}
-        data-testid="pix-panel"
-      >
-        <PixPanel order={order} paid={paid} onSimulatedApproval={celebrate} />
-      </div>
-      <div
-        role="tabpanel"
-        id="painel-card"
-        aria-labelledby="aba-card"
-        hidden={tab !== "card"}
-        data-testid="card-panel"
-      >
-        {tab === "card" ? <CardPanel order={order} paid={paid} onApproved={celebrate} /> : null}
-      </div>
+        <div
+          role="tabpanel"
+          id="painel-pix"
+          aria-labelledby="aba-pix"
+          hidden={tab !== "pix"}
+          data-testid="pix-panel"
+        >
+          <PixPanel order={order} paid={paid} onSimulatedApproval={celebrate} />
+        </div>
+        <div
+          role="tabpanel"
+          id="painel-card"
+          aria-labelledby="aba-card"
+          hidden={tab !== "card"}
+          data-testid="card-panel"
+        >
+          {tab === "card" ? <CardPanel order={order} paid={paid} onApproved={celebrate} /> : null}
+        </div>
 
-      <p className="sr-only" aria-live="assertive">
-        {paid ? "Presente enviado." : ""}
-      </p>
-    </div>
+        <p className="sr-only" aria-live="assertive">
+          {paid ? "Presente enviado." : ""}
+        </p>
+      </div>
+    </IniciaisContext>
   );
 }
 
@@ -160,10 +180,11 @@ function TabButton({
 
 /** Carimbo "Presente enviado" batido sobre o QR ou o formulário. */
 function Stamp() {
+  const iniciais = useContext(IniciaisContext);
   return (
     <div className={styles.carimbo} data-testid="stamp">
       <div>
-        <MonogramDG bold={10} className="w-14" />
+        <Monograma iniciais={iniciais} bold={10} className="w-14" />
         <span>
           Presente
           <br />

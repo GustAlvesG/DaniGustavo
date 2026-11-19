@@ -2,9 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { MESSAGE_AUTHOR_MAX_CHARS, MESSAGE_MAX_CHARS } from "@casamento/shared";
-import { sendMessageAction, type MessageState } from "@/app/(site)/recados/actions";
+import { sendMessageAction, type MessageState } from "@/app/[host]/(site)/recados/actions";
 import { Button, FieldError, TextArea, TextField } from "@/components/ui";
-import { paginas } from "@/content/paginas";
+import type { Paginas } from "@/content/paginas";
 import styles from "./recados.module.css";
 
 const idle: MessageState = { status: "idle" };
@@ -14,9 +14,8 @@ const idle: MessageState = { status: "idle" };
  * contador de caracteres e aviso curto de privacidade. `useActionState` + <form action>
  * funciona até sem JavaScript (como um POST de formulário do Laravel).
  */
-export function RecadoForm() {
+export function RecadoForm({ t }: { t: Paginas["recados"] }) {
   const [state, action, pending] = useActionState(sendMessageAction, idle);
-  const t = paginas.recados;
   const values = state.status === "error" ? state.values : { author: "", body: "" };
   const [length, setLength] = useState(values.body.length);
 

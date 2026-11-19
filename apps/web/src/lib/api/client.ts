@@ -90,7 +90,7 @@ export type ApiGetOptions = {
 /**
  * Leitura pública cacheada, validada com o schema zod do contrato.
  *
- * @example const site = await apiGet("/api/site", SiteContent, { tags: [CACHE_TAGS.site] });
+ * @example const site = await apiGet("/api/e/x/site", SiteContent, { tags: [CACHE_TAGS.site(ev.id)] });
  */
 export async function apiGet<T>(
   path: string,
@@ -150,7 +150,7 @@ export type ApiWriteOptions<T> = {
  *
  * @example
  * const ip = clientIpFrom(await headers());
- * const r = await apiWrite("PUT", `/api/invitations/${token}/rsvp`, body, { clientIp: ip, schema: RsvpResponse });
+ * const r = await apiWrite("PUT", `/api/e/${slug}/invitations/${token}/rsvp`, body, { clientIp: ip, schema: RsvpResponse });
  * if (!r.ok && r.error.code === ERROR_CODES.rsvpClosed) …
  */
 export async function apiWrite<T = undefined>(

@@ -8,12 +8,13 @@ import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
-import { getSite } from "@/lib/api/site";
+import { currentEvent, eventPath } from "@/lib/api/event";
+import { getContent, getSite } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 
 export const metadata = noindex({
   title: "Pagamento do presente",
-  description: "Pague o presente de Dani e Gustavo com Pix ou cartão.",
+  description: "Pague o presente com Pix ou cartão.",
 });
 
 /* Página por pedido (id na URL), sem casca estática útil: bloqueia no pedido. */
@@ -21,7 +22,7 @@ export const instant = false;
 
 export default async function PagamentoRoute({
   params,
-}: PageProps<"/presentes/pagamento/[publicId]">) {
+}: PageProps<"/[host]/presentes/pagamento/[publicId]">) {
   const site = await getSite();
   return (
     <PageTransition>
@@ -42,11 +43,15 @@ async function Pagamento({
   params,
   timezone,
 }: {
-  params: PageProps<"/presentes/pagamento/[publicId]">["params"];
+  params: PageProps<"/[host]/presentes/pagamento/[publicId]">["params"];
   timezone: string;
 }) {
   const { publicId } = await params;
-  const result = await apiReadFresh(`/api/orders/${encodeURIComponent(publicId)}`, OrderView);
+  const ev = await currentEvent();
+  const [result, { iniciais }] = await Promise.all([
+    apiReadFresh(eventPath(ev, `/orders/${encodeURIComponent(publicId)}`), OrderView),
+    getContent(ev),
+  ]);
   if (!result.ok) {
     if (result.status === 404) notFound();
     return (
@@ -83,7 +88,7 @@ async function Pagamento({
         <OrderSummary order={order} className="r3 max-w-[420px]" />
       </div>
       <FormCard className="lg:col-span-6 lg:col-start-7">
-        <PaymentPanel order={order} />
+        <PaymentPanel order={order} iniciais={iniciais} />
       </FormCard>
     </div>
   );

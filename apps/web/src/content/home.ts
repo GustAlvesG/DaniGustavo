@@ -90,13 +90,13 @@ export const home = {
       arquivo: "dsc06378.jpg",
       alt: "Dani e Gustavo caminhando num campo dourado ao pôr do sol, com montanhas ao fundo",
       posicao: "center 55%",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     /** Foto de fundo no celular (até 700px de largura). Prefira foto em pé. */
     fotoCelular: {
       arquivo: "dsc06264.jpg",
       alt: "Dani e Gustavo de costas, de mãos dadas, olhando o pôr do sol nas montanhas",
       posicao: "center 45%",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     contador: {
       titulo: "Faltam para o nosso sim",
       /** Mensagem no dia do casamento, depois do horário. */
@@ -210,7 +210,7 @@ export const home = {
       arquivo: "img_8083.jpg",
       alt: "Casal de branco caminhando de mãos dadas no crepúsculo azul",
       posicao: "center 40%",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     legendaFoto: "Até lá, contando os dias.",
     tituloHospedagem: "Onde ficar",
   },
@@ -223,7 +223,7 @@ export const home = {
       arquivo: "img_8038.jpg",
       alt: "Silhuetas do casal frente a frente no céu do entardecer",
       posicao: "center 40%",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     linhas: [
       "“Para que todos vejam, e saibam,",
       "e considerem, e juntamente entendam",
@@ -249,12 +249,12 @@ export const home = {
     menu: "Traje",
     rotulo: "Dress code",
     titulo: "Traje passeio, *em tons de azul*",
-    lead: "Pode escolher o seu azul, com detalhes brancos.",
+    lead: "Pode escolher o seu azul, com detalhes brancos." as string | undefined,
     foto: {
       arquivo: "dsc065521.jpg",
       alt: "Casal em pé no topo do morro sob céu azul intenso",
       posicao: "center 30%",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
   },
 
   // --------------------------------------------------------------------------
@@ -271,7 +271,7 @@ export const home = {
     foto: {
       arquivo: "dsc06230.jpg",
       alt: "Abraço testa com testa na luz dourada",
-    } satisfies Foto,
+    } satisfies Foto as Foto | null,
     legendaFoto: "Obrigado por fazer parte",
     botoes: [{ texto: "Ver a lista de presentes", link: "/presentes" }] as {
       texto: string;

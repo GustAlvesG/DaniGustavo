@@ -1,15 +1,22 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { revalidateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/api/tags";
+import { z } from "zod";
+import { CACHE_TAGS, EVENT_TAG_KINDS } from "@/lib/api/tags";
 
-const VALID_TAGS = new Set<string>(Object.values(CACHE_TAGS));
 const digest = (v: string) => createHash("sha256").update(v).digest();
 
+const Body = z.object({
+  eventId: z.number().int().positive(),
+  tags: z.array(z.enum(EVENT_TAG_KINDS)).min(1),
+});
+
 /**
- * POST /api/revalidar: a API avisa que o painel mudou algo (presentes, conteúdo, recados) e
- * o site descarta o cache dessas tags. Protegido pelo mesmo segredo X-Web-Key que o site usa
- * para falar com a API. `expire: 0` faz a próxima visita já buscar o dado novo (é o
- * equivalente a um `Cache::tags(...)->flush()` do Laravel).
+ * POST /api/revalidar: a API avisa que o painel mudou algo de um evento (presentes,
+ * conteúdo, recados) e o site descarta o cache dessas tags SÓ daquele evento
+ * (`{ eventId: 12, tags: ["gifts"] }` → tag `gifts:12`). Protegido pelo mesmo segredo
+ * X-Web-Key que o site usa para falar com a API. Fica fora do proxy (não depende do host).
+ * `expire: 0` faz a próxima visita já buscar o dado novo (é o equivalente a um
+ * `Cache::tags(...)->flush()` do Laravel).
  */
 export async function POST(req: Request) {
   const expected = process.env.WEB_KEY;
@@ -17,19 +24,21 @@ export async function POST(req: Request) {
   if (!expected || !provided || !timingSafeEqual(digest(provided), digest(expected))) {
     return Response.json({ error: "Chave inválida." }, { status: 401 });
   }
-  let body: unknown;
+  let json: unknown;
   try {
-    body = await req.json();
+    json = await req.json();
   } catch {
-    body = undefined;
+    json = undefined;
   }
-  const tags = (body as { tags?: unknown } | undefined)?.tags;
-  if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string" && VALID_TAGS.has(t))) {
+  const parsed = Body.safeParse(json);
+  if (!parsed.success) {
     return Response.json(
-      { error: `Envie { tags: [...] } com ${[...VALID_TAGS].join(", ")}.` },
+      { error: `Envie { eventId, tags: [...] } com ${EVENT_TAG_KINDS.join(", ")}.` },
       { status: 422 },
     );
   }
-  for (const tag of tags as string[]) revalidateTag(tag, { expire: 0 });
-  return Response.json({ ok: true, revalidated: tags });
+  const { eventId, tags } = parsed.data;
+  const revalidated = tags.map((kind) => CACHE_TAGS[kind](eventId));
+  for (const tag of revalidated) revalidateTag(tag, { expire: 0 });
+  return Response.json({ ok: true, revalidated });
 }

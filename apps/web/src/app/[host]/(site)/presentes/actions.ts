@@ -15,8 +15,11 @@ import {
   type PayWithCardRequest as CardBody,
 } from "@casamento/shared";
 import { apiWrite, clientIpFrom } from "@/lib/api/client";
+import { eventPath, requestEvent } from "@/lib/api/event";
 import { CACHE_TAGS } from "@/lib/api/tags";
 import { parseReais } from "@/lib/presentes";
+
+const NO_EVENT = "Não encontramos o evento deste site. Recarregue a página e tente de novo.";
 
 /* ------------------------------------------------------------------------ */
 /* Criar o pedido (formulário do presente em /presentes)                     */
@@ -88,14 +91,17 @@ export async function createOrderAction(
     };
   }
 
-  const result = await apiWrite("POST", "/api/orders", parsed.data, {
+  // Server Action não tem root params: o evento sai do header que o proxy gravou.
+  const ev = await requestEvent();
+  if (!ev) return { status: "error", message: NO_EVENT };
+  const result = await apiWrite("POST", eventPath(ev, "/orders"), parsed.data, {
     clientIp: clientIpFrom(await headers()),
     schema: OrderView,
   });
   if (!result.ok) {
     const { error, status } = result;
     if (error.code === ERROR_CODES.giftUnavailable) {
-      updateTag(CACHE_TAGS.gifts);
+      updateTag(CACHE_TAGS.gifts(ev.id));
       return { status: "error", message: error.message, soldOut: true };
     }
     if (status === 422) {
@@ -111,7 +117,7 @@ export async function createOrderAction(
     return { status: "error", message: error.message };
   }
 
-  updateTag(CACHE_TAGS.gifts);
+  updateTag(CACHE_TAGS.gifts(ev.id));
   redirect(`/presentes/pagamento/${result.data.publicId}`);
 }
 
@@ -133,9 +139,11 @@ export async function startCardCheckoutAction(
 ): Promise<{ ok: true; url: string } | { ok: false; message: string; expired?: boolean }> {
   const parsed = CardCheckoutRequest.safeParse(body);
   if (!parsed.success) return { ok: false, message: "Dados inválidos. Recarregue a página." };
+  const ev = await requestEvent();
+  if (!ev) return { ok: false, message: NO_EVENT };
   const result = await apiWrite(
     "POST",
-    `/api/orders/${encodeURIComponent(publicId)}/card-checkout`,
+    eventPath(ev, `/orders/${encodeURIComponent(publicId)}/card-checkout`),
     parsed.data,
     { clientIp: clientIpFrom(await headers()), schema: CardCheckoutResponse },
   );
@@ -158,9 +166,11 @@ export async function payWithCardAction(
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados do cartão inválidos." };
   }
+  const ev = await requestEvent();
+  if (!ev) return { ok: false, message: NO_EVENT };
   const result = await apiWrite(
     "POST",
-    `/api/orders/${encodeURIComponent(publicId)}/card`,
+    eventPath(ev, `/orders/${encodeURIComponent(publicId)}/card`),
     parsed.data,
     { clientIp: clientIpFrom(await headers()), schema: PayWithCardResponse },
   );
@@ -171,7 +181,7 @@ export async function payWithCardAction(
       expired: result.error.code === ERROR_CODES.orderNotPending,
     };
   }
-  if (result.data.outcome === "approved") updateTag(CACHE_TAGS.gifts);
+  if (result.data.outcome === "approved") updateTag(CACHE_TAGS.gifts(ev.id));
   return { ok: true, ...result.data };
 }
 
@@ -186,9 +196,11 @@ export async function payWithCardAction(
 export async function simulateApprovalAction(
   publicId: string,
 ): Promise<{ ok: boolean; message?: string }> {
+  const ev = await requestEvent();
+  if (!ev) return { ok: false, message: NO_EVENT };
   const result = await apiWrite(
     "POST",
-    `/api/dev/orders/${encodeURIComponent(publicId)}/approve`,
+    eventPath(ev, `/dev/orders/${encodeURIComponent(publicId)}/approve`),
     undefined,
   );
   if (!result.ok) return { ok: false, message: result.error.message };

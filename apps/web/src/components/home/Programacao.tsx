@@ -1,6 +1,6 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho } from "@/components/album";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
@@ -9,7 +9,15 @@ import styles from "./home.module.css";
  * (`animation-timeline: view()` em home.module.css), com um ponto por
  * horário. Horário de um lado, cartão do outro, alternando.
  */
-export function Programacao({ site, pagina }: { site: SiteContent; pagina?: number }) {
+export function Programacao({
+  home,
+  site,
+  pagina,
+}: {
+  home: HomeContent;
+  site: SiteContent;
+  pagina?: number;
+}) {
   const { programacao } = home;
   return (
     <section className={styles.sec} id="programacao" aria-labelledby="programacao-titulo">

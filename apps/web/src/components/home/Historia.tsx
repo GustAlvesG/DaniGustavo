@@ -1,5 +1,5 @@
 import { Cabecalho, Polaroid } from "@/components/album";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
@@ -8,7 +8,7 @@ import styles from "./home.module.css";
  * título e uma frase. Elas "assentam" no álbum ao entrar na tela (giram e
  * sobem até a inclinação final), alternando o lado.
  */
-export function Historia({ pagina }: { pagina?: number }) {
+export function Historia({ home, pagina }: { home: HomeContent; pagina?: number }) {
   const { historia } = home;
   return (
     <section className={styles.sec} id="historia" aria-labelledby="historia-titulo">

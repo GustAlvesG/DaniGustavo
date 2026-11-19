@@ -1,8 +1,8 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, Polaroid } from "@/components/album";
-import { MonogramDG } from "@/components/brand";
+import { Monograma } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import { formatDayMonth, formatDotDate } from "@/lib/site";
 import { preencher } from "@/lib/texto";
@@ -13,7 +13,17 @@ import styles from "./home.module.css";
  * convite: este cartão-resposta só leva a /confirmar (busca pelo nome), onde
  * o convidado acha o próprio convite e responde por todos de uma vez.
  */
-export function Rsvp({ site, pagina }: { site: SiteContent; pagina?: number }) {
+export function Rsvp({
+  home,
+  site,
+  iniciais,
+  pagina,
+}: {
+  home: HomeContent;
+  site: SiteContent;
+  iniciais: string | null;
+  pagina?: number;
+}) {
   const { rsvp } = home;
   const tz = site.wedding.timezone;
   const deadline = site.rsvp.deadline;
@@ -48,7 +58,7 @@ export function Rsvp({ site, pagina }: { site: SiteContent; pagina?: number }) {
         </div>
 
         <div className={cx("cartao-resp surface-papel de-dir", styles.cartaoResp)}>
-          <MonogramDG className={styles.cartaoMono} bold={10} />
+          <Monograma iniciais={iniciais} className={styles.cartaoMono} bold={10} />
           <h3>{rsvp.cartao.titulo}</h3>
           <p className={styles.prazo}>Até {formatDotDate(deadline, tz)}</p>
           <p className={styles.convite}>{rsvp.cartao.texto}</p>

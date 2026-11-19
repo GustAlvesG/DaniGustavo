@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 import { getImageProps } from "next/image";
 import type { SiteContent } from "@casamento/shared";
-import { MonogramDG } from "@/components/brand";
+import { Monograma } from "@/components/brand";
 import { Countdown } from "@/components/countdown";
-import { home } from "@/content/home";
+import type { Foto, HomeContent } from "@/content/home";
 import { foto } from "@/lib/fotos";
 import { formatWeddingDate } from "@/lib/countdown";
 import { cityFromAddress, formatDotDate, splitCoupleNames } from "@/lib/site";
@@ -20,29 +20,21 @@ import styles from "./home.module.css";
  * com duas fontes. `getImageProps` dá as URLs otimizadas do next/image sem
  * renderizar um <Image>, para montar o <picture> à mão.
  */
-export function Hero({ site }: { site: SiteContent }) {
+export function Hero({
+  home,
+  site,
+  iniciais,
+}: {
+  home: HomeContent;
+  site: SiteContent;
+  iniciais: string | null;
+}) {
   const { hero } = home;
   const { first, second } = splitCoupleNames(site.couple.names);
   const tz = site.wedding.timezone;
   const city = cityFromAddress(site.ceremony.address).split(",")[0];
 
-  const desktop = foto(hero.fotoDesktop.arquivo);
-  const mobile = foto(hero.fotoCelular.arquivo);
-  const common = { alt: hero.fotoCelular.alt, sizes: "100vw", quality: 75 } as const;
-  const {
-    props: { srcSet: desktopSrcSet },
-  } = getImageProps({ ...common, src: desktop.src, width: desktop.width, height: desktop.height });
-  const {
-    props: { srcSet: mobileSrcSet, ...img },
-  } = getImageProps({
-    ...common,
-    src: mobile.src,
-    width: mobile.width,
-    height: mobile.height,
-    loading: "eager",
-    fetchPriority: "high",
-  });
-
+  const fotos = heroPicture(hero.fotoDesktop, hero.fotoCelular);
   return (
     <section
       className={styles.hero}
@@ -51,22 +43,25 @@ export function Hero({ site }: { site: SiteContent }) {
       // Parte visível de cada foto quando cortada (content/home.ts → posicao).
       style={
         {
-          "--pos-celular": hero.fotoCelular.posicao ?? "center",
-          "--pos-desktop": hero.fotoDesktop.posicao ?? "center",
+          "--pos-celular": hero.fotoCelular?.posicao ?? "center",
+          "--pos-desktop": hero.fotoDesktop?.posicao ?? "center",
         } as CSSProperties
       }
     >
+      {/* Sem foto (eventos sem conteúdo próprio): fica o fundo marinho do hero. */}
       <div className={styles.heroBg}>
-        <picture>
-          <source media="(min-width: 701px)" srcSet={desktopSrcSet} sizes="100vw" />
-          {/* eslint-disable-next-line jsx-a11y/alt-text -- o alt vem em `img` (getImageProps) */}
-          <img {...img} srcSet={mobileSrcSet} />
-        </picture>
+        {fotos ? (
+          <picture>
+            <source media="(min-width: 701px)" srcSet={fotos.desktopSrcSet} sizes="100vw" />
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- o alt vem em `img` (getImageProps) */}
+            <img {...fotos.img} />
+          </picture>
+        ) : null}
       </div>
       <div className={styles.heroVeu} />
 
       <div className={styles.heroConteudo}>
-        <MonogramDG className={styles.heroMono} bold={10} />
+        <Monograma iniciais={iniciais} className={styles.heroMono} bold={10} />
         <p className={styles.sobre}>{hero.chamada}</p>
         <h1 id="hero-titulo" className={styles.nomes}>
           {first} <span className={styles.e}>&amp;</span> {second}
@@ -94,4 +89,29 @@ export function Hero({ site }: { site: SiteContent }) {
       </div>
     </section>
   );
+}
+
+/**
+ * Foto diferente no celular e no computador ("art direction"): `getImageProps` dá as URLs
+ * otimizadas do next/image sem renderizar um <Image>, para montar o <picture> à mão.
+ */
+function heroPicture(desktopFoto: Foto | null, mobileFoto: Foto | null) {
+  if (!desktopFoto || !mobileFoto) return null;
+  const desktop = foto(desktopFoto.arquivo);
+  const mobile = foto(mobileFoto.arquivo);
+  const common = { alt: mobileFoto.alt, sizes: "100vw", quality: 75 } as const;
+  const {
+    props: { srcSet: desktopSrcSet },
+  } = getImageProps({ ...common, src: desktop.src, width: desktop.width, height: desktop.height });
+  const {
+    props: { srcSet: mobileSrcSet, ...img },
+  } = getImageProps({
+    ...common,
+    src: mobile.src,
+    width: mobile.width,
+    height: mobile.height,
+    loading: "eager",
+    fetchPriority: "high",
+  });
+  return { desktopSrcSet, img: { ...img, srcSet: mobileSrcSet } };
 }

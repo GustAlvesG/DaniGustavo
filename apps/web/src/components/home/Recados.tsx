@@ -2,7 +2,7 @@ import { Cabecalho } from "@/components/album";
 import { Mural } from "@/components/recados/Mural";
 import recados from "@/components/recados/recados.module.css";
 import { ButtonLink } from "@/components/ui";
-import { home } from "@/content/home";
+import type { HomeContent } from "@/content/home";
 import type { Wall } from "@/lib/api/messages";
 import styles from "./home.module.css";
 
@@ -11,10 +11,12 @@ import styles from "./home.module.css";
  * formulário. Sem recado aprovado ainda, convida a escrever o primeiro.
  */
 export function Recados({
+  home,
   wall,
   timeZone,
   pagina,
 }: {
+  home: HomeContent;
   wall: Wall;
   timeZone: string;
   pagina?: number;

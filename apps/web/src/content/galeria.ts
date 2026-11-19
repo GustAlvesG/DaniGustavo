@@ -42,3 +42,5 @@ export const galeria = {
     { arquivo: "img_7846.jpg", alt: "Casal de costas na estrada de terra, com o sol se pondo" },
   ] satisfies (Foto & { legenda?: string })[] as (Foto & { legenda?: string })[],
 };
+
+export type Galeria = typeof galeria;

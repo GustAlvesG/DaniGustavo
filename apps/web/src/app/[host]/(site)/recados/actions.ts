@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { CreateMessageRequest, ERROR_CODES } from "@casamento/shared";
 import { apiWrite, clientIpFrom } from "@/lib/api/client";
+import { eventPath, requestEvent } from "@/lib/api/event";
 
 export type MessageValues = { author: string; body: string };
 
@@ -44,7 +45,16 @@ export async function sendMessageAction(
     };
   }
 
-  const result = await apiWrite("POST", "/api/messages", parsed.data, {
+  // Server Action não tem root params: o evento sai do header que o proxy gravou.
+  const ev = await requestEvent();
+  if (!ev) {
+    return {
+      status: "error",
+      message: "Não encontramos o evento deste site. Recarregue a página.",
+      values,
+    };
+  }
+  const result = await apiWrite("POST", eventPath(ev, "/messages"), parsed.data, {
     clientIp: clientIpFrom(await headers()),
   });
   if (!result.ok) {
