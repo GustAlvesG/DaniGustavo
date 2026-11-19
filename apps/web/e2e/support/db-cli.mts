@@ -9,6 +9,7 @@ import {
   db,
   eq,
   eventSettings,
+  events,
   giftOrders,
   gifts,
   guests,
@@ -166,6 +167,31 @@ async function main(): Promise<unknown> {
     case "message-delete": {
       await db.delete(messages).where(eq(messages.author, arg ?? ""));
       return { ok: true };
+    }
+    case "multi-gift": {
+      // Presente que só existe no evento de teste (prova que as listas não se misturam).
+      const [ev] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(eq(events.slug, arg ?? ""));
+      if (!ev) throw new Error(`Evento ${arg} não existe.`);
+      const slug = "e2e-so-do-evento-2";
+      const [has] = await db
+        .select({ id: gifts.id })
+        .from(gifts)
+        .where(and(eq(gifts.eventId, ev.id), eq(gifts.slug, slug)));
+      if (!has) {
+        await db.insert(gifts).values({
+          eventId: ev.id,
+          slug,
+          title: "Presente só do evento 2",
+          priceCents: 15000,
+          quotaTotal: 1,
+          category: "casa",
+          tileDesign: "flor",
+        });
+      }
+      return { ok: true, eventId: ev.id };
     }
     default:
       throw new Error(`Comando desconhecido: ${command}`);

@@ -16,7 +16,7 @@ export async function prepare(page: Page, ip = uniqueIp()): Promise<string> {
 }
 
 export async function apiInvitation(token: string) {
-  const res = await fetch(`${API_URL}/api/invitations/${token}`);
+  const res = await fetch(`${API_URL}/api/e/dani-gustavo/invitations/${token}`);
   expect(res.ok).toBe(true);
   return (await res.json()) as {
     isClosed: boolean;

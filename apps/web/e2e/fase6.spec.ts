@@ -36,7 +36,7 @@ test("mural: recado novo fica pendente e só aparece depois de aprovado", async 
   const key = process.env.WEB_KEY ?? "";
   const res = await request.post(`${baseURL}/api/revalidar`, {
     headers: { "x-web-key": key },
-    data: { tags: ["messages"] },
+    data: { eventId: 1, tags: ["messages"] },
   });
   expect(res.ok()).toBe(true);
   await page.goto("/recados");

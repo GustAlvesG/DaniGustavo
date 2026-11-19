@@ -15,7 +15,7 @@ const plain = (s: string) => s.replace(/\*/g, "");
 
 async function loadSite(request: APIRequestContext): Promise<SiteContent | null> {
   try {
-    const res = await request.get(`${API_URL}/api/site`, { timeout: 5_000 });
+    const res = await request.get(`${API_URL}/api/e/dani-gustavo/site`, { timeout: 5_000 });
     return res.ok() ? ((await res.json()) as SiteContent) : null;
   } catch {
     return null;
