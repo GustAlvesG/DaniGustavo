@@ -11,7 +11,8 @@ import { expect, test, type Page } from "@playwright/test";
 const painelUrl =
   process.env.PAINEL_URL ??
   `${(process.env.API_URL ?? "http://localhost:3333").replace(/\/+$/, "")}/painel/`;
-const apiBase = new URL("/api/admin", painelUrl).toString();
+// Evento 1: o casamento que já existia (o usuário do e2e é host dele).
+const apiBase = new URL("/api/admin/events/1", painelUrl).toString();
 const email = process.env.E2E_ADMIN_EMAIL ?? process.env.ADMIN_EMAIL_1 ?? "";
 const password = process.env.E2E_ADMIN_PASSWORD ?? process.env.ADMIN_PASSWORD_INICIAL ?? "";
 const root = join(__dirname, "..", "..", "..");
@@ -119,7 +120,7 @@ test("importar 50 convidados → buffet → QR para impressão", async ({ page }
   await expect(page.getByRole("heading", { level: 1, name: "Família Andrade" })).toBeVisible();
 
   // Lista do buffet: tela, CSV e versão para imprimir
-  await page.goto(`${painelUrl}#/convites/listas/buffet`);
+  await page.goto(`${painelUrl}#/e/1/convites/listas/buffet`);
   await expect(page.getByRole("heading", { name: "Lista do buffet" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Alergia a amendoim" })).toBeVisible();
   const csv = await page.request.get(`${apiBase}/invitations/lists/buffet.csv`);
@@ -139,7 +140,7 @@ test("importar 50 convidados → buffet → QR para impressão", async ({ page }
   await page.emulateMedia({ media: "screen" });
 
   // QR em lote: não enviados, impressão A4
-  await page.goto(`${painelUrl}#/convites/qr`);
+  await page.goto(`${painelUrl}#/e/1/convites/qr`);
   await expect(page.getByRole("heading", { level: 1, name: "QR dos convites" })).toBeVisible();
   await page.getByLabel(/Não enviados/).check();
   await page.getByLabel("Escolher").check();

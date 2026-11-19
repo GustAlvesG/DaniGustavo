@@ -1,3 +1,5 @@
+import { ea } from "./nav.ts";
+
 /*
  * Cliente das rotas /api/admin. Mesma origem da API: o cookie de sessão do Better Auth vai
  * sozinho (nunca usamos X-Web-Key aqui). Erros viram `ApiFailure` com a mensagem pt-BR da API.
@@ -14,11 +16,18 @@ export class ApiFailure extends Error {
 /** Disparado quando a sessão expira: o App volta para a tela de login. */
 export const SESSION_EXPIRED = "painel:sessao-expirada";
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Rota do evento atual: api("/gifts") chama /api/admin/events/:eventId/gifts. */
+export const api = <T>(path: string, init: RequestInit = {}) => request<T>(ea(path), init);
+
+/** Rota fora de um evento (ex.: /api/admin/me). */
+export const apiRoot = <T>(path: string, init: RequestInit = {}) =>
+  request<T>(`/api/admin${path}`, init);
+
+async function request<T>(url: string, init: RequestInit): Promise<T> {
   const isForm = init.body instanceof FormData;
   let res: Response;
   try {
-    res = await fetch(`/api/admin${path}`, {
+    res = await fetch(url, {
       credentials: "same-origin",
       ...init,
       headers: {

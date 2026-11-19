@@ -1067,3 +1067,17 @@ input[readonly] {
 .modal__header h2 {
   margin: 0;
 }
+
+/* ------------------------------------------------------- seletor de evento */
+.brand__label {
+  max-width: 36vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar__event select {
+  width: auto;
+  max-width: 40vw;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}

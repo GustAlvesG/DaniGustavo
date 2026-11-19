@@ -2,6 +2,7 @@ import type { DashboardData } from "@casamento/shared";
 import { api } from "../api.ts";
 import { daysUntil, formatBRL, formatDate, formatDateTime, plural } from "../format.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../ui.tsx";
+import { ea, eh } from "../nav.ts";
 
 const AGE_LABEL = { "0-2": "0 a 2 anos", "3-7": "3 a 7 anos", "8-12": "8 a 12 anos" } as const;
 
@@ -70,7 +71,7 @@ export function Dashboard() {
                 ? `Faltam ${plural(days, "dia", "dias")}.`
                 : "O prazo já passou: o site não aceita mais respostas."}
           </p>
-          <a className="link-small" href="#/configuracoes">
+          <a className="link-small" href={eh("/configuracoes")}>
             Alterar prazo
           </a>
         </section>
@@ -103,11 +104,11 @@ export function Dashboard() {
               )}
             </ul>
           )}
-          <a className="link-small" href="/api/admin/invitations/lists/buffet.csv" download>
+          <a className="link-small" href={ea("/invitations/lists/buffet.csv")} download>
             Baixar lista do buffet (CSV)
           </a>{" "}
           ·{" "}
-          <a className="link-small" href="#/convites/listas/buffet">
+          <a className="link-small" href={eh("/convites/listas/buffet")}>
             Outras listas
           </a>
         </section>
@@ -136,7 +137,7 @@ export function Dashboard() {
       <section className="card" aria-labelledby="d-ult">
         <div className="card__head">
           <h2 id="d-ult">Últimos presentes</h2>
-          <a className="link-small" href="#/pedidos">
+          <a className="link-small" href={eh("/pedidos")}>
             Ver todos os pedidos
           </a>
         </div>
@@ -159,7 +160,7 @@ export function Dashboard() {
         {data.pendingMessages > 0 && (
           <p className="alert alert--info">
             {plural(data.pendingMessages, "recado aguarda", "recados aguardam")} sua aprovação.{" "}
-            <a href="#/recados">Moderar recados</a>
+            <a href={eh("/recados")}>Moderar recados</a>
           </p>
         )}
       </section>

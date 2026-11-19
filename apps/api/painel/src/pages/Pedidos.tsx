@@ -8,7 +8,7 @@ import type {
 import { useState } from "react";
 import { api, errorMessage, send } from "../api.ts";
 import { formatBRL, formatDateTime, plural } from "../format.ts";
-import { go } from "../nav.ts";
+import { eh, go } from "../nav.ts";
 import {
   Badge,
   Confirm,
@@ -112,7 +112,7 @@ export function Pedidos({ openId }: { openId?: string }) {
         <ul className="rows" aria-busy={loading}>
           {data?.orders.map((o) => (
             <li key={o.publicId} className="row">
-              <a className="row__main" href={`#/pedidos/${o.publicId}`}>
+              <a className="row__main" href={eh(`/pedidos/${o.publicId}`)}>
                 <span className="row__title">
                   {o.gift.title}
                   {o.quantity > 1 && ` × ${o.quantity}`}

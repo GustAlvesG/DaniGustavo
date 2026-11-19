@@ -1,6 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { SESSION_EXPIRED } from "./api.ts";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
+import { EventProvider, EventsPage, monogramOf, type MeEvent, type MeResponse } from "./event.tsx";
+import { eh, goAbsolute, lastEvent, rememberEvent, setCurrentEventId } from "./nav.ts";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
 import { Conta } from "./pages/Conta.tsx";
 import { ConviteDetalhe, ConviteForm, Convites } from "./pages/Convites.tsx";
@@ -12,10 +14,10 @@ import { Lembretes } from "./pages/Lembretes.tsx";
 import { Pedidos } from "./pages/Pedidos.tsx";
 import { Presentes } from "./pages/Presentes.tsx";
 import { Recados } from "./pages/Recados.tsx";
-import { ToastProvider } from "./ui.tsx";
+import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
-/* Rotas por hash (#/convites/12): sem roteador, o servidor só entrega index */
+/* Rotas por hash (#/e/3/convites/12): sem roteador, o servidor só entrega index */
 /* ------------------------------------------------------------------------ */
 
 function useHashPath(): string {
@@ -42,8 +44,15 @@ const NAV = [
   { href: "/configuracoes", label: "Configurações" },
 ];
 
+/** "/e/3/convites?x=1" → { eventId: 3, rest: "/convites?x=1" }; outro caminho → null. */
+function parseEventPath(path: string): { eventId: number; rest: string } | null {
+  const m = /^\/e\/([1-9]\d{0,15})(\/.*)?$/.exec(path);
+  return m ? { eventId: Number(m[1]), rest: m[2] ?? "/" } : null;
+}
+
+/** Página do evento; `path` é relativo a ele ("/convites/12"). */
 function Page({ path }: { path: string }) {
-  // "#/convites/qr?ids=1,2": a parte depois do "?" vai para a página.
+  // "/convites/qr?ids=1,2": a parte depois do "?" vai para a página.
   const [route = "", query = ""] = path.split("?");
   const parts = route.split("/").filter(Boolean);
   const [section, id, extra] = parts;
@@ -74,7 +83,7 @@ function Page({ path }: { path: string }) {
       return (
         <div className="stack">
           <h1>Página não encontrada</h1>
-          <a href="#/">Voltar ao início</a>
+          <a href={eh("/")}>Voltar ao início</a>
         </div>
       );
   }
@@ -106,28 +115,128 @@ export function App() {
 
   return data ? (
     <ToastProvider>
-      <Shell user={data.user} />
+      <Painel />
     </ToastProvider>
   ) : (
     <Login />
   );
 }
 
-function Brand() {
+/** Entrada: pergunta ao servidor quais eventos o usuário abre e decide para onde ir. */
+function Painel() {
+  const { data, error, loading, reload } = useLoad(() => apiRoot<MeResponse>("/me"), []);
+  const path = useHashPath();
+
+  if (loading && !data) {
+    return (
+      <main className="shell shell--center">
+        <Loading />
+      </main>
+    );
+  }
+  if (error || !data) {
+    return (
+      <main className="shell shell--center">
+        <ErrorBox message={error ?? "Não deu para carregar."} onRetry={reload} />
+      </main>
+    );
+  }
+  return <Routed me={data} path={path} />;
+}
+
+/**
+ * Para onde o hash deve ir (null = ficar). Um evento só: entra direto nele. Vários: lista em
+ * #/eventos. Hashes antigos (#/convites/12, sem /e/:id) vão para o mesmo lugar dentro do
+ * evento atual (o único, ou o último aberto neste navegador).
+ */
+function resolveRedirect(
+  path: string,
+  events: { id: number }[],
+  remembered: number | null,
+): string | null {
+  if (events.length === 0) return path === "/eventos" || path === "/conta" ? null : "/eventos";
+  const only = events.length === 1 ? events[0] : undefined;
+  const parsed = parseEventPath(path);
+  if (parsed) {
+    if (events.some((e) => e.id === parsed.eventId)) return null;
+    return only ? `/e/${only.id}` : "/eventos";
+  }
+  if (path === "/eventos") return only ? `/e/${only.id}` : null;
+  const current = only ?? events.find((e) => e.id === remembered);
+  if (!current) return path === "/conta" ? null : "/eventos";
+  return `/e/${current.id}${path === "/" ? "" : path}`;
+}
+
+function Routed({ me, path }: { me: MeResponse; path: string }) {
+  const redirectTo = resolveRedirect(path, me.events, lastEvent());
+  useEffect(() => {
+    if (redirectTo) window.location.replace(`#${redirectTo}`);
+  }, [redirectTo]);
+  if (redirectTo) return null;
+
+  const parsed = parseEventPath(path);
+  const event = parsed ? me.events.find((e) => e.id === parsed.eventId) : undefined;
+  if (parsed && event) {
+    return (
+      <Frame me={me} event={event} rest={parsed.rest}>
+        <Page path={parsed.rest} />
+      </Frame>
+    );
+  }
   return (
-    <a className="brand" href="#/" aria-label="Painel Dani e Gustavo, início">
+    <Frame me={me} event={null} rest="">
+      {path === "/conta" ? (
+        <Conta />
+      ) : me.events.length === 0 ? (
+        <div className="stack">
+          <h1>Nenhum evento por aqui</h1>
+          <p className="muted">
+            Sua conta ainda não está ligada a nenhum evento. Peça a quem organiza o evento para
+            incluir você.
+          </p>
+        </div>
+      ) : (
+        <EventsPage events={me.events} />
+      )}
+    </Frame>
+  );
+}
+
+function Brand({ event }: { event: MeEvent | null }) {
+  return (
+    <a
+      className="brand"
+      href={event ? eh("/") : "#/eventos"}
+      aria-label={event ? `Painel de ${event.name}, início` : "Painel, seus eventos"}
+    >
       <span className="brand__mark" aria-hidden="true">
-        D&nbsp;&amp;&nbsp;G
+        {event ? monogramOf(event.name) : "&"}
       </span>
-      <span className="brand__label">Painel</span>
+      <span className="brand__label">{event ? event.name : "Painel"}</span>
     </a>
   );
 }
 
-function Shell({ user }: { user: { name: string; email: string } }) {
-  const path = useHashPath();
-  const section = `/${path.split("/")[1] ?? ""}`;
+function Frame({
+  me,
+  event,
+  rest,
+  children,
+}: {
+  me: MeResponse;
+  event: MeEvent | null;
+  /** Caminho da página dentro do evento ("/convites/12"). */
+  rest: string;
+  children: ReactNode;
+}) {
   const [signingOut, setSigningOut] = useState(false);
+  const section = `/${rest.split("?")[0]!.split("/")[1] ?? ""}`;
+  // Antes de renderizar a página: as rotas e links dela usam o evento atual.
+  if (event) setCurrentEventId(event.id);
+  useEffect(() => {
+    if (event) rememberEvent(event.id);
+    document.title = event ? `Painel · ${event.name}` : "Painel";
+  }, [event]);
   // No celular o menu rola de lado: mantém a seção atual à vista.
   useEffect(() => {
     document
@@ -141,10 +250,26 @@ function Shell({ user }: { user: { name: string; email: string } }) {
         Pular para o conteúdo
       </a>
       <header className="topbar">
-        <Brand />
+        <Brand event={event} />
         <div className="topbar__user">
-          <a href="#/conta" className="topbar__name" title={user.email}>
-            {user.name}
+          {me.events.length > 1 && (
+            <label className="topbar__event">
+              <span className="sr-only">Evento</span>
+              <select
+                value={event?.id ?? ""}
+                onChange={(e) => goAbsolute(e.target.value ? `/e/${e.target.value}` : "/eventos")}
+              >
+                {!event && <option value="">Seus eventos</option>}
+                {me.events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <a href={event ? eh("/conta") : "#/conta"} className="topbar__name" title={me.user.email}>
+            {me.user.name}
           </a>
           <button
             className="button button--ghost button--small"
@@ -153,26 +278,35 @@ function Shell({ user }: { user: { name: string; email: string } }) {
               setSigningOut(true);
               await authClient.signOut();
               setSigningOut(false);
-              window.location.hash = "/";
+              goAbsolute("/");
             }}
           >
             Sair
           </button>
         </div>
       </header>
-      <nav className="nav" aria-label="Seções do painel">
-        <ul>
-          {NAV.map((item) => (
-            <li key={item.href}>
-              <a href={`#${item.href}`} aria-current={section === item.href ? "page" : undefined}>
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {event && (
+        <nav className="nav" aria-label="Seções do painel">
+          <ul>
+            {NAV.map((item) => (
+              <li key={item.href}>
+                <a href={eh(item.href)} aria-current={section === item.href ? "page" : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       <main className="content" id="conteudo" tabIndex={-1}>
-        <Page path={path} />
+        {event ? (
+          // key: ao trocar de evento a página remonta e recarrega os próprios dados.
+          <EventProvider key={event.id} value={event}>
+            {children}
+          </EventProvider>
+        ) : (
+          children
+        )}
       </main>
     </div>
   );
@@ -197,11 +331,11 @@ function Login() {
     <main className="shell shell--center">
       <section className="card card--narrow">
         <div className="login-brand" aria-hidden="true">
-          <span className="brand__mark">D&nbsp;&amp;&nbsp;G</span>
+          <span className="brand__mark">&amp;</span>
         </div>
         <form onSubmit={onSubmit} className="stack">
           <h1>Entrar no painel</h1>
-          <p className="muted">Acesso só para os noivos.</p>
+          <p className="muted">Acesso só para quem organiza o evento.</p>
           <label className="field">
             <span className="field__label">E-mail</span>
             <input

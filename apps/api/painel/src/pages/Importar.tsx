@@ -9,6 +9,7 @@ import { api, errorMessage } from "../api.ts";
 import { plural } from "../format.ts";
 import { Badge, FormError, PageHeader, useToast } from "../ui.tsx";
 import "../tools.css";
+import { ea, eh } from "../nav.ts";
 
 /* Importar convidados de CSV ou XLSX: escolher → prévia validada → confirmar. */
 
@@ -68,7 +69,7 @@ export function Importar() {
 
   return (
     <div className="stack stack--lg">
-      <a className="back" href="#/convites">
+      <a className="back" href={eh("/convites")}>
         ← Convites
       </a>
       <PageHeader
@@ -86,10 +87,13 @@ export function Importar() {
               ` ${plural(result.skipped.invitations, "convite já existia e foi ignorado", "convites já existiam e foram ignorados")}.`}
           </p>
           <div className="actions">
-            <a className="button" href="#/convites">
+            <a className="button" href={eh("/convites")}>
               Ver convites
             </a>
-            <a className="button button--ghost" href={`#/convites/qr?ids=${result.ids.join(",")}`}>
+            <a
+              className="button button--ghost"
+              href={eh(`/convites/qr?ids=${result.ids.join(",")}`)}
+            >
               Imprimir QR dos novos convites
             </a>
           </div>
@@ -116,18 +120,10 @@ export function Importar() {
               }}
             />
           </label>
-          <a
-            className="button button--ghost"
-            href="/api/admin/invitations/import/modelo.xlsx"
-            download
-          >
+          <a className="button button--ghost" href={ea("/invitations/import/modelo.xlsx")} download>
             Baixar modelo (XLSX)
           </a>
-          <a
-            className="button button--ghost"
-            href="/api/admin/invitations/import/modelo.csv"
-            download
-          >
+          <a className="button button--ghost" href={ea("/invitations/import/modelo.csv")} download>
             Baixar modelo (CSV)
           </a>
         </div>

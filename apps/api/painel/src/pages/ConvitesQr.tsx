@@ -4,6 +4,8 @@ import { api } from "../api.ts";
 import { formatDate, plural } from "../format.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../ui.tsx";
 import "../tools.css";
+import { monogramOf, useEvent } from "../event.tsx";
+import { eh } from "../nav.ts";
 
 /*
  * QR dos convites em lote para imprimir (Salvar como PDF no navegador): A4, 8 cartões por
@@ -67,6 +69,7 @@ export function ConvitesQr({ query }: { query: string }) {
         ? "nao-enviados"
         : "todos",
   );
+  const event = useEvent();
   const [chosen, setChosen] = useState<Set<number>>(() => new Set(initialIds));
   const { data, error, loading, reload } = useLoad(
     () =>
@@ -83,8 +86,8 @@ export function ConvitesQr({ query }: { query: string }) {
   const [{ invitations }, settings] = data;
   const v = settings.values;
   const couple = {
-    names: v["couple.names"] || "Dani & Gustavo",
-    monogram: v["couple.monogram"] || "D&G",
+    names: v["couple.names"] || event.name,
+    monogram: v["couple.monogram"] || monogramOf(event.name),
   };
   const date = v["wedding.datetime"] ? formatDate(v["wedding.datetime"]) : null;
 
@@ -106,7 +109,7 @@ export function ConvitesQr({ query }: { query: string }) {
   return (
     <div className="stack stack--lg qr-page">
       <div className="no-print stack stack--lg">
-        <a className="back" href="#/convites">
+        <a className="back" href={eh("/convites")}>
           ← Convites
         </a>
         <PageHeader

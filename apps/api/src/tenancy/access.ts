@@ -50,6 +50,8 @@ export async function resolveEventRole(
 
 export interface AccessibleEvent extends EventCtx {
   orgName: string;
+  /** Data do evento (para a lista do painel); null se ainda não definida. */
+  startsAt: Date | null;
   role: EventAccessRole;
 }
 
@@ -62,6 +64,7 @@ const eventColumns = {
   type: events.type,
   status: events.status,
   orgName: organizations.name,
+  startsAt: events.startsAt,
 };
 
 /** Eventos que o usuário vê no painel, com o papel mais forte em cada um. */
@@ -99,7 +102,10 @@ export async function listAccessibleEvents(
   ]);
 
   const byId = new Map<number, AccessibleEvent>();
-  const add = (row: EventCtx & { orgName: string }, role: EventAccessRole) => {
+  const add = (
+    row: EventCtx & { orgName: string; startsAt: Date | null },
+    role: EventAccessRole,
+  ) => {
     const current = byId.get(row.id);
     byId.set(row.id, { ...row, role: current ? strongest(current.role, role) : role });
   };

@@ -9,7 +9,8 @@ import {
 } from "@casamento/shared";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
-import { go } from "../nav.ts";
+import { useEvent } from "../event.tsx";
+import { ea, eh, go } from "../nav.ts";
 import { formatDateTime, plural } from "../format.ts";
 import {
   Badge,
@@ -63,23 +64,23 @@ export function Convites() {
         subtitle={data ? `${plural(data.total, "convite", "convites")} no total.` : undefined}
         actions={
           <>
-            <a className="button button--ghost" href="/api/admin/invitations/export.csv" download>
+            <a className="button button--ghost" href={ea("/invitations/export.csv")} download>
               Exportar confirmados (CSV)
             </a>
-            <a className="button" href="#/convites/novo">
+            <a className="button" href={eh("/convites/novo")}>
               Novo convite
             </a>
           </>
         }
       />
       <nav className="actions actions--tight" aria-label="Ferramentas dos convites">
-        <a className="button button--ghost button--small" href="#/convites/importar">
+        <a className="button button--ghost button--small" href={eh("/convites/importar")}>
           Importar planilha
         </a>
-        <a className="button button--ghost button--small" href="#/convites/qr">
+        <a className="button button--ghost button--small" href={eh("/convites/qr")}>
           Imprimir QR dos convites
         </a>
-        <a className="button button--ghost button--small" href="#/convites/listas/buffet">
+        <a className="button button--ghost button--small" href={eh("/convites/listas/buffet")}>
           Listas: buffet, cerimonial e portaria
         </a>
       </nav>
@@ -108,7 +109,7 @@ export function Convites() {
       ) : data && data.invitations.length === 0 ? (
         <p className="empty">
           {q || status ? "Nenhum convite com esse filtro." : "Nenhum convite ainda."}{" "}
-          <a href="#/convites/novo">Criar convite</a>
+          <a href={eh("/convites/novo")}>Criar convite</a>
         </p>
       ) : (
         <ul className="rows" aria-busy={loading}>
@@ -116,7 +117,7 @@ export function Convites() {
             const going = inv.guests.filter((g) => g.rsvpStatus === "confirmed").length;
             return (
               <li key={inv.id} className="row">
-                <a className="row__main" href={`#/convites/${inv.id}`}>
+                <a className="row__main" href={eh(`/convites/${inv.id}`)}>
                   <span className="row__title">{inv.label}</span>
                   <span className="row__meta">
                     {SIDE_LABEL[inv.side]} · {plural(inv.guests.length, "pessoa", "pessoas")}
@@ -139,10 +140,13 @@ export function Convites() {
 /* ------------------------------------------------------------------------ */
 
 /** Link do WhatsApp com a mensagem pronta (para o telefone do convite, se houver). */
-export function whatsappLink(inv: Pick<AdminInvitation, "label" | "link" | "contactPhone">) {
+export function whatsappLink(
+  inv: Pick<AdminInvitation, "label" | "link" | "contactPhone">,
+  from: string,
+) {
   const text =
     `Olá, ${inv.label}! Com muita alegria convidamos vocês para o nosso casamento. ` +
-    `Confirme a presença pelo link: ${inv.link}\n\nCom carinho, Dani & Gustavo`;
+    `Confirme a presença pelo link: ${inv.link}\n\nCom carinho, ${from}`;
   let phone = (inv.contactPhone ?? "").replace(/\D/g, "");
   if (phone.length === 10 || phone.length === 11) phone = `55${phone}`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
@@ -150,6 +154,7 @@ export function whatsappLink(inv: Pick<AdminInvitation, "label" | "link" | "cont
 
 export function ConviteDetalhe({ id }: { id: number }) {
   const toast = useToast();
+  const event = useEvent();
   const { data, setData, error, loading, reload } = useLoad(
     () => api<{ invitation: AdminInvitation; responses: AdminRsvpLog[] }>(`/invitations/${id}`),
     [id],
@@ -205,7 +210,7 @@ export function ConviteDetalhe({ id }: { id: number }) {
 
   return (
     <div className="stack stack--lg">
-      <a className="back" href="#/convites">
+      <a className="back" href={eh("/convites")}>
         ← Convites
       </a>
       <PageHeader
@@ -219,7 +224,7 @@ export function ConviteDetalhe({ id }: { id: number }) {
         actions={
           <>
             <Badge tone={inv.status}>{INVITATION_STATUS_LABEL[inv.status]}</Badge>
-            <a className="button button--ghost" href={`#/convites/${inv.id}/editar`}>
+            <a className="button button--ghost" href={eh(`/convites/${inv.id}/editar`)}>
               Editar
             </a>
           </>
@@ -242,7 +247,7 @@ export function ConviteDetalhe({ id }: { id: number }) {
         <div className="actions">
           <a
             className="button button--whatsapp"
-            href={whatsappLink(inv)}
+            href={whatsappLink(inv, event.name)}
             target="_blank"
             rel="noreferrer"
             onClick={markSent}
@@ -265,7 +270,7 @@ export function ConviteDetalhe({ id }: { id: number }) {
             <div className="actions actions--tight">
               <a
                 className="button button--ghost button--small"
-                href={`#/convites/qr?ids=${inv.id}`}
+                href={eh(`/convites/qr?ids=${inv.id}`)}
               >
                 Imprimir QR
               </a>
@@ -507,7 +512,7 @@ export function ConviteForm({ id }: { id?: number }) {
 
   return (
     <form className="stack stack--lg" onSubmit={onSubmit} noValidate>
-      <a className="back" href={editing ? `#/convites/${id}` : "#/convites"}>
+      <a className="back" href={editing ? eh(`/convites/${id}`) : eh("/convites")}>
         ← {editing ? "Voltar ao convite" : "Convites"}
       </a>
       <PageHeader title={editing ? "Editar convite" : "Novo convite"} />
@@ -667,7 +672,10 @@ export function ConviteForm({ id }: { id?: number }) {
 
       <FormError message={error} />
       <div className="actions sticky-actions">
-        <a className="button button--ghost" href={editing ? `#/convites/${id}` : "#/convites"}>
+        <a
+          className="button button--ghost"
+          href={editing ? eh(`/convites/${id}`) : eh("/convites")}
+        >
           Cancelar
         </a>
         <button className="button" type="submit" disabled={busy}>

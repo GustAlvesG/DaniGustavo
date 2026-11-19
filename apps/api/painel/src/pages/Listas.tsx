@@ -3,6 +3,7 @@ import { api } from "../api.ts";
 import { formatDateTime } from "../format.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../ui.tsx";
 import "../tools.css";
+import { ea, eh } from "../nav.ts";
 
 /* Listas dos confirmados para buffet, cerimonial e portaria: CSV ou impressão (PDF). */
 
@@ -26,7 +27,7 @@ export function Listas({ kind: raw }: { kind: string }) {
   return (
     <div className="stack stack--lg list-page">
       <div className="no-print stack stack--lg">
-        <a className="back" href="#/convites">
+        <a className="back" href={eh("/convites")}>
           ← Convites
         </a>
         <PageHeader
@@ -36,7 +37,7 @@ export function Listas({ kind: raw }: { kind: string }) {
             <>
               <a
                 className="button button--ghost"
-                href={`/api/admin/invitations/lists/${kind}.csv`}
+                href={ea(`/invitations/lists/${kind}.csv`)}
                 download
               >
                 Baixar CSV
@@ -52,7 +53,7 @@ export function Listas({ kind: raw }: { kind: string }) {
             <a
               key={k}
               className="tab"
-              href={`#/convites/listas/${k}`}
+              href={eh(`/convites/listas/${k}`)}
               aria-current={k === kind ? "page" : undefined}
             >
               {LABEL[k]}

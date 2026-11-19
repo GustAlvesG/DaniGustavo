@@ -3,6 +3,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { api, errorMessage, send } from "../api.ts";
 import { isoToLocalInput, localInputToIso } from "../format.ts";
 import { ErrorBox, Field, FormError, Loading, PageHeader, useLoad, useToast } from "../ui.tsx";
+import { eh } from "../nav.ts";
 
 type Values = Record<string, unknown>;
 type Item = Record<string, unknown>;
@@ -340,7 +341,7 @@ export function Configuracoes() {
         {SECTIONS.map(([id, label]) => (
           <a
             key={id}
-            href={`#/configuracoes`}
+            href={eh(`/configuracoes`)}
             onClick={(e) => {
               e.preventDefault();
               document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });

@@ -34,6 +34,8 @@ test("login → início → convite → presente → recado → reembolso", asyn
 
   // Início
   await expect(page.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
+  // O hash agora leva o evento: #/e/:eventId.
+  expect(page.url()).toMatch(/#\/e\/\d+$/);
   await expect(page.getByRole("heading", { name: "Arrecadado" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Prazo do RSVP" })).toBeVisible();
 
