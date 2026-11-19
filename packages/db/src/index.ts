@@ -3,7 +3,14 @@ import { requireDatabaseUrl } from "./env.ts";
 
 export * as schema from "./schema/index.ts";
 export * from "./schema/index.ts";
-export { createDb, type Database, type Schema } from "./client.ts";
+export {
+  createDb,
+  type CreateDbOptions,
+  type Database,
+  type QueryLogger,
+  type Schema,
+} from "./client.ts";
+export { byEvent } from "./scope.ts";
 export { loadRootEnv, requireDatabaseUrl, ROOT_ENV_PATH } from "./env.ts";
 export { newPublicId } from "./ids.ts";
 
