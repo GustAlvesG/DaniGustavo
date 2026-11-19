@@ -1,10 +1,18 @@
 # Produção na VPS (Docker). Passo a passo em docs/DEPLOY.md.
 # O docker-compose.yml da raiz é só para desenvolvimento; este é o de produção.
 #
-#   Internet ──► caddy :80/:443 ──(rede proxy)──► web :3000 ──► api :3333 ──(rede banco)──► db :3306
+#   Internet ──► edge (Caddy único da VPS, /srv/edge, :80/:443)
+#                  ├─ DOMAIN     ──(rede edge, alias casamento-web)──► web :3000 ──(rede proxy)──► api :3333
+#                  └─ API_DOMAIN ──(rede edge, alias casamento-api)──────────────────────────────► api :3333
+#                                                                       api ──(rede banco)──► db :3306
 #
-# Só o Caddy publica portas. ATENÇÃO: porta publicada pelo Docker passa POR FORA do UFW;
-# nunca publique 3000, 3333 ou 3306 em 0.0.0.0.
+# Este projeto não tem Caddy nem publica portas: o HTTPS e o roteamento ficam no edge, que
+# lê deploy/site.caddy. A rede "edge" é externa (docker network create edge) e compartilhada
+# com os outros sites da VPS, por isso os aliases com prefixo do slug. O db NUNCA entra na edge.
+# ATENÇÃO: porta publicada pelo Docker passa POR FORA do UFW; nunca publique 3000, 3333 ou
+# 3306 em 0.0.0.0.
+#
+# O nome (casamento) não pode mudar: os volumes db_data e uploads dependem dele.
 #
 # Uso (com COMPOSE_FILE=docker-compose.prod.yml no .env, o -f é dispensável):
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -65,7 +73,10 @@ services:
     depends_on:
       api:
         condition: service_started
-    networks: [proxy]
+    networks:
+      proxy:
+      edge:
+        aliases: [casamento-web]
     logging: *logging
 
   api:
@@ -81,7 +92,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks: [proxy, banco]
+    networks:
+      proxy:
+      banco:
+      edge:
+        aliases: [casamento-api]
     logging: *logging
 
   db:
@@ -117,27 +132,6 @@ services:
     # ports:
     #   - "127.0.0.1:3306:3306"
     networks: [banco]
-    logging: *logging
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
-    environment:
-      DOMAIN: ${DOMAIN}
-      API_DOMAIN: ${API_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env}
-    volumes:
-      # A pasta, e não o arquivo: com o arquivo sozinho, um `git pull` que troca o Caddyfile
-      # deixaria o container preso à versão antiga.
-      - ./deploy:/etc/caddy:ro
-      - caddy_data:/data # certificados: não apague
-      - caddy_config:/config
-    depends_on: [web, api]
-    networks: [proxy]
     logging: *logging
 
   # ---------- Ferramentas avulsas (profile "tools"; só rodam com `run`) ----------
@@ -177,7 +171,11 @@ services:
     profiles: [tools]
 
 networks:
+  # Rede privada entre web e api.
   proxy:
+  # Rede compartilhada com o edge (Caddy único da VPS). Criada uma vez: docker network create edge
+  edge:
+    external: true
   # Sem saída para a internet: só a API (e as ferramentas) falam com o banco.
   banco:
     internal: true
@@ -185,5 +183,3 @@ networks:
 volumes:
   db_data:
   uploads:
-  caddy_data:
-  caddy_config:

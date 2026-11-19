@@ -18,7 +18,7 @@ Site de casamento de Dani & Gustavo: site público (convidados, RSVP, lista de p
 - `apps/api/` API Hono (`src/app.ts`, `auth.ts`, `env.ts`, `middleware/`, rotas do painel em `src/admin/`) e painel (`painel/`: `App.tsx` com rotas por hash, `pages/`, `ui.tsx`, `api.ts`).
 - `packages/db/` schema, migrations, seed, `src/cli.ts`.
 - `docs/PROMPT.md` especificação; `.github/workflows/ci.yml`; `docker-compose.yml` (opcional, só dev); `.screenshots/` (ignorado pelo git).
-- Produção (VPS + Docker): `Dockerfile` (alvos `web` e `api`), `docker-compose.prod.yml`, `deploy/Caddyfile`, `.env.production.example`, `scripts/setup-vps.sh`, `scripts/backup-db.sh`; passo a passo em `docs/DEPLOY.md`.
+- Produção (VPS + Docker): `Dockerfile` (alvos `web` e `api`), `docker-compose.prod.yml`, `deploy/site.caddy`, `deploy/deploy.conf`, `.env.production.example`, `scripts/setup-vps.sh`, `scripts/backup-db.sh`; passo a passo em `docs/DEPLOY.md`.
 
 ## Comandos
 
@@ -61,7 +61,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Status do Pix no navegador: Route Handler `/api/pedidos/[publicId]` do Next consultado a cada 3 s.
 - Login do painel só com e-mail e senha (2FA removido a pedido do casal); rate limit do Better Auth ligado em todos os ambientes (5 tentativas/min por IP em `/sign-in/email`).
 - Sem Docker local: dev usa MariaDB do XAMPP; `docker-compose.yml` é opcional; CI usa MySQL 8.
-- Deploy (`docs/DEPLOY.md`): Docker na VPS, Caddy na frente. Dois hosts: `DOMAIN` → web, `API_DOMAIN` → api (painel, login, webhook do Asaas); no host da API o Caddy só libera `/painel`, `/api/auth`, `/api/admin`, `/api/webhooks`, `/api/health` e `/uploads`. Web build com `NEXT_OUTPUT=standalone` (só no Docker) e `outputFileTracingRoot` na raiz; `NEXT_PUBLIC_SITE_URL` e `API_URL` (rewrite de `/uploads`) são build args. Revalidação pela rede interna (`WEB_INTERNAL_URL=http://web:3000`), `/api/revalidar` fechado no Caddy. IP real: Caddy sobrescreve `X-Forwarded-For`/`X-Real-IP` com `{client_ip}` (Cloudflare em `trusted_proxies`). Pool do mysql2 com `jsonStrings: true` (MySQL 8 e MariaDB ≥ 10.5 devolviam JSON já convertido e quebravam o parse).
+- Deploy (`docs/DEPLOY.md`, contrato na seção "Deploy: arquitetura da VPS ArtZan" abaixo): Docker na VPS compartilhada; o Caddy é o edge único (`/srv/edge`), sem Caddy no projeto. `name: casamento` e `SLUG="casamento"` não mudam (volumes com dados); aliases na rede `edge`: `casamento-web` e `casamento-api`; `db` só na rede `banco`. Dois hosts (`deploy/site.caddy`): `DOMAIN` → web, `API_DOMAIN` → api (painel, login, webhook do Asaas); no host da API só passam `/painel`, `/api/auth`, `/api/admin`, `/api/webhooks`, `/api/health` e `/uploads`. Web build com `NEXT_OUTPUT=standalone` (só no Docker) e `outputFileTracingRoot` na raiz; `NEXT_PUBLIC_SITE_URL` e `API_URL` (rewrite de `/uploads`) são build args. Revalidação pela rede interna (`WEB_INTERNAL_URL=http://web:3000`), `/api/revalidar` fechado no `site.caddy`. IP real: snippet `ip_real` do edge sobrescreve `X-Forwarded-For`/`X-Real-IP` com `{client_ip}` (Cloudflare em `trusted_proxies` no global do edge). Pool do mysql2 com `jsonStrings: true` (MySQL 8 e MariaDB ≥ 10.5 devolviam JSON já convertido e quebravam o parse).
 - Schema compatível com MariaDB 10.4 e MySQL 8: sem `serial`, coluna JSON customizada (parse na leitura), DATETIME(3) em UTC preenchido pelo app, varchar indexado ≤191.
 - Projeto em `C:\dev\casamento` (fora do OneDrive).
 - Web→API: Server Actions enviam `X-Web-Key` em não-GET `/api/*`; `/api/webhooks/*` e `/api/auth/*` são isentos. URL e chave da API nunca vão ao bundle do cliente.
@@ -83,3 +83,132 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Login no painel: 5 tentativas/min por IP; e2e + screenshots seguidos podem esbarrar no limite (reinicie a API de teste).
 - CSP (PROMPT §9): Fase 7. Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
 - E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
+
+## Deploy: arquitetura da VPS ArtZan (siga ao criar ou alterar o deploy)
+
+Este projeto roda numa VPS compartilhada com outros sites. Cada site fica num subdomínio
+próprio de `artzan.tech` e sobe pelo script `site` da VPS (`site novo <repo>` /
+`site atualizar <slug>`). Um único Caddy, o "edge" (`/srv/edge`), é dono das portas 80/443,
+emite os certificados e encaminha cada subdomínio ao container certo pela rede Docker
+externa `edge`. O projeto precisa cumprir o contrato abaixo, que o `site verificar` confere.
+
+### Arquivos obrigatórios no repositório
+
+- `docker-compose.prod.yml`: o compose de produção. O `docker-compose.yml` fica livre para o dev.
+- `.env.production.example`: todas as variáveis de produção, com comentários. O `.env` real
+  nunca vai para o git.
+- `deploy/deploy.conf`: arquivo bash lido pelo script (modelo abaixo).
+- `deploy/site.caddy`: os blocos de site do Caddy para este projeto (modelo abaixo).
+
+### Regras do `docker-compose.prod.yml`
+
+- `name: <slug>` no topo. O slug é igual ao `SLUG` do `deploy.conf` e usa só `a-z`, `0-9` e `-`.
+  Não mude o slug depois do primeiro deploy: o nome dos volumes depende dele.
+- Nenhuma porta publicada para a internet. Nada de `ports:` com `80`, `443` ou `0.0.0.0`; só
+  `127.0.0.1:PORTA:PORTA` (para túnel SSH), e mesmo assim comentado por padrão. Porta publicada
+  pelo Docker passa por fora do UFW.
+- Só os serviços que o Caddy precisa alcançar entram na rede `edge`, sempre com um alias
+  único `<slug>-<serviço>`. A rede `edge` é compartilhada por todos os sites; sem o alias,
+  dois projetos com um serviço `web` colidiriam no DNS do Docker.
+
+  ```yaml
+  services:
+    web:
+      networks:
+        interno:
+        edge:
+          aliases: [meusite-web]
+  networks:
+    interno:
+    edge:
+      external: true
+  ```
+
+- Banco, cache, filas e serviços internos ficam só em redes privadas do projeto, nunca na
+  `edge`. Se o banco não precisa de internet, use uma rede com `internal: true`.
+- Todo serviço de longa duração: `restart: unless-stopped`, `healthcheck`, e log com rotação
+  (`driver: json-file`, `max-size: 10m`, `max-file: 3`).
+- O `healthcheck` não pode depender das migrations: o script espera os healthchecks
+  (`up -d --build --wait`) e só depois roda o `pos_subida`.
+- Sem `container_name` (nomes de container são globais na VPS). Serviço com `build:` e
+  `image:` usa `image: <slug>/<serviço>`, senão dois projetos com `image: app` se sobrescrevem.
+- Toda variável usada no compose existe no `.env.production.example` (mesmo vazia): o
+  `site verificar` roda `docker compose config` com um `.env` fictício gerado do exemplo.
+- Dados persistentes em volumes nomeados (banco, uploads), nunca dentro da imagem.
+- Ferramentas avulsas (migrations, primeira carga) como serviços com `profiles: [tools]`,
+  rodados com `docker compose run --rm <serviço>`.
+- As URLs públicas saem das variáveis de domínio do `.env` (ex.: `https://${DOMAIN}`), nunca
+  fixas no código.
+- Não inclua Caddy, Nginx, Traefik nem certbot no projeto: o edge cuida de HTTPS e proxy.
+
+### `deploy/site.caddy`
+
+Contém só blocos de site, sem o bloco global `{ ... }`. O script troca `${VAR}` pelos valores
+do `.env` do projeto; só as variáveis que aparecem no arquivo são trocadas (linhas só de
+comentário são descartadas). Não use `{$VAR}`: isso é variável de ambiente do container do
+Caddy, que não tem o `.env` do projeto. Os upstreams usam o alias da rede `edge`. Snippets
+próprios ficam globais no edge: prefixe com `<slug>_`. Dois snippets do edge estão
+disponíveis (não os redefina):
+
+- `import seguranca`: HSTS, `nosniff`, `Referrer-Policy`, remove `Server` e `X-Powered-By`.
+- `import ip_real` (dentro de `reverse_proxy`): sobrescreve `X-Forwarded-For` e `X-Real-IP`
+  com um único IP, o do visitante, já resolvido inclusive atrás da Cloudflare.
+
+```caddy
+${DOMAIN} {
+	encode zstd gzip
+	import seguranca
+	reverse_proxy meusite-web:3000 {
+		import ip_real
+	}
+}
+```
+
+### `deploy/deploy.conf`
+
+```bash
+SLUG="meusite"                          # = name: do compose
+DOMAIN_VARS="DOMAIN"                    # variáveis do .env com os subdomínios públicos
+REQUIRED_VARS="DOMAIN DB_PASSWORD"      # o script não sobe se alguma estiver vazia
+SECRET_VARS="DB_PASSWORD APP_SECRET"    # vazias: o script gera com `openssl rand -hex 32`
+HEALTH_URLS='https://${DOMAIN}/api/health'  # conferidas depois de subir (aspas simples)
+# Opcionais:
+# COMPOSE_FILE="docker-compose.prod.yml"
+# ENV_EXAMPLE=".env.production.example"
+# BACKUP_CMD="scripts/backup-db.sh"     # vai para o cron do root
+# BACKUP_CRON="0 3 * * *"
+
+# Ganchos opcionais: rodam num bash novo com `set -euo pipefail`, na pasta do projeto, depois
+# do `up -d --build --wait`, com COMPOSE_FILE exportado (o `docker compose` puro já usa o de
+# produção). Um erro interrompe o deploy. primeira_vez roda uma vez e grava .site/instalado
+# (ignorado pelo git); se os volumes do projeto já existirem, o script pergunta antes.
+# Os ganchos são lidos com `source`: no nível do arquivo, só atribuições.
+primeira_vez() {   # só no primeiro deploy
+  docker compose run --rm setup
+}
+pos_subida() {     # em todo deploy e atualização
+  docker compose run --rm migrate
+}
+```
+
+### Regras da aplicação
+
+- Escuta em `0.0.0.0` numa porta interna. O app não faz TLS: o HTTPS termina no edge.
+- Tem uma rota de saúde barata (`/api/health` ou `/health`), sem autenticação. É a mesma que
+  o `healthcheck` do compose e o `HEALTH_URLS` usam. O script confere `HEALTH_URLS` direto
+  no edge da própria VPS (sem depender do DNS) e espera HTTP 2xx/3xx.
+- Atrás do proxy, o IP do visitante vem de `X-Forwarded-For` (um único valor, já tratado pelo
+  edge) ou `X-Real-IP`. Rate limit e log de IP leem desses headers.
+- Segredos gerados em hex (`openssl rand -hex 32`), porque `@ / : #` quebram URLs de conexão.
+  No `.env` do Compose, valores com `$` vão entre aspas simples (`'$abc'`), senão o `$` vira
+  variável.
+- Build e start não podem depender de outro site da VPS. Se precisar de outro serviço da VPS,
+  use a URL pública dele.
+
+### Subdomínio
+
+- Cada site tem seu subdomínio, no formato `<nome>.artzan.tech`. Se tiver API ou painel em
+  host separado, use `<nome>-api.artzan.tech` ou `painel-<nome>.artzan.tech`. Só um nível:
+  o SSL gratuito da Cloudflare cobre `*.artzan.tech`, mas não `*.<nome>.artzan.tech`.
+- DNS na Hostinger (hPanel → Domínios → artzan.tech → DNS): registro A com o nome do
+  subdomínio apontando para o IP da VPS, TTL 300. Não crie AAAA.
