@@ -53,6 +53,15 @@ describe("proxy", () => {
     expect(getRewrittenUrl(res)).toBe("http://localhost:3000/localhost%3A3000");
   });
 
+  it("caminho interno do próprio host (ícone, OG) não é prefixado de novo; de outro host, é", () => {
+    const own = proxy(req("http://localhost:3000/localhost%3A3000/icon?abc"));
+    expect(getRewrittenUrl(own)).toBe("http://localhost:3000/localhost%3A3000/icon?abc");
+    const other = proxy(req("http://localhost:3000/evento2.localhost%3A3000/presentes"));
+    expect(getRewrittenUrl(other)).toBe(
+      "http://localhost:3000/localhost%3A3000/evento2.localhost%3A3000/presentes",
+    );
+  });
+
   it("Host inválido → 400", async () => {
     const res = proxy(new NextRequest("http://x/", { headers: { host: "a_b" } }));
     expect(res.status).toBe(400);

@@ -28,7 +28,11 @@ export function proxy(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   const path = request.nextUrl.pathname;
-  url.pathname = `/${encodeURIComponent(host)}${path === "/" ? "" : path}`;
+  const prefix = `/${encodeURIComponent(host)}`;
+  // Os arquivos de metadados (ícone, OG) saem com o caminho interno `/<host>/icon`: se o
+  // prefixo já é o do PRÓPRIO host, não repete (outro host no caminho continua prefixado).
+  const already = path === prefix || path.startsWith(`${prefix}/`);
+  url.pathname = already ? path : `${prefix}${path === "/" ? "" : path}`;
   // `rewrite` muda a rota servida sem mudar a URL do navegador.
   return NextResponse.rewrite(url, { request: { headers } });
 }
