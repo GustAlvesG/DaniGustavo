@@ -1,0 +1,91 @@
+# Caddy: HTTPS automático (Let's Encrypt) e proxy reverso para o site e a API.
+#
+#   https://{$DOMAIN}       → web:3000  (site Next.js)
+#   https://{$API_DOMAIN}   → api:3333  (painel em /painel, login, webhooks, fotos)
+#
+# DOMAIN, API_DOMAIN e ACME_EMAIL vêm do .env (o compose repassa ao container).
+# Depois de mudar este arquivo: docker compose restart caddy
+
+{
+	email {$ACME_EMAIL}
+
+	servers {
+		# IP real do visitante atrás da Cloudflare (nuvem laranja). Só para conexões que vêm
+		# destes intervalos o Caddy aceita o header CF-Connecting-IP; de qualquer outro
+		# endereço o header é ignorado, então ninguém forja o IP chamando a VPS direto.
+		# Sem Cloudflare, nada muda (o IP é o da conexão). Lista oficial, que muda raramente:
+		# https://www.cloudflare.com/ips/
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+# O app lê o IP do X-Forwarded-For (Better Auth no login; o Next repassa à API como
+# X-Client-Ip). Sobrescrevemos com UM valor só, o {client_ip} já resolvido acima: o que o
+# visitante mandar nesses headers é descartado, e o Better Auth (que recusa listas com
+# vários IPs) não cai no balde compartilhado por todos.
+(ip_real) {
+	header_up X-Forwarded-For {client_ip}
+	header_up X-Real-IP {client_ip}
+}
+
+(seguranca) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-X-Powered-By
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	import seguranca
+
+	# Aviso de cache que só a API manda, pela rede interna (WEB_INTERNAL_URL).
+	@interno path /api/revalidar
+	respond @interno 404
+
+	reverse_proxy web:3000 {
+		import ip_real
+		# Repassa cada pedaço na hora: as páginas com <Suspense> chegam em streaming.
+		flush_interval -1
+	}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	import seguranca
+
+	# Planilha de convidados e fotos dos presentes (a API limita as fotos a 2 MB).
+	request_body {
+		max_size 10MB
+	}
+
+	# Só o que precisa ser público neste host. As rotas do site (/api/site, /api/invitations,
+	# /api/orders...) o Next acessa pela rede interna e ficam fechadas aqui.
+	@publico path /painel /painel/* /api/auth/* /api/admin/* /api/webhooks/* /api/health /uploads/*
+	handle @publico {
+		reverse_proxy api:3333 {
+			import ip_real
+			# Header interno (Next → API); de fora nunca vale.
+			header_up -X-Client-Ip
+		}
+	}
+
+	@raiz path /
+	handle @raiz {
+		redir /painel/
+	}
+
+	handle {
+		respond 404
+	}
+}
+
+# Descomente quando o DNS do www também apontar para a VPS (sem o registro, o Caddy fica
+# tentando emitir o certificado e enche o log de erro).
+# www.{$DOMAIN} {
+# 	redir https://{$DOMAIN}{uri} permanent
+# }

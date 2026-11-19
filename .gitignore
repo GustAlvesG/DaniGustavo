@@ -6,6 +6,7 @@ out
 .env
 .env.*
 !.env.example
+!.env.production.example
 coverage
 playwright-report
 test-results
@@ -17,3 +18,6 @@ next-env.d.ts
 # Imagens enviadas pelo painel (UPLOAD_DIR padrão)
 apps/api/storage/
 .next-*
+
+# Backups gerados por scripts/backup-db.sh na VPS
+backups/

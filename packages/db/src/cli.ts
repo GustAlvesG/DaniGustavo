@@ -2,9 +2,11 @@ import { createDb } from "./client.ts";
 import { requireDatabaseUrl } from "./env.ts";
 import { runMigrations } from "./migrate.ts";
 import { resetDatabase } from "./reset.ts";
-import { listInvitationTokens, seed } from "./seed.ts";
+import { listInvitationTokens, seed, setup } from "./seed.ts";
 
-// Uso: node src/cli.ts <migrate|seed|reset>
+// Uso: node src/cli.ts <migrate|seed|setup|reset>
+// seed: dados fictícios para desenvolvimento (convites, presentes, configurações, admins).
+// setup: só configurações e admins, para a primeira carga em produção (docs/DEPLOY.md).
 
 async function printTokens() {
   console.log("\nConvites de desenvolvimento (abra /c/<token> no site):");
@@ -23,6 +25,8 @@ try {
   } else if (command === "seed") {
     console.log("Seed concluído:", await seed(db));
     await printTokens();
+  } else if (command === "setup") {
+    console.log("Setup concluído:", await setup(db));
   } else if (command === "reset") {
     if (process.env.NODE_ENV === "production") {
       throw new Error("db:reset apaga todos os dados e só pode rodar fora de produção.");
@@ -34,7 +38,7 @@ try {
     console.log("Seed concluído:", await seed(db));
     await printTokens();
   } else {
-    throw new Error(`Comando desconhecido: "${command ?? ""}". Use migrate, seed ou reset.`);
+    throw new Error(`Comando desconhecido: "${command ?? ""}". Use migrate, seed, setup ou reset.`);
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

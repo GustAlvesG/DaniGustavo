@@ -26,14 +26,7 @@ export async function seed(
     adminsCreated: 0,
   };
 
-  for (const s of seedSettings) {
-    // INSERT IGNORE: affectedRows = 1 quando inseriu, 0 quando a chave já existia.
-    const [res] = await db
-      .insert(settings)
-      .ignore()
-      .values({ key: s.key, value: s.value, isPublic: s.isPublic });
-    if (res.affectedRows === 1) result.settingsCreated++;
-  }
+  result.settingsCreated = await insertSettings(db);
 
   for (const [i, g] of seedGifts.entries()) {
     const [res] = await db
@@ -74,6 +67,39 @@ export async function seed(
 
   result.adminsCreated = await seedAdmins(db, env);
   return result;
+}
+
+/** Configurações iniciais (textos, datas, locais): só as chaves que ainda não existem. */
+async function insertSettings(db: Database): Promise<number> {
+  let created = 0;
+  for (const s of seedSettings) {
+    // INSERT IGNORE: affectedRows = 1 quando inseriu, 0 quando a chave já existia.
+    const [res] = await db
+      .insert(settings)
+      .ignore()
+      .values({ key: s.key, value: s.value, isPublic: s.isPublic });
+    if (res.affectedRows === 1) created++;
+  }
+  return created;
+}
+
+export interface SetupResult {
+  settingsCreated: number;
+  adminsCreated: number;
+}
+
+/**
+ * Primeira carga em produção: as configurações (o site e a API não sobem sem elas; os textos
+ * provisórios se editam no painel) e os dois usuários do painel. Diferente do `seed`, não cria
+ * convites nem presentes fictícios. Idempotente: não sobrescreve nada que já exista.
+ */
+export async function setup(
+  db: Database,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SetupResult> {
+  const settingsCreated = await insertSettings(db);
+  const adminsCreated = await seedAdmins(db, env);
+  return { settingsCreated, adminsCreated };
 }
 
 /** Convites com token e convidados, para testar manualmente (links /c/<token>). */
