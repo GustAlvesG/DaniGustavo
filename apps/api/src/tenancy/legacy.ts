@@ -5,10 +5,9 @@ import type { EventResolver } from "./resolver.ts";
 import type { EventCtx, PublicEventEnv } from "./types.ts";
 
 /**
- * O evento 1 (o casamento que já existia). Usado pelas rotas antigas sem slug e pelo painel
- * enquanto ele não tem /events/:eventId.
- * TODO(fase1-etapa5): o painel passa a usar o evento da rota.
- * TODO(fase1-etapa7): as rotas públicas antigas saem e isto deixa de existir.
+ * O evento 1 (o casamento que já existia). Usado pelas rotas públicas antigas sem slug e pelos
+ * jobs enquanto eles não iteram os eventos (etapa 6).
+ * TODO(fase1-etapa7): as rotas públicas antigas saem.
  */
 export async function legacyEvent(resolver: EventResolver): Promise<EventCtx> {
   const ev = await resolver.byId(LEGACY_EVENT_ID);
