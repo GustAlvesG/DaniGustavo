@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createInvitation, deleteInvitation, type TestInvitation } from "./support/db";
-import { apiInvitation, next, prepare } from "./support/rsvp";
+import { apiInvitation, next, prepare, waitForHydration } from "./support/rsvp";
 
 /*
  * Fase 3: busca do convite em /confirmar e RSVP em /c/[token]. Cada teste de
@@ -239,6 +239,8 @@ test.describe("RSVP em /c/[token]", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await prepare(page);
     await page.goto(`/c/${invitation.token}`);
+    // Enter antes da hidratação enviaria o formulário por GET (o wizard é só de cliente).
+    await waitForHydration(page, '[data-testid="rsvp-form"]');
 
     await page.getByRole("radio", { name: "Vai", exact: true }).focus();
     await page.keyboard.press("Space");

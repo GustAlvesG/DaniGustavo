@@ -53,7 +53,8 @@ test("agenda e manifest com o nome do evento do host", async ({ page }) => {
       ] as const,
   );
   expect(ics).toContain(`SUMMARY:Casamento de ${MULTI_EVENT.name}`);
-  expect(ics).toContain(`URL:http://evento2.localhost:${port}/`);
+  // O host primário é o primeiro cadastrado (pode ser de outra porta); o domínio é o que importa.
+  expect(ics).toMatch(/URL:http:\/\/evento2\.localhost:\d+\//);
   expect(manifest.name).toBe(MULTI_EVENT.name);
 });
 

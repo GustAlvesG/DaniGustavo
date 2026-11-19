@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { cleanupOrders } from "./support/db";
-import { prepare } from "./support/rsvp";
+import { prepare, waitForHydration } from "./support/rsvp";
 
 /*
  * Fase 4: lista de presentes e pagamento no modo simulado (sem conta no
@@ -10,6 +10,8 @@ import { prepare } from "./support/rsvp";
 
 // E-mail único por teste: os testes rodam em paralelo e a limpeza de um não pode
 // apagar o pedido de outro no meio do caminho.
+const API_URL = process.env.API_URL ?? "http://localhost:3333";
+
 const email = (testId: string) => `e2e-${testId}@exemplo.com`.toLowerCase();
 
 test.afterEach(async ({}, info) => {
@@ -18,6 +20,7 @@ test.afterEach(async ({}, info) => {
 
 async function openGift(page: Page, slug: string) {
   await page.goto("/presentes");
+  await waitForHydration(page, `[data-gift="${slug}"] button`);
   await page
     .locator(`[data-gift="${slug}"]`)
     .getByRole("button", { name: /Presentear/ })
@@ -29,20 +32,33 @@ async function openGift(page: Page, slug: string) {
 
 test.describe("lista de presentes", () => {
   test("mostra os presentes e filtra por categoria e preço", async ({ page }) => {
+    // Os números vêm da própria API (o banco de dev tem presentes do usuário e fixtures de
+    // outros testes com slug e2e-*): o teste confere o filtro, não a contagem do seed.
+    const res = await page.request.get(`${API_URL}/api/e/dani-gustavo/gifts`);
+    expect(res.ok()).toBe(true);
+    const all = (
+      (await res.json()) as {
+        gifts: { slug: string; category: string; priceCents: number; openAmount: boolean }[];
+      }
+    ).gifts.filter((g) => !g.slug.startsWith("e2e-"));
+    const luaDeMel = all.filter((g) => g.category === "lua-de-mel");
+    const above600 = all.filter((g) => g.openAmount || g.priceCents > 60_000);
+    expect(luaDeMel.length).toBeGreaterThan(0);
+    expect(above600.length).toBeGreaterThan(0);
+
     await page.goto("/presentes");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Um presente");
-    const grid = page.getByTestId("gift-grid");
-    await expect(grid.locator("[data-gift]")).toHaveCount(8);
+    const items = page.getByTestId("gift-grid").locator('[data-gift]:not([data-gift^="e2e-"])');
+    await expect(items).toHaveCount(all.length);
 
     await page.getByRole("radio", { name: "Lua de mel" }).check();
-    await expect(grid.locator("[data-gift]")).toHaveCount(2);
-    await expect(grid.locator('[data-gift="jantar-em-lisboa"]')).toBeVisible();
+    await expect(items).toHaveCount(luaDeMel.length);
 
     await page.getByRole("radio", { name: "Todos" }).check();
     await page.getByRole("radio", { name: "Acima de R$ 600" }).check();
-    // Jogo de panelas, Noite de estrelas e a contribuição livre (vale em qualquer faixa).
-    await expect(grid.locator("[data-gift]")).toHaveCount(3);
-    await expect(grid.locator('[data-gift="contribuicao-livre"]')).toBeVisible();
+    // A contribuição livre vale em qualquer faixa.
+    await expect(items).toHaveCount(above600.length);
+    await expect(page.locator('[data-gift="contribuicao-livre"]')).toBeVisible();
   });
 
   test("home e menu levam à lista", async ({ page }) => {

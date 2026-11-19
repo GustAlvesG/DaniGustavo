@@ -35,3 +35,15 @@ export async function next(page: Page, heading: string) {
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
 }
+
+/**
+ * Espera o React hidratar o elemento (ele ganha a chave interna `__reactProps$…`). Um clique ou
+ * Enter antes disso é perdido (e um `<form>` sem `action` cairia num GET nativo): o `next dev`
+ * hidrata devagar com vários workers.
+ */
+export async function waitForHydration(page: Page, selector: string) {
+  await page.waitForFunction((sel) => {
+    const el = document.querySelector(sel);
+    return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
+  }, selector);
+}
