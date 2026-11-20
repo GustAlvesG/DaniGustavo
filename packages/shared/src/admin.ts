@@ -5,6 +5,7 @@ import { EventSides, EventType, SIDE_KEY_PATTERN, VocabularyOverrides } from "./
 import { EventModulesInput } from "./modules.ts";
 import { AgeRange, RsvpStatus } from "./rsvp.ts";
 import { ThemeSelection } from "./themes.ts";
+import { HostPermissions } from "./permissions.ts";
 import {
   AccommodationItem,
   FaqItem,
@@ -379,6 +380,8 @@ export const SETTINGS_SCHEMAS = {
   "event.modules": EventModulesInput,
   "event.sides": EventSides,
   "event.vocabulary": VocabularyOverrides,
+  // Fase 3 (docs/saas/fase-3.md): privado, só a organização muda (rota em /orgs/:orgId).
+  "event.host_permissions": HostPermissions,
 } as const;
 
 export type SettingsKey = keyof typeof SETTINGS_SCHEMAS;
@@ -393,6 +396,7 @@ export const DEDICATED_SETTINGS_KEYS: readonly SettingsKey[] = [
   "event.modules",
   "event.sides",
   "event.vocabulary",
+  "event.host_permissions",
 ];
 export const SETTINGS_KEYS = Object.keys(SETTINGS_SCHEMAS) as SettingsKey[];
 

@@ -14,3 +14,7 @@ export * from "./modules.ts";
 export * from "./themes.ts";
 export * from "./content.ts";
 export * from "./media.ts";
+export * from "./permissions.ts";
+export * from "./org.ts";
+export * from "./org-events.ts";
+export * from "./team.ts";
