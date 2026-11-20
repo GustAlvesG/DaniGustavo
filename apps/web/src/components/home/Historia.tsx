@@ -1,5 +1,5 @@
+import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, Polaroid } from "@/components/album";
-import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
@@ -8,8 +8,8 @@ import styles from "./home.module.css";
  * título e uma frase. Elas "assentam" no álbum ao entrar na tela (giram e
  * sobem até a inclinação final), alternando o lado.
  */
-export function Historia({ home, pagina }: { home: HomeContent; pagina?: number }) {
-  const { historia } = home;
+export function Historia({ site, pagina }: { site: SiteContent; pagina?: number }) {
+  const { story } = site.sections;
   return (
     <section className={styles.sec} id="historia" aria-labelledby="historia-titulo">
       <div className={styles.wrap}>
@@ -17,21 +17,27 @@ export function Historia({ home, pagina }: { home: HomeContent; pagina?: number 
           className={styles.cab}
           id="historia-titulo"
           pagina={pagina}
-          rotulo={historia.rotulo}
-          titulo={historia.titulo}
-          lead={historia.lead}
+          rotulo={story.label}
+          titulo={story.title}
+          lead={story.lead || undefined}
         />
         <ol className={styles.historiaGrid}>
-          {historia.momentos.map((m, i) => (
-            <li key={m.ano + m.titulo} className={styles.momento}>
-              <Polaroid
-                foto={m.foto}
-                sizes="(max-width: 620px) 45vw, (max-width: 1000px) 30vw, 210px"
-                sobre={m.ano}
-                legenda={m.titulo}
-                className={cx(`r${(i % 6) + 1}`, i % 2 ? "assenta-d" : "assenta")}
-              />
-              <p className="rv d2">{m.texto}</p>
+          {story.items.map((m, i) => (
+            <li key={i} className={styles.momento}>
+              {m.photo ? (
+                <Polaroid
+                  foto={m.photo}
+                  sizes="(max-width: 620px) 45vw, (max-width: 1000px) 30vw, 210px"
+                  sobre={m.year}
+                  legenda={m.title}
+                  className={cx(`r${(i % 6) + 1}`, i % 2 ? "assenta-d" : "assenta")}
+                />
+              ) : (
+                <p className="legenda rv">
+                  {m.year ? <b>{m.year}</b> : null} {m.title}
+                </p>
+              )}
+              <p className="rv d2">{m.text}</p>
             </li>
           ))}
         </ol>

@@ -9,7 +9,7 @@ import styles from "./nav.module.css";
  * Menu do celular (até 960px): botão redondo que abre a lista sob o menu.
  * Fecha ao escolher um link ou com Esc.
  */
-export function MobileMenu({ items, cta }: { items: NavItem[]; cta: NavItem }) {
+export function MobileMenu({ items, cta }: { items: NavItem[]; cta: NavItem | null }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
@@ -53,9 +53,11 @@ export function MobileMenu({ items, cta }: { items: NavItem[]; cta: NavItem }) {
             {item.label}
           </Link>
         ))}
-        <Link className={styles.mobileCta} href={cta.href} onClick={close}>
-          {cta.label}
-        </Link>
+        {cta ? (
+          <Link className={styles.mobileCta} href={cta.href} onClick={close}>
+            {cta.label}
+          </Link>
+        ) : null}
       </nav>
     </>
   );

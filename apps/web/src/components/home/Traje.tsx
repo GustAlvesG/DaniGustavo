@@ -1,30 +1,21 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, FotoImg } from "@/components/album";
-import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import styles from "./home.module.css";
 
 const DELAYS = ["d1", "d2", "d2", "d3"];
 
 /** Traje: foto no arco e, ao lado, a paleta e o que evitar (do banco). */
-export function Traje({
-  home,
-  site,
-  pagina,
-}: {
-  home: HomeContent;
-  site: SiteContent;
-  pagina?: number;
-}) {
-  const { traje } = home;
+export function Traje({ site, pagina }: { site: SiteContent; pagina?: number }) {
+  const { dresscode: traje } = site.sections;
   const { palette, avoid } = site.dressCode;
   return (
     <section className={cx(styles.sec, "surface-areia")} id="traje" aria-labelledby="traje-titulo">
       <div className={cx(styles.wrap, styles.trajeGrid)}>
-        {traje.foto ? (
+        {traje.photo ? (
           <figure className="arco r3 assenta">
             <div className={styles.arcoFoto}>
-              <FotoImg foto={traje.foto} sizes="(max-width: 860px) 330px, 430px" fill />
+              <FotoImg foto={traje.photo} sizes="(max-width: 860px) 330px, 430px" fill />
             </div>
           </figure>
         ) : null}
@@ -34,8 +25,8 @@ export function Traje({
             alinhamento="esquerda"
             fios="um"
             pagina={pagina}
-            rotulo={traje.rotulo}
-            titulo={traje.titulo}
+            rotulo={traje.label}
+            titulo={traje.title}
             lead={traje.lead || site.dressCode.text || undefined}
           />
           {palette.length ? (

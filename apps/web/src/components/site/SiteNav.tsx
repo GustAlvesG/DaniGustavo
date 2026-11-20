@@ -1,12 +1,12 @@
 import Link from "next/link";
 import type { SiteContent } from "@casamento/shared";
 import { Monograma } from "@/components/brand";
-import { getContent } from "@/lib/api/site";
+import { getMonogram } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 import { formatDotDate } from "@/lib/site";
 import { MobileMenu } from "./MobileMenu";
 import { NavDate } from "./NavDate";
-import { navItems } from "./nav-items";
+import { navCta, navItems } from "./nav-items";
 import styles from "./nav.module.css";
 
 export type SiteNavProps = {
@@ -27,9 +27,9 @@ export type SiteNavProps = {
  * ilhas cliente.
  */
 export async function SiteNav({ site, variant = "pagina", current }: SiteNavProps) {
-  const { home, iniciais } = await getContent();
-  const items = navItems(home, site);
-  const cta = { href: "/confirmar", label: home.menu.cta };
+  const iniciais = await getMonogram();
+  const items = navItems(site);
+  const cta = navCta(site);
   const tz = site.wedding.timezone;
   return (
     <header className={cx(styles.nav, variant === "home" && styles.navHome)} data-nav="">
@@ -51,15 +51,17 @@ export async function SiteNav({ site, variant = "pagina", current }: SiteNavProp
                 </Link>
               </li>
             ))}
-            <li>
-              <Link
-                href={cta.href}
-                className={styles.cta}
-                aria-current={cta.href === current ? "page" : undefined}
-              >
-                {cta.label}
-              </Link>
-            </li>
+            {cta ? (
+              <li>
+                <Link
+                  href={cta.href}
+                  className={styles.cta}
+                  aria-current={cta.href === current ? "page" : undefined}
+                >
+                  {cta.label}
+                </Link>
+              </li>
+            ) : null}
           </ul>
         </nav>
         <MobileMenu items={items} cta={cta} />

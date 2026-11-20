@@ -48,6 +48,14 @@ const nextConfig: NextConfig = {
   // O pacote do workspace exporta .ts cru (sem build). O Turbopack já o
   // compila sozinho; a lista deixa isso explícito (e vale para o webpack).
   transpilePackages: ["@casamento/shared"],
+  // Fotos que o next/image otimiza: as do evento (`/uploads/<evento>/...`, repassadas à API) e,
+  // até a integração da Fase 2, as do casamento em `public/fotos`. Qualquer outro caminho → 400.
+  images: {
+    localPatterns: [
+      { pathname: "/uploads/**", search: "" },
+      { pathname: "/fotos/**", search: "" },
+    ],
+  },
   // Fotos dos presentes enviadas pelo painel ficam na API: o site as repassa em /uploads
   // (proxy no servidor, a URL da API não vai para o navegador).
   async rewrites() {

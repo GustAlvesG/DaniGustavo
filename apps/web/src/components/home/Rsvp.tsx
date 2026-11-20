@@ -2,10 +2,8 @@ import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, Polaroid } from "@/components/album";
 import { Monograma } from "@/components/brand";
 import { ButtonLink } from "@/components/ui";
-import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
-import { formatDayMonth, formatDotDate } from "@/lib/site";
-import { preencher } from "@/lib/texto";
+import { fillSiteText, formatDotDate } from "@/lib/site";
 import styles from "./home.module.css";
 
 /**
@@ -14,17 +12,15 @@ import styles from "./home.module.css";
  * o convidado acha o próprio convite e responde por todos de uma vez.
  */
 export function Rsvp({
-  home,
   site,
   iniciais,
   pagina,
 }: {
-  home: HomeContent;
   site: SiteContent;
   iniciais: string | null;
   pagina?: number;
 }) {
-  const { rsvp } = home;
+  const { rsvp } = site.sections;
   const tz = site.wedding.timezone;
   const deadline = site.rsvp.deadline;
   return (
@@ -40,14 +36,14 @@ export function Rsvp({
             alinhamento="esquerda"
             fios="um"
             pagina={pagina}
-            rotulo={rsvp.rotulo}
-            titulo={rsvp.titulo}
+            rotulo={rsvp.label}
+            titulo={rsvp.title}
           />
-          <p className="rv d2">{preencher(rsvp.texto, { prazo: formatDayMonth(deadline, tz) })}</p>
+          {rsvp.text ? <p className="rv d2">{fillSiteText(rsvp.text, site)}</p> : null}
           <div className={styles.rsvpFotos} aria-hidden="true">
-            {rsvp.fotos.slice(0, 2).map((f, i) => (
+            {rsvp.photos.slice(0, 2).map((f, i) => (
               <Polaroid
-                key={f.arquivo}
+                key={f.src + i}
                 as="div"
                 foto={{ ...f, alt: "" }}
                 sizes="240px"
@@ -59,11 +55,11 @@ export function Rsvp({
 
         <div className={cx("cartao-resp surface-papel de-dir", styles.cartaoResp)}>
           <Monograma iniciais={iniciais} className={styles.cartaoMono} bold={10} />
-          <h3>{rsvp.cartao.titulo}</h3>
+          <h3>{rsvp.card.title}</h3>
           <p className={styles.prazo}>Até {formatDotDate(deadline, tz)}</p>
-          <p className={styles.convite}>{rsvp.cartao.texto}</p>
+          <p className={styles.convite}>{fillSiteText(rsvp.card.text, site)}</p>
           <ButtonLink href="/confirmar" size="lg" block>
-            {rsvp.cartao.botao}
+            {rsvp.card.button}
           </ButtonLink>
         </div>
       </div>

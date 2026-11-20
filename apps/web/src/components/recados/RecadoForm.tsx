@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { MESSAGE_AUTHOR_MAX_CHARS, MESSAGE_MAX_CHARS } from "@casamento/shared";
 import { sendMessageAction, type MessageState } from "@/app/[host]/(site)/recados/actions";
 import { Button, FieldError, TextArea, TextField } from "@/components/ui";
-import type { Paginas } from "@/content/paginas";
+import type { PublicSiteSections } from "@casamento/shared";
 import styles from "./recados.module.css";
 
 const idle: MessageState = { status: "idle" };
@@ -14,7 +14,7 @@ const idle: MessageState = { status: "idle" };
  * contador de caracteres e aviso curto de privacidade. `useActionState` + <form action>
  * funciona até sem JavaScript (como um POST de formulário do Laravel).
  */
-export function RecadoForm({ t }: { t: Paginas["recados"] }) {
+export function RecadoForm({ t }: { t: PublicSiteSections["pages"]["messages"] }) {
   const [state, action, pending] = useActionState(sendMessageAction, idle);
   const values = state.status === "error" ? state.values : { author: "", body: "" };
   const [length, setLength] = useState(values.body.length);
@@ -23,8 +23,8 @@ export function RecadoForm({ t }: { t: Paginas["recados"] }) {
     return (
       <div className={styles.caixa} id="escrever">
         <div className={styles.obrigado} role="status" data-testid="recado-enviado">
-          <h3 className={styles.caixaTitulo}>{t.enviadoTitulo}</h3>
-          <p>{t.enviadoTexto}</p>
+          <h3 className={styles.caixaTitulo}>{t.sentTitle}</h3>
+          <p>{t.sentText}</p>
         </div>
       </div>
     );
@@ -33,7 +33,7 @@ export function RecadoForm({ t }: { t: Paginas["recados"] }) {
   const error = state.status === "error" ? state : null;
   return (
     <div className={styles.caixa} id="escrever">
-      <h2 className={styles.caixaTitulo}>{t.formTitulo}</h2>
+      <h2 className={styles.caixaTitulo}>{t.formTitle}</h2>
       <p className={styles.caixaLead}>{t.formLead}</p>
       <form action={action} noValidate className="flex flex-col gap-6" data-testid="recado-form">
         {/* A key refaz os campos com o que a pessoa digitou (o React limpa o form após a ação). */}
@@ -78,10 +78,10 @@ export function RecadoForm({ t }: { t: Paginas["recados"] }) {
 
         <div>
           <Button type="submit" size="lg" loading={pending}>
-            {t.formBotao}
+            {t.formButton}
           </Button>
         </div>
-        <p className="m-0 text-sm text-ink-soft">{t.privacidade}</p>
+        <p className="m-0 text-sm text-ink-soft">{t.privacy}</p>
       </form>
     </div>
   );

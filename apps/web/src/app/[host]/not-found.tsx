@@ -3,18 +3,19 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteNav } from "@/components/site/SiteNav";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { findCurrentEvent } from "@/lib/api/event";
-import { getContent, getSite } from "@/lib/api/site";
+import { getSite } from "@/lib/api/site";
+import { moduleAvailable } from "@/lib/site";
 
 /**
- * 404 do site: rotas que não existem e `notFound()` nas páginas (inclusive galeria e
- * padrinhos dos eventos sem esse conteúdo). Se o próprio host não é de nenhum evento
+ * 404 do site: rotas que não existem e `notFound()` nas páginas (inclusive as de módulos
+ * desligados e galeria/padrinhos sem conteúdo). Se o próprio host não é de nenhum evento
  * ativo, não há menu nem rodapé para mostrar: sai uma página neutra.
  */
 export default async function NotFound() {
   const ev = await findCurrentEvent();
   if (!ev) return <HostDesconhecido />;
-  const [site, { paginas }] = await Promise.all([getSite(ev), getContent(ev)]);
-  const { naoEncontrada } = paginas;
+  const site = await getSite(ev);
+  const { notFound: page } = site.sections.pages;
   return (
     <>
       <SiteNav site={site} />
@@ -32,17 +33,19 @@ export default async function NotFound() {
               <ButtonLink href="/" size="lg">
                 Voltar ao início
               </ButtonLink>
-              <ButtonLink href="/confirmar" size="lg" variant="secondary">
-                Confirmar presença
-              </ButtonLink>
+              {moduleAvailable(site, "rsvp") ? (
+                <ButtonLink href="/confirmar" size="lg" variant="secondary">
+                  Confirmar presença
+                </ButtonLink>
+              ) : null}
             </div>
           </div>
-          {naoEncontrada.foto ? (
+          {page.photo ? (
             <div className="mx-auto w-[min(78%,20rem)] lg:col-span-4 lg:col-start-9">
               <Polaroid
-                foto={naoEncontrada.foto}
+                foto={page.photo}
                 sizes="320px"
-                legenda={naoEncontrada.legenda}
+                legenda={page.caption || undefined}
                 className="r4"
               />
             </div>

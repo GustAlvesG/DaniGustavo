@@ -9,7 +9,7 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
 import { currentEvent, eventPath } from "@/lib/api/event";
-import { getContent, getSite } from "@/lib/api/site";
+import { getMonogram, getSite } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 
 export const metadata = noindex({
@@ -48,9 +48,9 @@ async function Pagamento({
 }) {
   const { publicId } = await params;
   const ev = await currentEvent();
-  const [result, { iniciais }] = await Promise.all([
+  const [result, iniciais] = await Promise.all([
     apiReadFresh(eventPath(ev, `/orders/${encodeURIComponent(publicId)}`), OrderView),
-    getContent(ev),
+    getMonogram(ev),
   ]);
   if (!result.ok) {
     if (result.status === 404) notFound();

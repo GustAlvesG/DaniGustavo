@@ -2,9 +2,16 @@
  * Helpers puros sobre o conteúdo de `/api/site` (sem React, sem servidor):
  * a home, as páginas internas, o .ics e a imagem OG usam os mesmos.
  */
-import type { SiteContent, Venue } from "@casamento/shared";
+import {
+  moduleOfPath,
+  type HomeSectionId,
+  type ModuleId,
+  type SiteContent,
+  type Venue,
+} from "@casamento/shared";
 import { addHours, DEFAULT_EVENT_HOURS, type CalendarEvent } from "./calendar";
-import { WEDDING_TIME_ZONE } from "./countdown";
+import { formatWeddingDate, WEDDING_TIME_ZONE } from "./countdown";
+import { preencher } from "./texto";
 
 export type CoupleNames = { first: string; second: string };
 
@@ -227,4 +234,168 @@ export function weddingEvent(
     description: `${wedding ? "Cerimônia" : "Início"} às ${formatHour(start, tzOf(site))}. Programação, local e confirmação de presença no site.`,
     url: `${source.baseUrl}/`,
   };
+}
+
+/* ------------------------------------------------------------------------ */
+/* Seções, módulos e menu (Fase 2)                                          */
+/* ------------------------------------------------------------------------ */
+
+/** Âncora (id da <section>) de cada seção da home; os ids antigos ficam (links salvos). */
+export const SECTION_ANCHOR: Record<HomeSectionId, string> = {
+  story: "historia",
+  album: "album",
+  event: "casamento",
+  verse: "versiculo",
+  schedule: "programacao",
+  dresscode: "traje",
+  gifts: "presentes",
+  messages: "recados",
+  rsvp: "rsvp",
+  faq: "duvidas",
+};
+
+/** Seções que pertencem a um módulo: módulo desligado, a seção some da home e do menu. */
+const SECTION_MODULE: Partial<Record<HomeSectionId, ModuleId>> = {
+  schedule: "schedule",
+  gifts: "gifts",
+  messages: "messages",
+  rsvp: "rsvp",
+};
+
+/** O manual dos padrinhos tem algo para mostrar? */
+function hasGodparentsManual(g: SiteContent["godparents"]): boolean {
+  return Boolean(
+    g.dressCode || g.notes.length || g.schedule.length || g.bridesmaids || g.groomsmen,
+  );
+}
+
+/**
+ * A página de um módulo existe no site? Módulo desligado → não (404). Galeria sem fotos e
+ * manual dos padrinhos vazio também dão 404 (nada a mostrar).
+ */
+export function moduleAvailable(site: SiteContent, module: ModuleId): boolean {
+  if (!site.event.modules[module]) return false;
+  if (module === "gallery") return site.gallery.items.length > 0;
+  if (module === "godparents") return hasGodparentsManual(site.godparents);
+  return true;
+}
+
+/**
+ * Um link do conteúdo leva a uma página que existe? Links externos e âncoras sempre; caminhos
+ * do site dependem do módulo dono ("/galeria" → gallery).
+ */
+export function linkAvailable(site: SiteContent, link: string): boolean {
+  if (!link.startsWith("/") || link.startsWith("//")) return true;
+  const path = link.replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
+  const owner = moduleOfPath(path);
+  return owner ? moduleAvailable(site, owner) : true;
+}
+
+/** A seção aparece na home? Ligada no editor, módulo ligado e com dado para mostrar. */
+export function sectionVisible(site: SiteContent, id: HomeSectionId): boolean {
+  const owner = SECTION_MODULE[id];
+  if (owner && !site.event.modules[owner]) return false;
+  const s = site.sections;
+  switch (id) {
+    case "story":
+      return s.story.items.length > 0;
+    case "album":
+      return s.album.photos.length > 0;
+    case "verse":
+      return Boolean(s.verse.photo) && s.verse.lines.length > 0;
+    case "schedule":
+      return site.schedule.length > 0;
+    case "faq":
+      return site.faq.length > 0;
+    case "dresscode": {
+      const d = site.dressCode;
+      return Boolean(d.text || d.palette.length || s.dresscode.photo);
+    }
+    default:
+      return true;
+  }
+}
+
+/** Seções da home, na ordem do editor, só as que aparecem. */
+export function homeSections(site: SiteContent): HomeSectionId[] {
+  return site.sections.order
+    .filter((s) => s.enabled && sectionVisible(site, s.id))
+    .map((s) => s.id);
+}
+
+export type NavItem = { href: string; label: string };
+
+/**
+ * Itens do menu: as seções da home com texto de menu, na ordem da página (o link é
+ * "/#ancora", para funcionar fora da home, ou o destino escolhido), mais os links extras.
+ * Link para página de módulo desligado (ou sem conteúdo) sai.
+ */
+export function navItems(site: SiteContent): NavItem[] {
+  const sections = homeSections(site).flatMap((id) => {
+    const { menu, menuLink } = site.sections[id] as { menu?: string; menuLink?: string };
+    if (!menu) return [];
+    return [{ href: menuLink || `/#${SECTION_ANCHOR[id]}`, label: menu }];
+  });
+  const extras = site.sections.nav.extras.map((e) => ({ href: e.link, label: e.text }));
+  return [...sections, ...extras].filter((item) => linkAvailable(site, item.href));
+}
+
+/** Botão de destaque do menu (confirmar presença); null sem RSVP ou sem texto. */
+export function navCta(site: SiteContent): NavItem | null {
+  const label = site.sections.nav.cta;
+  return label && moduleAvailable(site, "rsvp") ? { href: "/confirmar", label } : null;
+}
+
+/** Links do rodapé que levam a páginas existentes. */
+export function footerLinks(site: SiteContent): NavItem[] {
+  return site.sections.footer.links
+    .filter((l) => linkAvailable(site, l.link))
+    .map((l) => ({ href: l.link, label: l.text }));
+}
+
+/** Troca {prazo} (data limite do RSVP) e {data} (data do evento) num texto do conteúdo. */
+export function fillSiteText(text: string, site: SiteContent): string {
+  const tz = tzOf(site);
+  return preencher(text, {
+    prazo: formatDayMonth(site.rsvp.deadline, tz),
+    data: formatWeddingDate(site.wedding.datetime, tz),
+  });
+}
+
+/** "Ana & Bruno" → "AB"; "Festa da Maria" → "FM"; "Lia" → "L". */
+export function initialsOf(name: string): string {
+  const words = name
+    .split(/[\s&+]+/)
+    .filter((w) => w && !/^(e|de|da|do|das|dos)$/i.test(w))
+    .map((w) => w.normalize("NFD").replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  if (!words.length) return "·";
+  const first = words[0]![0]!;
+  const last = words.length > 1 ? words[words.length - 1]![0]! : "";
+  return (first + last).toUpperCase();
+}
+
+/** "Manual dos padrinhos" → "Manual dos *padrinhos*" (a última palavra em ênfase). */
+export function emphasizeLast(text: string): string {
+  if (text.includes("*")) return text;
+  const m = /^(.*\s)?(\S+)$/.exec(text.trim());
+  return m ? `${m[1] ?? ""}*${m[2]}*` : text;
+}
+
+/**
+ * Fotos da galeria agrupadas por álbum, na ordem em que cada álbum aparece; as sem álbum
+ * vêm primeiro, sem título. Sem nenhum álbum, um grupo só (a galeria de sempre).
+ */
+export function galleryGroups<T extends { album: string | null }>(
+  items: T[],
+): { album: string | null; photos: T[] }[] {
+  const groups = new Map<string | null, T[]>();
+  if (items.some((i) => !i.album)) groups.set(null, []);
+  for (const item of items) {
+    const key = item.album || null;
+    const list = groups.get(key) ?? [];
+    list.push(item);
+    groups.set(key, list);
+  }
+  return [...groups].map(([album, photos]) => ({ album, photos }));
 }
