@@ -76,7 +76,16 @@ export function createApp({
 
   app.route("/api/hosts", hostRoutes(eventResolver, db));
 
-  const orderDeps: OrderDeps = { env, db, provider, mailer, notifier, now, eventResolver };
+  const orderDeps: OrderDeps = {
+    env,
+    db,
+    provider,
+    mailer,
+    notifier,
+    now,
+    eventResolver,
+    revalidate,
+  };
 
   // Rotas públicas de um evento: /api/e/:slug/{site,gifts,messages,invitations,orders}. O
   // evento vem do contexto (publicEvent) e todo serviço filtra por ele.
@@ -133,6 +142,7 @@ export function createApp({
   // Global: uma URL por conta do provedor; o evento sai do pedido.
   app.route("/api/webhooks", webhookRoutes(orderDeps));
 
+  const storage = createLocalStorage(env.UPLOAD_DIR);
   app.route(
     "/api/admin",
     adminRoutes({
@@ -141,10 +151,10 @@ export function createApp({
       limiter: rateLimiter,
       revalidate,
       uploadDir: env.UPLOAD_DIR,
-      storage: createLocalStorage(env.UPLOAD_DIR),
+      storage,
     }),
   );
-  app.route("/", uploadFileRoutes(env.UPLOAD_DIR));
+  app.route("/", uploadFileRoutes(storage));
 
   app.route("/", painelRoutes(painelDist));
 

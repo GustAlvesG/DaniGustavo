@@ -3,6 +3,7 @@ import { getDb, loadRootEnv } from "@casamento/db";
 import { createApp } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { EnvError, parseEnv } from "./env.ts";
+import { createWebRevalidator } from "./admin/revalidate.ts";
 import { startExpiryJob, startReconcileJob, startReminderJob } from "./jobs.ts";
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
@@ -24,7 +25,14 @@ const db = getDb();
 const provider = createPaymentProvider(env);
 const mailer = createMailer(env);
 const app = createApp({ env, db, auth: createAuth(env, db), provider, mailer });
-const jobDeps = { env, db, provider, mailer, now: () => new Date() };
+const jobDeps = {
+  env,
+  db,
+  provider,
+  mailer,
+  now: () => new Date(),
+  revalidate: createWebRevalidator(env),
+};
 const stopExpiryJob = startExpiryJob(jobDeps);
 const stopReconcileJob = startReconcileJob(jobDeps);
 const stopReminderJob = startReminderJob(jobDeps);

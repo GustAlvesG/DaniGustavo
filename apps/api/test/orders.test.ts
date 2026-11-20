@@ -42,7 +42,20 @@ const notifier: Notifier = {
 
 let clock = new Date();
 const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_KEY}` });
-const { app, db, env } = testApp({ mailer, notifier, provider, now: () => clock }, {});
+const revalidated: { eventId: number; tags: string[] }[] = [];
+const { app, db, env } = testApp(
+  {
+    mailer,
+    notifier,
+    provider,
+    now: () => clock,
+    revalidate: (eventId, tags) => {
+      revalidated.push({ eventId, tags });
+      return Promise.resolve();
+    },
+  },
+  {},
+);
 
 const run = Date.now().toString(36);
 let T: TestEvents; // evento próprio (anfitrião e presentes só deste arquivo)
@@ -119,6 +132,7 @@ beforeEach(() => {
   clock = new Date();
   sent.length = 0;
   telegrams.length = 0;
+  revalidated.length = 0;
 });
 
 afterAll(async () => {
@@ -271,6 +285,29 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     }
     expect(telegrams[0]).toContain("Ana Teste");
     expect(telegrams[0]).toMatch(/^\[.+\] Presente recebido/);
+  });
+
+  it("revalida só as tags do evento do pedido: gifts, e messages quando há recado", async () => {
+    const approve = async (publicId: string) =>
+      app.request(`/api/e/${T.eventA.slug}/dev/orders/${publicId}/approve`, {
+        method: "POST",
+        headers: write(),
+      });
+    const gift = await makeGift(db, { quotaTotal: 5 });
+    const withNote = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
+    const noNote = OrderView.parse(
+      await (await order({ ...buyer, giftSlug: gift.slug, message: "", showOnWall: false })).json(),
+    );
+    revalidated.length = 0;
+    expect((await approve(withNote.publicId)).status).toBe(200);
+    expect(revalidated).toEqual([{ eventId: T.eventA.id, tags: ["gifts", "messages"] }]);
+    revalidated.length = 0;
+    expect((await approve(noNote.publicId)).status).toBe(200);
+    expect(revalidated).toEqual([{ eventId: T.eventA.id, tags: ["gifts"] }]);
+    // Webhook repetido não muda o pedido e não revalida de novo.
+    revalidated.length = 0;
+    expect((await approve(noNote.publicId)).status).toBe(200);
+    expect(revalidated).toEqual([]);
   });
 
   it("webhook repetido não paga nem avisa duas vezes", async () => {
