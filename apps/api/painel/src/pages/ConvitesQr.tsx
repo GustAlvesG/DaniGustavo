@@ -15,12 +15,11 @@ import { eh } from "../nav.ts";
 const PER_SHEET = 8;
 type Mode = "todos" | "nao-enviados" | "escolher";
 
-interface SettingsData {
-  values: {
-    "couple.names"?: string | null;
-    "couple.monogram"?: string | null;
-    "wedding.datetime"?: string | null;
-  };
+/** GET /invitations/card: o cabeçalho do cartão (liberado com `invitations.read`). */
+interface CardData {
+  names: string | null;
+  monogram: string | null;
+  datetime: string | null;
 }
 
 /** Link sem "https://" e sem "www.", para caber no cartão. */
@@ -75,7 +74,7 @@ export function ConvitesQr({ query }: { query: string }) {
     () =>
       Promise.all([
         api<{ invitations: AdminInvitation[] }>("/invitations"),
-        api<SettingsData>("/settings"),
+        api<CardData>("/invitations/card"),
       ]),
     [],
   );
@@ -83,13 +82,12 @@ export function ConvitesQr({ query }: { query: string }) {
   if (loading && !data) return <Loading />;
   if (error || !data)
     return <ErrorBox message={error ?? "Não deu para carregar."} onRetry={reload} />;
-  const [{ invitations }, settings] = data;
-  const v = settings.values;
+  const [{ invitations }, card] = data;
   const couple = {
-    names: v["couple.names"] || event.name,
-    monogram: v["couple.monogram"] || monogramOf(event.name),
+    names: card.names || event.name,
+    monogram: card.monogram || monogramOf(event.name),
   };
-  const date = v["wedding.datetime"] ? formatDate(v["wedding.datetime"]) : null;
+  const date = card.datetime ? formatDate(card.datetime) : null;
 
   const selected = invitations.filter((i) =>
     mode === "todos" ? true : mode === "nao-enviados" ? !i.sentAt : chosen.has(i.id),

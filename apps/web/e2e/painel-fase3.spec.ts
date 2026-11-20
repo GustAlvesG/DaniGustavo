@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { fase3Cleanup, fase3InviteToken, fase3OrgId } from "./support/db";
 import { E2E_HOST } from "./support/multi-setup";
 
 /*
@@ -6,6 +7,11 @@ import { E2E_HOST } from "./support/multi-setup";
  * organizações e eventos, abre a organização e o evento e acha os atalhos de anfitriões; o
  * anfitrião de teste (só do evento ana-bruno) não vê seletor, atalhos nem o painel da
  * organização, e #/o/<id> o devolve ao evento.
+ *
+ * Integração: fluxo completo da organização — criar evento, tirar uma permissão do anfitrião,
+ * convidar por e-mail, aceitar numa sessão anônima (conta nova) e conferir que o anfitrião só
+ * vê o evento dele, sem o que foi negado. O e-mail vai para o console da API e o banco só tem
+ * o hash do token: o apoio do e2e troca o hash por um token conhecido (o "link do e-mail").
  */
 
 const painelUrl =
@@ -79,5 +85,78 @@ test.describe("anfitrião", () => {
     await page.goto(`${painelUrl}#/o/1`);
     await expect(page).toHaveURL(/#\/e\/\d+$/);
     await expect(page.getByRole("navigation", { name: "Seções da organização" })).toHaveCount(0);
+  });
+});
+
+test.describe("organização: criar evento e convidar anfitrião", () => {
+  test.skip(!adminEmail || !adminPassword, "Defina ADMIN_EMAIL_1 e ADMIN_PASSWORD_INICIAL.");
+
+  const run = Date.now().toString(36);
+  const slug = `e2e-f3-${run}`;
+  const hostEmail = `anfitriao-f3-${run}@exemplo.com`;
+  const hostPass = `Senha-e2e-${run}-ok`;
+
+  test.afterAll(() => fase3Cleanup(run));
+
+  test("criar evento → negar presentes → convidar → aceitar → anfitrião só no evento dele", async ({
+    page,
+    browser,
+  }) => {
+    const orgId = fase3OrgId();
+    await login(page, adminEmail, adminPassword);
+
+    // Novo evento pela UI: endereço conferido na hora; nasce rascunho e abre no painel.
+    await page.goto(`${painelUrl}#/o/${orgId}/eventos/novo`);
+    await page.getByLabel("Nome do evento").fill(`Festa E2E ${run}`);
+    await page.getByLabel("Data").fill("2031-05-10");
+    await page.getByLabel("Endereço do evento").fill(slug);
+    await expect(page.getByText("Disponível.")).toBeVisible();
+    await page.getByRole("button", { name: "Criar evento" }).click();
+    await expect(page).toHaveURL(/#\/e\/\d+$/);
+    const eventId = Number(/#\/e\/(\d+)$/.exec(page.url())![1]);
+    await expect(page.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
+
+    // Permissões: o anfitrião deste evento não vê presentes (e por isso não mexe neles).
+    await page.goto(`${painelUrl}#/o/${orgId}/eventos/${eventId}/permissoes`);
+    const giftsRead = page.getByRole("checkbox", { name: "Ver a lista de presentes" });
+    await expect(giftsRead).toBeChecked();
+    await giftsRead.uncheck();
+    await page.getByRole("button", { name: "Salvar permissões" }).click();
+    await expect(page.getByText("Permissões do anfitrião salvas.")).toBeVisible();
+
+    // Convite de anfitrião por e-mail.
+    await page.goto(`${painelUrl}#/o/${orgId}/eventos/${eventId}/anfitrioes`);
+    await page.getByLabel("E-mail").fill(hostEmail);
+    await page.getByRole("button", { name: "Enviar convite" }).click();
+    await expect(page.getByText(`Convite enviado para ${hostEmail}.`)).toBeVisible();
+    const token = fase3InviteToken(hostEmail);
+
+    // Aceite em contexto anônimo: cria a conta com senha e entra direto no evento.
+    const anon = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const guest = await anon.newPage();
+    await guest.goto(`${painelUrl}#/aceitar/${token}`);
+    await expect(guest.getByRole("heading", { name: "Convite para o painel" })).toBeVisible();
+    await guest.getByLabel("Seu nome").fill("Anfitriã E2E");
+    await guest.getByLabel("Senha", { exact: true }).fill(hostPass);
+    await guest.getByLabel("Repita a senha").fill(hostPass);
+    await guest.getByRole("button", { name: "Criar conta e aceitar" }).click();
+    await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
+
+    const nav = guest.getByRole("navigation", { name: "Seções do painel" });
+    await expect(nav.getByRole("link", { name: "Convites" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Presentes" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Anfitriões" })).toHaveCount(0);
+    await expect(guest.getByLabel("Organização e evento")).toHaveCount(0);
+
+    // Área negada pelo hash: aviso no painel (e a API responde 403).
+    await guest.goto(`${painelUrl}#/e/${eventId}/presentes`);
+    await expect(guest.getByRole("heading", { name: "Sem permissão" })).toBeVisible();
+
+    // Organização e outros eventos não são dele: volta para o próprio evento.
+    await guest.goto(`${painelUrl}#/o/${orgId}`);
+    await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
+    await guest.goto(`${painelUrl}#/e/${eventId === 1 ? 2 : 1}`);
+    await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
+    await anon.close();
   });
 });

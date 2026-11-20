@@ -4,6 +4,7 @@ import { errorMessage, orgApi, orgSend } from "../../api.ts";
 import { formatBRL, formatDate, plural } from "../../format.ts";
 import { eventPath, oh } from "../../nav.ts";
 import { Badge, Confirm, ErrorBox, Loading, PageHeader, useLoad, useToast } from "../../ui.tsx";
+import { useRefreshMe } from "../../org.tsx";
 
 export const EVENT_STATUS_LABEL: Record<OrgEventSummary["status"], string> = {
   draft: "Rascunho",
@@ -40,6 +41,7 @@ export function EventNumbers({ e }: { e: OrgEventSummary }) {
 
 export function OrgEventos() {
   const toast = useToast();
+  const refreshMe = useRefreshMe();
   const { data, error, loading, reload } = useLoad(
     () => orgApi<{ events: OrgEventSummary[] }>("/events"),
     [],
@@ -61,6 +63,8 @@ export function OrgEventos() {
         "ok",
       );
       reload();
+      // O status aparece também na lista de eventos e no seletor (vêm do /me).
+      void refreshMe().catch(() => undefined);
     } catch (e) {
       toast(errorMessage(e), "error");
     }

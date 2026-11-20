@@ -20,7 +20,10 @@ import {
   newPublicId,
   payments,
   sql,
+  teamInvites,
+  user,
 } from "@casamento/db";
+import { createHash, randomBytes } from "node:crypto";
 import { ensureE2eHost } from "@casamento/db/testing";
 
 type NewInvitation = {
@@ -227,6 +230,36 @@ async function main(): Promise<unknown> {
         });
       }
       return { ok: true, eventId: ev.id };
+    }
+    case "fase3-org": {
+      // Organização do evento 1 (a do casamento), onde o e2e da Fase 3 cria o evento.
+      const [ev] = await db
+        .select({ orgId: events.organizationId })
+        .from(events)
+        .where(eq(events.id, LEGACY_EVENT_ID));
+      return { orgId: ev!.orgId };
+    }
+    case "fase3-invite-token": {
+      // O banco só guarda o hash do token e o e-mail vai para o console da API: o e2e troca o
+      // hash do convite pendente por um token que ele conhece (o "link do e-mail").
+      const email = String(arg).toLowerCase();
+      const token = randomBytes(32).toString("base64url");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      const pending = await db
+        .select({ id: teamInvites.id })
+        .from(teamInvites)
+        .where(eq(teamInvites.email, email));
+      if (pending.length !== 1) throw new Error(`Esperava 1 convite para ${email}.`);
+      await db.update(teamInvites).set({ tokenHash }).where(eq(teamInvites.id, pending[0]!.id));
+      return { token };
+    }
+    case "fase3-cleanup": {
+      // Evento criado pelo e2e (convites e vínculos saem em cascata) e a conta do anfitrião.
+      const run = String(arg);
+      await db.delete(teamInvites).where(eq(teamInvites.email, `anfitriao-f3-${run}@exemplo.com`));
+      await db.delete(events).where(eq(events.slug, `e2e-f3-${run}`));
+      await db.delete(user).where(eq(user.email, `anfitriao-f3-${run}@exemplo.com`));
+      return { ok: true };
     }
     default:
       throw new Error(`Comando desconhecido: ${command}`);

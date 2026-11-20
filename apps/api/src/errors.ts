@@ -4,9 +4,9 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 export { ERROR_CODES };
 
-/** Monta o corpo de erro padrão `{ error: { code, message } }`. */
-export function errorBody(code: ErrorCode | string, message: string): ApiError {
-  return { error: { code, message } };
+/** Monta o corpo de erro padrão `{ error: { code, message, field? } }`. */
+export function errorBody(code: ErrorCode | string, message: string, field?: string): ApiError {
+  return { error: field ? { code, message, field } : { code, message } };
 }
 
 export function apiError(

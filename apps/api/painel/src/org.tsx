@@ -19,6 +19,14 @@ const OrgContext = createContext<MeOrganization | null>(null);
 export const OrgProvider = OrgContext.Provider;
 export { parseOrgPath };
 
+/*
+ * Recarrega o `/me` do painel (lista de eventos e organizações). Quem cria ou muda um evento
+ * chama antes de navegar: sem isso o evento novo não está na lista e o hash volta para #/eventos.
+ */
+const MeRefreshContext = createContext<() => Promise<void>>(() => Promise.resolve());
+export const MeRefreshProvider = MeRefreshContext.Provider;
+export const useRefreshMe = () => useContext(MeRefreshContext);
+
 /** A organização aberta no painel (só dentro de /o/:orgId). */
 export function useOrg(): MeOrganization {
   const org = useContext(OrgContext);

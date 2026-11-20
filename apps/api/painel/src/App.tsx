@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
 import {
@@ -22,7 +22,7 @@ import {
   setCurrentEventId,
   setCurrentOrgId,
 } from "./nav.ts";
-import { ORG_NAV, OrgPage, OrgProvider } from "./org.tsx";
+import { MeRefreshProvider, ORG_NAV, OrgPage, OrgProvider } from "./org.tsx";
 import {
   parseEventPath,
   parseOrgPath,
@@ -67,19 +67,22 @@ function useHashPath(): string {
   return path;
 }
 
-/** Menu do evento; `action` é a permissão que libera o item (sem ela, some do menu). */
+/**
+ * Menu do evento; `action` é a permissão de LEITURA que libera o item (sem ela, some do menu).
+ * Sem a escrita da área, a página abre e a API recusa a gravação com 403.
+ */
 const NAV: { href: string; label: string; action?: EventAction }[] = [
   { href: "/", label: "Início" },
   { href: "/convites", label: "Convites", action: "invitations.read" },
-  { href: "/presentes", label: "Presentes", action: "gifts.write" },
+  { href: "/presentes", label: "Presentes", action: "gifts.read" },
   { href: "/pedidos", label: "Pedidos", action: "orders.read" },
-  { href: "/recados", label: "Recados", action: "messages.moderate" },
-  { href: "/lembretes", label: "Lembretes", action: "reminders.write" },
-  { href: "/site", label: "Site", action: "content.write" },
-  { href: "/galeria", label: "Galeria", action: "content.write" },
-  { href: "/aparencia", label: "Aparência", action: "content.write" },
+  { href: "/recados", label: "Recados", action: "messages.read" },
+  { href: "/lembretes", label: "Lembretes", action: "reminders.read" },
+  { href: "/site", label: "Site", action: "content.read" },
+  { href: "/galeria", label: "Galeria", action: "content.read" },
+  { href: "/aparencia", label: "Aparência", action: "content.read" },
   { href: "/evento", label: "Evento", action: "event.configure" },
-  { href: "/configuracoes", label: "Configurações", action: "settings.write" },
+  { href: "/configuracoes", label: "Configurações", action: "settings.read" },
 ];
 
 const SECTION_ACTION = new Map(NAV.map((i) => [i.href.slice(1), i.action]));
@@ -196,8 +199,9 @@ function Session() {
 
 /** Entrada: pergunta ao servidor quais eventos o usuário abre e decide para onde ir. */
 function Painel() {
-  const { data, error, loading, reload } = useLoad(() => apiRoot<MeResponse>("/me"), []);
+  const { data, setData, error, loading, reload } = useLoad(() => apiRoot<MeResponse>("/me"), []);
   const path = useHashPath();
+  const refreshMe = useCallback(async () => setData(await apiRoot<MeResponse>("/me")), [setData]);
 
   if (loading && !data) {
     return (
@@ -213,7 +217,11 @@ function Painel() {
       </main>
     );
   }
-  return <Routed me={data} path={path} />;
+  return (
+    <MeRefreshProvider value={refreshMe}>
+      <Routed me={data} path={path} />
+    </MeRefreshProvider>
+  );
 }
 
 function Routed({ me, path }: { me: MeResponse; path: string }) {

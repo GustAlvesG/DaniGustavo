@@ -159,6 +159,19 @@ describe("negar uma ação", () => {
     expect((await call("owner", gifts)).status).toBe(200);
   });
 
+  it("sem settings.read, o QR dos convites ainda carrega o cabeçalho do cartão", async () => {
+    await setDeny(["settings.read"]);
+    const base = `/api/admin/events/${ev.eventA.id}`;
+    expect((await call("host", `${base}/settings`)).status).toBe(403);
+    const card = await call("host", `${base}/invitations/card`);
+    expect(card.status).toBe(200);
+    expect(Object.keys((await card.json()) as object).sort()).toEqual([
+      "datetime",
+      "monogram",
+      "names",
+    ]);
+  });
+
   it("liberar de novo vale na hora", async () => {
     await setDeny([]);
     const gifts = `/api/admin/events/${ev.eventA.id}/gifts`;

@@ -193,7 +193,7 @@ describe("requireEventAccess", () => {
 });
 
 describe("permissões", () => {
-  it("na Fase 1 todo papel pode toda ação", () => {
+  it("pela matriz de papéis, todo papel do evento pode toda ação (a negação do anfitrião vem do evento)", () => {
     for (const role of EVENT_ACCESS_ROLES) {
       for (const action of ACTIONS) expect(can(role, action)).toBe(true);
     }

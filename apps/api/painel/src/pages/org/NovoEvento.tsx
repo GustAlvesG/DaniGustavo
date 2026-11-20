@@ -8,6 +8,7 @@ import {
 import { useEffect, useState, type FormEvent } from "react";
 import { errorMessage, orgApi, orgSend } from "../../api.ts";
 import { eventPath, oh } from "../../nav.ts";
+import { useRefreshMe } from "../../org.tsx";
 import { Field, FormError, PageHeader, useToast } from "../../ui.tsx";
 
 /** "Festa da Lia" vira "festa-da-lia" (sem acentos, só minúsculas, números e hífens). */
@@ -22,6 +23,7 @@ const slugify = (name: string) =>
 
 export function NovoEvento() {
   const toast = useToast();
+  const refreshMe = useRefreshMe();
   const [name, setName] = useState("");
   const [type, setType] = useState<EventType>("wedding");
   const [slug, setSlug] = useState("");
@@ -71,6 +73,7 @@ export function NovoEvento() {
         host: host.trim() || null,
       });
       toast("Evento criado como rascunho. Ative-o quando o site estiver pronto.", "ok");
+      await refreshMe();
       window.location.hash = eventPath(event.id);
     } catch (err) {
       setError(errorMessage(err));

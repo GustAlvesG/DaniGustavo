@@ -25,7 +25,7 @@ import {
   type SlugCheck,
 } from "@casamento/shared";
 import { Hono } from "hono";
-import { ERROR_CODES, routeNotFound } from "../../errors.ts";
+import { ERROR_CODES, errorBody, routeNotFound } from "../../errors.ts";
 import { requireOrgPermission } from "../../tenancy/org-access.ts";
 import { resolverFor } from "../../tenancy/resolver.ts";
 import type { OrgAdminEnv } from "../../tenancy/types.ts";
@@ -199,16 +199,14 @@ export function orgEventRoutes(deps: AdminDeps) {
       return c.json({ event: summary }, 201);
     } catch (error) {
       if (error instanceof EventInputError) {
-        const status = error.reason === "taken" ? 409 : 422;
+        const taken = error.reason === "taken";
         return c.json(
-          {
-            error: {
-              code: ERROR_CODES.invalidRequest,
-              message: error.message,
-              field: error.field,
-            },
-          },
-          status,
+          errorBody(
+            taken ? ERROR_CODES.conflict : ERROR_CODES.invalidRequest,
+            error.message,
+            error.field,
+          ),
+          taken ? 409 : 422,
         );
       }
       throw error;

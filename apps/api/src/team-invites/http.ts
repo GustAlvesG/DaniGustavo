@@ -6,7 +6,7 @@ const CODE: Record<TeamInviteError["status"], string> = {
   401: ERROR_CODES.unauthorized,
   403: ERROR_CODES.unauthorized,
   404: ERROR_CODES.notFound,
-  409: ERROR_CODES.invalidRequest,
+  409: ERROR_CODES.conflict,
   422: ERROR_CODES.invalidRequest,
   502: ERROR_CODES.internalError,
 };

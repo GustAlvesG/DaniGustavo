@@ -28,6 +28,7 @@ import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import type { AdminDeps } from "./context.ts";
 import { eventSides } from "./event-config.ts";
+import { readSetting } from "./event-settings.ts";
 
 type InvitationRow = typeof invitations.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -178,6 +179,19 @@ export function adminInvitationRoutes(deps: AdminDeps) {
         (!q || fold(i.label).includes(q) || i.guests.some((g) => fold(g.name).includes(q))),
     );
     return c.json({ invitations: list, total: all.length });
+  });
+
+  /*
+   * Cabeçalho dos cartões de QR para impressão (nomes, monograma e data). Fica aqui, e não em
+   * `GET /settings`, para o anfitrião sem `settings.read` ainda imprimir os convites.
+   */
+  app.get("/card", async (c) => {
+    const ev = c.get("event");
+    const [names, monogram, datetime] = await Promise.all(
+      ["couple.names", "couple.monogram", "wedding.datetime"].map((k) => readSetting(ev, db, k)),
+    );
+    const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+    return c.json({ names: text(names), monogram: text(monogram), datetime: text(datetime) });
   });
 
   app.get("/export.csv", async (c) => {

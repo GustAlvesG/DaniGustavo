@@ -12,7 +12,13 @@ import {
   newPublicId,
   type Database,
 } from "@casamento/db";
-import type { OrgDashboard, OrgEventSummary, SlugCheck } from "@casamento/shared";
+import {
+  ERROR_CODES,
+  type ApiError,
+  type OrgDashboard,
+  type OrgEventSummary,
+  type SlugCheck,
+} from "@casamento/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadSiteContent } from "../src/site-content.ts";
 import { createTestEvents, testApp, type TestEvents, type TestUserKind } from "./helpers.ts";
@@ -274,7 +280,10 @@ describe("criar evento", () => {
       body: input(ev.eventB.slug),
     });
     expect(dup.status).toBe(409);
-    expect(((await dup.json()) as { error: { field: string } }).error.field).toBe("slug");
+    expect(((await dup.json()) as ApiError).error).toMatchObject({
+      code: ERROR_CODES.conflict,
+      field: "slug",
+    });
 
     const slug = `lia-h-${ev.run}`;
     createdSlugs.push(slug);
