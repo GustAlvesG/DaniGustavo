@@ -18,6 +18,7 @@ import {
   listEvents,
   migrateUploads,
 } from "../src/tenancy-admin.ts";
+import { createEventRecord, EventInputError, isEventSlugAvailable } from "../src/event-service.ts";
 import { createTestDb } from "./helpers.ts";
 
 let db: Database;
@@ -79,6 +80,47 @@ describe("org:create e event:create", () => {
     );
     await expect(createEvent(db, { ...base, org: "nao-existe" })).rejects.toThrow(/não encontrada/);
     await expect(createEvent(db, { ...base, slug: "maria-e-joao" })).rejects.toThrow(/já existe/i);
+  });
+});
+
+describe("createEventRecord (serviço da CLI e do painel)", () => {
+  it("cria com domínio primário e devolve erros com o campo", async () => {
+    const [org] = await db.select({ id: events.organizationId }).from(events).limit(1);
+    const orgId = org!.id;
+    expect(await isEventSlugAvailable(db, "festa-da-bia")).toBe(true);
+    const ev = await createEventRecord(db, {
+      organizationId: orgId,
+      slug: "festa-da-bia",
+      name: "Festa da Bia",
+      type: "fifteen",
+      startsAt: "2029-03-10T20:00:00-03:00",
+      host: " Festa-da-Bia.Exemplo.com ",
+    });
+    expect(ev).toMatchObject({ status: "draft", host: "festa-da-bia.exemplo.com" });
+    expect(await isEventSlugAvailable(db, "festa-da-bia")).toBe(false);
+    const domains = await db.select().from(eventDomains).where(eq(eventDomains.eventId, ev.id));
+    expect(domains).toMatchObject([{ host: "festa-da-bia.exemplo.com", isPrimary: true }]);
+
+    const base = {
+      organizationId: orgId,
+      slug: "outra-festa",
+      name: "Outra",
+      type: "birthday",
+      startsAt: "2029-03-10T20:00:00Z",
+    };
+    const fail = (extra: object) =>
+      createEventRecord(db, { ...base, ...extra }).catch((e: unknown) => e);
+    const taken = await fail({ slug: "festa-da-bia" });
+    expect(taken).toBeInstanceOf(EventInputError);
+    expect(taken).toMatchObject({ field: "slug", reason: "taken" });
+    expect(await fail({ host: "festa-da-bia.exemplo.com" })).toMatchObject({
+      field: "host",
+      reason: "taken",
+    });
+    expect(await fail({ host: "a b" })).toMatchObject({ field: "host", reason: "invalid" });
+    expect(await fail({ slug: "Com Espaço" })).toMatchObject({ field: "slug", reason: "invalid" });
+    // Nada ficou pela metade.
+    expect(await isEventSlugAvailable(db, "outra-festa")).toBe(true);
   });
 });
 

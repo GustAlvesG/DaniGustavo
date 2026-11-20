@@ -12,6 +12,19 @@ export {
 } from "./client.ts";
 export { byEvent } from "./scope.ts";
 export {
+  assertEventSlug,
+  createEventRecord,
+  eventInitials,
+  EventInputError,
+  isEventHostAvailable,
+  isEventSlugAvailable,
+  isUniqueViolation,
+  normalizeEventHost,
+  type EventInputField,
+  type NewEventInput,
+  type NewEventResult,
+} from "./event-service.ts";
+export {
   importLegacyContent,
   legacyFileName,
   LEGACY_FOTOS_DIR,

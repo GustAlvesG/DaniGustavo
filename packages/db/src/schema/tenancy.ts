@@ -121,3 +121,48 @@ export const eventMembers = mysqlTable(
     index("event_members_user_id_idx").on(t.userId),
   ],
 );
+
+/**
+ * Fase 3: papel oferecido por um convite da equipe. `owner`/`member` = equipe da organização
+ * (`event_id` nulo); `host` = anfitrião de um evento da organização (`event_id` preenchido).
+ */
+export const TEAM_INVITE_ROLES = ["owner", "member", "host"] as const;
+export type TeamInviteRole = (typeof TEAM_INVITE_ROLES)[number];
+
+/**
+ * Convites por e-mail para a equipe da organização ou para anfitrião de um evento (Fase 3). O
+ * token vai só no e-mail; aqui fica o SHA-256 dele (hex). Aceite: cria a conta (com senha) ou
+ * vincula a conta existente do mesmo e-mail; o cadastro público do Better Auth segue desligado.
+ * Dados por organização: o auditor de SQL dos testes exige `organization_id` no WHERE.
+ * Que o evento pertence à organização é conferido na aplicação (sem FK composta).
+ */
+export const teamInvites = mysqlTable(
+  "team_invites",
+  {
+    id: pk(),
+    organizationId: fk("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Nulo = convite para a equipe da organização; preenchido = anfitrião deste evento. */
+    eventId: fk("event_id").references(() => events.id, { onDelete: "cascade" }),
+    /** Minúsculo, sem espaços. */
+    email: varchar("email", { length: 191 }).notNull(),
+    role: mysqlEnum("role", TEAM_INVITE_ROLES).notNull(),
+    /** SHA-256 (hex) do token enviado no e-mail; o token em si não é gravado. */
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    invitedBy: varchar("invited_by", { length: 36 }).references(() => user.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: utcDatetime("expires_at").notNull(),
+    acceptedAt: utcDatetime("accepted_at"),
+    acceptedBy: varchar("accepted_by", { length: 36 }).references(() => user.id, {
+      onDelete: "set null",
+    }),
+    revokedAt: utcDatetime("revoked_at"),
+    ...timestamps(),
+  },
+  (t) => [
+    index("team_invites_org_email_idx").on(t.organizationId, t.email),
+    index("team_invites_event_id_idx").on(t.eventId),
+  ],
+);

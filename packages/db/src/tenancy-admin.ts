@@ -5,39 +5,27 @@ import { join } from "node:path";
 import { and, eq, like } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { Database } from "./client.ts";
-import { eventSettings, gifts } from "./schema/app.ts";
+import {
+  assertEventSlug,
+  createEventRecord,
+  isUniqueViolation,
+  normalizeEventHost,
+} from "./event-service.ts";
+import { gifts } from "./schema/app.ts";
 import { account, user } from "./schema/auth.ts";
 import {
-  EVENT_STATUSES,
-  EVENT_TYPES,
   eventDomains,
   eventMembers,
   events,
   LEGACY_EVENT_ID,
   organizationMembers,
   organizations,
-  type EventStatus,
-  type EventType,
 } from "./schema/tenancy.ts";
 
 // Operações de administração da plataforma usadas pela CLI (cli.ts). Cada função lança Error com
 // mensagem em pt-BR quando a entrada é inválida.
 
-const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const HOST = /^[a-z0-9.-]+(:\d+)?$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function assertSlug(slug: string): string {
-  if (!SLUG.test(slug) || slug.length > 64) {
-    throw new Error(`Slug inválido: "${slug}". Use minúsculas, números e hífens (até 64).`);
-  }
-  return slug;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const e = error as { code?: string; cause?: { code?: string } };
-  return e?.code === "ER_DUP_ENTRY" || e?.cause?.code === "ER_DUP_ENTRY";
-}
 
 /** Aceita id numérico ou slug. */
 export async function resolveOrganization(db: Database, ref: string) {
@@ -56,7 +44,7 @@ export async function resolveEvent(db: Database, ref: string) {
 }
 
 export async function createOrganization(db: Database, input: { slug: string; name: string }) {
-  const slug = assertSlug(input.slug);
+  const slug = assertEventSlug(input.slug);
   const name = input.name.trim();
   if (!name) throw new Error("Informe o nome da organização.");
   try {
@@ -80,67 +68,24 @@ export interface CreateEventInput {
   status?: string;
 }
 
-function initials(name: string): string {
-  return name
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((w) => w.length > 2 || /^\p{Lu}/u.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
-}
-
-/** Cria o evento e as chaves neutras de `event_settings` (sem conteúdo do casamento). */
+/** Cria o evento (CLI): resolve a organização e usa o serviço compartilhado com o painel. */
 export async function createEvent(db: Database, input: CreateEventInput) {
   const org = await resolveOrganization(db, input.org);
-  const slug = assertSlug(input.slug);
-  const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do evento.");
-  if (!(EVENT_TYPES as readonly string[]).includes(input.type)) {
-    throw new Error(`Tipo inválido: "${input.type}". Use ${EVENT_TYPES.join(", ")}.`);
-  }
-  const status = (input.status ?? "draft") as EventStatus;
-  if (!(EVENT_STATUSES as readonly string[]).includes(status)) {
-    throw new Error(`Status inválido: "${status}". Use ${EVENT_STATUSES.join(", ")}.`);
-  }
-  // Exige offset explícito para não depender do fuso da máquina.
-  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(input.startsAt)) {
-    throw new Error("--starts-at precisa de offset, ex.: 2027-04-10T16:00:00-03:00.");
-  }
-  const startsAt = new Date(input.startsAt);
-  if (Number.isNaN(startsAt.getTime())) throw new Error(`Data inválida: "${input.startsAt}".`);
-  const timezone = input.timezone ?? "America/Sao_Paulo";
-  try {
-    new Intl.DateTimeFormat("pt-BR", { timeZone: timezone });
-  } catch {
-    throw new Error(`Fuso horário inválido: "${timezone}".`);
-  }
-
-  let eventId: number;
-  try {
-    eventId = await db.transaction(async (tx) => {
-      const [res] = await tx.insert(events).values({
-        organizationId: org.id,
-        slug,
-        type: input.type as EventType,
-        name,
-        status,
-        timezone,
-        startsAt,
-      });
-      const id = res.insertId;
-      await tx.insert(eventSettings).values([
-        { eventId: id, key: "couple.names", value: name, isPublic: true },
-        { eventId: id, key: "couple.monogram", value: initials(name), isPublic: true },
-        { eventId: id, key: "wedding.datetime", value: input.startsAt, isPublic: true },
-        { eventId: id, key: "wedding.timezone", value: timezone, isPublic: true },
-      ]);
-      return id;
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) throw new Error(`Já existe um evento com o slug "${slug}".`);
-    throw error;
-  }
-  return { id: eventId, slug, organizationId: org.id, status };
+  const created = await createEventRecord(db, {
+    organizationId: org.id,
+    slug: input.slug,
+    name: input.name,
+    type: input.type,
+    startsAt: input.startsAt,
+    timezone: input.timezone,
+    status: input.status,
+  });
+  return {
+    id: created.id,
+    slug: created.slug,
+    organizationId: created.organizationId,
+    status: created.status,
+  };
 }
 
 export async function addDomain(
@@ -148,10 +93,7 @@ export async function addDomain(
   input: { event: string; host: string; primary?: boolean },
 ) {
   const event = await resolveEvent(db, input.event);
-  const host = input.host.trim().toLowerCase();
-  if (!HOST.test(host) || host.length > 191) {
-    throw new Error(`Host inválido: "${input.host}". Use algo como exemplo.com ou localhost:3000.`);
-  }
+  const host = normalizeEventHost(input.host);
   const primary = input.primary === true;
   try {
     await db.transaction(async (tx) => {
