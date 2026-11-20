@@ -9,6 +9,7 @@ import {
 } from "@casamento/shared";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
+import { sideName, useEventConfig } from "../config.ts";
 import { useEvent } from "../event.tsx";
 import { ea, eh, go } from "../nav.ts";
 import { formatDateTime, plural } from "../format.ts";
@@ -35,7 +36,6 @@ const GUEST_STATUS_LABEL: Record<RsvpStatus, string> = {
   pending: "Pendente",
   declined: "Não vai",
 };
-const SIDE_LABEL = { dani: "Dani", gustavo: "Gustavo" } as const;
 const AGE_OPTIONS: { value: AgeRange; label: string }[] = [
   { value: "0-2", label: "0 a 2 anos" },
   { value: "3-7", label: "3 a 7 anos" },
@@ -47,6 +47,7 @@ const AGE_OPTIONS: { value: AgeRange; label: string }[] = [
 /* ------------------------------------------------------------------------ */
 
 export function Convites() {
+  const config = useEventConfig().data;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | InvitationStatus>("");
   const { data, error, loading, reload } = useLoad(
@@ -120,7 +121,8 @@ export function Convites() {
                 <a className="row__main" href={eh(`/convites/${inv.id}`)}>
                   <span className="row__title">{inv.label}</span>
                   <span className="row__meta">
-                    {SIDE_LABEL[inv.side]} · {plural(inv.guests.length, "pessoa", "pessoas")}
+                    {sideName(config?.sides, inv.side)} ·{" "}
+                    {plural(inv.guests.length, "pessoa", "pessoas")}
                     {inv.status === "confirmed" && ` · ${going} vão`}
                     {inv.sentAt ? " · enviado" : " · não enviado"}
                   </span>
@@ -153,6 +155,7 @@ export function whatsappLink(
 }
 
 export function ConviteDetalhe({ id }: { id: number }) {
+  const config = useEventConfig().data;
   const toast = useToast();
   const event = useEvent();
   const { data, setData, error, loading, reload } = useLoad(
@@ -217,7 +220,8 @@ export function ConviteDetalhe({ id }: { id: number }) {
         title={inv.label}
         subtitle={
           <>
-            Lado {SIDE_LABEL[inv.side]} · até {plural(inv.maxGuests, "pessoa", "pessoas")}
+            {config?.vocabulary.sideLabel ?? "Lado"} {sideName(config?.sides, inv.side)} · até{" "}
+            {plural(inv.maxGuests, "pessoa", "pessoas")}
             {inv.allowPlusOne && " · aceita acompanhante"}
           </>
         }
@@ -424,7 +428,8 @@ export function ConviteForm({ id }: { id?: number }) {
     [id],
   );
   const [label, setLabel] = useState("");
-  const [side, setSide] = useState<"dani" | "gustavo">("dani");
+  const config = useEventConfig().data;
+  const [side, setSide] = useState("");
   const [maxGuests, setMaxGuests] = useState("2");
   const [allowPlusOne, setAllowPlusOne] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
@@ -461,10 +466,11 @@ export function ConviteForm({ id }: { id?: number }) {
   const update = (key: string, patch: Partial<GuestDraft>) =>
     setGuests((list) => list.map((g) => (g.key === key ? { ...g, ...patch } : g)));
 
+  const sideValue = side || config?.sides[0]?.key || "";
   const payload = useMemo(
     () => ({
       label,
-      side,
+      side: sideValue,
       maxGuests: Number(maxGuests),
       allowPlusOne,
       contactEmail,
@@ -480,7 +486,7 @@ export function ConviteForm({ id }: { id?: number }) {
         email: g.email,
       })),
     }),
-    [label, side, maxGuests, allowPlusOne, contactEmail, contactPhone, guests],
+    [label, sideValue, maxGuests, allowPlusOne, contactEmail, contactPhone, guests],
   );
 
   async function onSubmit(e: FormEvent) {
@@ -530,10 +536,16 @@ export function ConviteForm({ id }: { id?: number }) {
             maxLength={191}
           />
         </Field>
-        <Field label="Lado">
-          <select value={side} onChange={(e) => setSide(e.target.value as "dani" | "gustavo")}>
-            <option value="dani">Dani</option>
-            <option value="gustavo">Gustavo</option>
+        <Field label={config?.vocabulary.sideLabel ?? "Lado"}>
+          <select value={sideValue} onChange={(e) => setSide(e.target.value)} required>
+            {(config?.sides ?? []).map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+            {side && !config?.sides.some((s) => s.key === side) && (
+              <option value={side}>{side}</option>
+            )}
           </select>
         </Field>
         <Field label="Máximo de pessoas">

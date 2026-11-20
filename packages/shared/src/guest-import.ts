@@ -25,7 +25,7 @@ export const IMPORT_COLUMNS: readonly ImportColumn[] = [
     key: "lado",
     required: true,
     aliases: [],
-    help: "Dani ou Gustavo.",
+    help: "Lado do convite, como em Evento › Lados (nome ou código).",
   },
   {
     key: "nome",
@@ -94,7 +94,7 @@ export interface ImportGuestPreview {
 
 export interface ImportInvitationPreview {
   label: string;
-  side: "dani" | "gustavo";
+  side: string;
   maxGuests: number;
   allowPlusOne: boolean;
   contactPhone: string | null;

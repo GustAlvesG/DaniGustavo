@@ -1,4 +1,5 @@
 import type { Invitation } from "@casamento/shared";
+import { inEvent } from "./tenancy/modules.ts";
 import type { MailMessage } from "./mailer.ts";
 
 export interface RsvpEmailInput {
@@ -9,6 +10,8 @@ export interface RsvpEmailInput {
   /** Nome de exibição do remetente (nome do evento). */
   fromName?: string;
   coupleNames: string;
+  /** "O casamento", "A festa"...: vocabulário do evento (padrão: casamento). */
+  eventLabel?: string;
   weddingDatetime: string;
   timezone: string;
 }
@@ -34,6 +37,7 @@ function formatDate(iso: string, timeZone: string, withTime: boolean): string {
 /** E-mail de confirmação do RSVP em pt-BR (texto e HTML simples). */
 export function buildRsvpEmail(input: RsvpEmailInput): MailMessage {
   const { invitation, token, siteUrl, coupleNames, weddingDatetime, timezone } = input;
+  const where = inEvent(input.eventLabel ?? "O casamento");
   const confirmed = invitation.guests
     .filter((g) => g.rsvpStatus === "confirmed")
     .map((g) => g.name);
@@ -43,7 +47,7 @@ export function buildRsvpEmail(input: RsvpEmailInput): MailMessage {
   const link = `${siteUrl.replace(/\/$/, "")}/c/${token}`;
 
   const subject =
-    confirmed.length > 0 ? "Presença confirmada no casamento" : "Recebemos a sua resposta";
+    confirmed.length > 0 ? `Presença confirmada ${where}` : "Recebemos a sua resposta";
 
   const lines: string[] = [
     confirmed.length > 0

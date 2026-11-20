@@ -1,6 +1,15 @@
 import { and, asc, byEvent, eq, guests, invitations, type Database } from "@casamento/db";
-import { GUEST_LIST_KINDS, type GuestList, type GuestListKind } from "@casamento/shared";
+import {
+  GUEST_LIST_KINDS,
+  sideLabel,
+  vocabularyFor,
+  VocabularyOverrides,
+  type GuestList,
+  type GuestListKind,
+} from "@casamento/shared";
 import type { EventCtx } from "../tenancy/types.ts";
+import { eventSides } from "./event-config.ts";
+import { readSetting } from "./event-settings.ts";
 
 /*
  * Listas dos confirmados para os fornecedores. Restrição alimentar é dado de saúde (LGPD):
@@ -41,6 +50,11 @@ export async function buildGuestList(
     .where(and(byEvent(guests, ev), eq(guests.rsvpStatus, "confirmed")))
     .orderBy(asc(invitations.label), asc(guests.isPlusOne), asc(guests.id));
 
+  const sides = await eventSides(ev, db);
+  const sideWord = vocabularyFor(
+    ev.type,
+    VocabularyOverrides.parse((await readSetting(ev, db, "event.vocabulary")) ?? {}),
+  ).sideLabel;
   const type = (g: (typeof rows)[number]) => (g.isChild ? "Criança" : "Adulto");
   const age = (g: (typeof rows)[number]) => (g.ageRange ? (AGE_LABEL[g.ageRange] ?? "") : "");
   const adults = rows.filter((g) => !g.isChild).length;
@@ -74,7 +88,7 @@ export async function buildGuestList(
       note: "Confirmados por convite, com contato e restrições alimentares (dado de saúde: só para combinar o serviço com o buffet).",
       columns: [
         "Convite",
-        "Lado",
+        sideWord,
         "Convidado",
         "Adulto/criança",
         "Faixa etária",
@@ -84,7 +98,7 @@ export async function buildGuestList(
       ],
       rows: rows.map((g) => [
         g.label,
-        g.side === "dani" ? "Dani" : "Gustavo",
+        sideLabel(sides, g.side),
         g.name,
         type(g),
         age(g),
@@ -95,8 +109,10 @@ export async function buildGuestList(
       summary: [
         { label: "Convites", value: String(invs.size) },
         { label: "Pessoas", value: String(rows.length) },
-        { label: "Lado Dani", value: String(rows.filter((g) => g.side === "dani").length) },
-        { label: "Lado Gustavo", value: String(rows.filter((g) => g.side === "gustavo").length) },
+        ...sides.map((side) => ({
+          label: `${sideWord} ${side.label}`,
+          value: String(rows.filter((g) => g.side === side.key).length),
+        })),
         { label: "Crianças", value: String(rows.length - adults) },
       ],
       generatedAt,

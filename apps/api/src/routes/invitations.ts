@@ -24,6 +24,7 @@ import { apiError } from "../errors.ts";
 import type { Mailer } from "../mailer.ts";
 import { nameMatches } from "../names.ts";
 import type { RateLimiter } from "../rate-limit.ts";
+import { eventVocabulary } from "../tenancy/modules.ts";
 import { buildRsvpEmail } from "../rsvp-email.ts";
 import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx, PublicEventEnv } from "../tenancy/types.ts";
@@ -148,6 +149,7 @@ export function invitationRoutes(deps: InvitationDeps) {
         siteUrl: await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) }),
         fromName: ev.name,
         coupleNames: String(coupleNames || ev.name),
+        eventLabel: (await eventVocabulary(ev, db)).eventLabel,
         weddingDatetime: String(weddingDatetime),
         timezone: String(timezone),
       }),
@@ -163,12 +165,13 @@ export function invitationRoutes(deps: InvitationDeps) {
     if (!parsed.success) return badBody(c, parsed.error.issues[0]?.message);
     const { firstName, lastName, website } = parsed.data;
 
+    const hosts = (await eventVocabulary(c.get("event"), db)).hosts;
     const notFound = () =>
       apiError(
         c,
         404,
         ERROR_CODES.notFound,
-        "Não encontramos esse nome na lista. Confira a grafia e tente de novo com o nome e o sobrenome do convite, ou fale com os noivos.",
+        `Não encontramos esse nome na lista. Confira a grafia e tente de novo com o nome e o sobrenome do convite, ou fale com ${hosts}.`,
       );
     // Honeypot: o robô recebe a mesma resposta de "sem resultado".
     if (website && website.trim() !== "") return notFound();
@@ -233,7 +236,7 @@ export function invitationRoutes(deps: InvitationDeps) {
         c,
         409,
         ERROR_CODES.rsvpClosed,
-        `O prazo para confirmar presença terminou. Para alterar a resposta, fale direto com os noivos${how ? `: ${how}` : ""}.`,
+        `O prazo para confirmar presença terminou. Para alterar a resposta, fale direto com ${(await eventVocabulary(ev, db)).hosts}${how ? `: ${how}` : ""}.`,
       );
     }
 

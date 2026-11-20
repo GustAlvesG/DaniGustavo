@@ -24,7 +24,7 @@ export type InvitationGuest = z.infer<typeof InvitationGuest>;
 /** Resposta de GET /api/invitations/{token}. */
 export const Invitation = z.object({
   label: z.string(),
-  side: z.enum(["dani", "gustavo"]),
+  side: z.string(),
   maxGuests: z.number().int().positive(),
   allowPlusOne: z.boolean(),
   guests: z.array(InvitationGuest),

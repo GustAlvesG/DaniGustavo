@@ -87,13 +87,18 @@ describe("XLSX", () => {
   });
 });
 
+const WEDDING_SIDES = [
+  { key: "dani", label: "Dani" },
+  { key: "gustavo", label: "Gustavo" },
+];
+
 describe("planImport", () => {
   const plan = (csv: string, existing: { label: string; guestNames: string[] }[] = []) =>
-    planImport("lista.csv", enc.encode(csv), existing);
+    planImport("lista.csv", enc.encode(csv), existing, WEDDING_SIDES);
 
   it("importa o exemplo de 50 convidados (CSV e XLSX) sem erros", () => {
     for (const file of ["convidados-exemplo.csv", "convidados-exemplo.xlsx"]) {
-      const p = planImport(file, readFileSync(join(EXEMPLO, file)), []).preview;
+      const p = planImport(file, readFileSync(join(EXEMPLO, file)), [], WEDDING_SIDES).preview;
       expect(p.fileError).toBeNull();
       expect(p.errorCount).toBe(0);
       expect(p.toCreate).toEqual({ invitations: 22, guests: 50 });

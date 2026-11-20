@@ -14,6 +14,7 @@ import { ReminderSettings, type ReminderSendResult, type ReminderStatus } from "
 import { invitationLink, invitationStatus } from "./admin/invitations.ts";
 import type { Env } from "./env.ts";
 import type { Mailer } from "./mailer.ts";
+import { eventVocabulary } from "./tenancy/modules.ts";
 import { buildReminderEmail } from "./reminder-email.ts";
 import { resolverFor, type EventResolver } from "./tenancy/resolver.ts";
 import type { EventCtx } from "./tenancy/types.ts";
@@ -235,6 +236,7 @@ async function sendOne(
           c.token,
         ),
         coupleNames: ctx.couple.names,
+        eventLabel: (await eventVocabulary(ev, db)).eventLabel,
         weddingDatetime: ctx.couple.datetime,
         timezone: ctx.couple.timezone,
         deadline: ctx.deadline.toISOString(),

@@ -1,35 +1,40 @@
 import { byEvent, guests, invitations } from "@casamento/db";
-import { IMPORT_COLUMNS, IMPORT_MAX_BYTES } from "@casamento/shared";
+import { IMPORT_COLUMNS, IMPORT_MAX_BYTES, type EventSides } from "@casamento/shared";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import { invalid, sensitiveLimit, type AdminDeps } from "./context.ts";
+import { eventSides } from "./event-config.ts";
 import { applyImport, planImport } from "./guest-import.ts";
 import { buildGuestList, isGuestListKind } from "./guest-lists.ts";
 import { toCsv } from "./invitations.ts";
 import { buildXlsx } from "./spreadsheet.ts";
 
 /** Linhas de exemplo do modelo de importação (mesma ordem de IMPORT_COLUMNS). */
-export const TEMPLATE_ROWS: string[][] = [
-  IMPORT_COLUMNS.map((c) => c.key),
-  [
-    "Família Silva",
-    "Dani",
-    "Ana Silva",
-    "adulto",
-    "",
-    "(24) 99999-0001",
-    "ana@exemplo.com",
-    "não",
-    "",
-    "",
-  ],
-  ["Família Silva", "Dani", "Bruno Silva", "adulto", "", "", "", "não", "", "Vegetariano"],
-  ["Família Silva", "Dani", "Lia Silva", "criança", "3-7", "", "", "não", "", ""],
-  ["Carlos Souza", "Gustavo", "Carlos Souza", "adulto", "", "(21) 98888-0002", "", "sim", "", ""],
-];
+export const templateRows = (sides: EventSides): string[][] => {
+  const first = sides[0]!.label;
+  const last = sides[sides.length - 1]!.label;
+  return [
+    IMPORT_COLUMNS.map((c) => c.key),
+    [
+      "Família Silva",
+      first,
+      "Ana Silva",
+      "adulto",
+      "",
+      "(24) 99999-0001",
+      "ana@exemplo.com",
+      "não",
+      "",
+      "",
+    ],
+    ["Família Silva", first, "Bruno Silva", "adulto", "", "", "", "não", "", "Vegetariano"],
+    ["Família Silva", first, "Lia Silva", "criança", "3-7", "", "", "não", "", ""],
+    ["Carlos Souza", last, "Carlos Souza", "adulto", "", "(21) 98888-0002", "", "sim", "", ""],
+  ];
+};
 
 const tooBig = `O arquivo passa de ${IMPORT_MAX_BYTES / 1024 / 1024} MB. Divida a planilha.`;
 
@@ -79,7 +84,12 @@ export function adminImportRoutes(deps: AdminDeps) {
       return apiError(c, 413, ERROR_CODES.invalidRequest, tooBig);
     }
     const ev = c.get("event");
-    const plan = planImport(upload.name, upload.bytes, await existing(ev));
+    const plan = planImport(
+      upload.name,
+      upload.bytes,
+      await existing(ev),
+      await eventSides(ev, db),
+    );
     if (!commit) return c.json({ preview: plan.preview });
     const p = plan.preview;
     if (p.fileError) return invalid(c, [{ message: p.fileError }]);
@@ -102,14 +112,14 @@ export function adminImportRoutes(deps: AdminDeps) {
   app.post("/preview", limit, handle(false));
   app.post("/", sensitiveLimit(deps.limiter, "import"), limit, handle(true));
 
-  app.get("/modelo.csv", (c) =>
-    c.body(toCsv(TEMPLATE_ROWS), 200, {
+  app.get("/modelo.csv", async (c) =>
+    c.body(toCsv(templateRows(await eventSides(c.get("event"), db))), 200, {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": 'attachment; filename="modelo-convidados.csv"',
     }),
   );
-  app.get("/modelo.xlsx", (c) =>
-    c.body(buildXlsx(TEMPLATE_ROWS), 200, {
+  app.get("/modelo.xlsx", async (c) =>
+    c.body(buildXlsx(templateRows(await eventSides(c.get("event"), db))), 200, {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": 'attachment; filename="modelo-convidados.xlsx"',
     }),
