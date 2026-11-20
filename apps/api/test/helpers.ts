@@ -1,17 +1,21 @@
 import {
   account,
+  and,
   createDb,
   eventDomains,
   eventMembers,
   eventSettings,
   events,
   giftOrders,
+  eq,
   inArray,
+  LEGACY_EVENT_ID,
   loadRootEnv,
   messages,
   organizationMembers,
   organizations,
   payments,
+  sql,
   user,
   type Database,
 } from "@casamento/db";
@@ -218,4 +222,19 @@ export async function setEventSetting(
     .insert(eventSettings)
     .values({ eventId, key, value, isPublic })
     .onDuplicateKeyUpdate({ set: { value, isPublic } });
+}
+
+/**
+ * Configurações do evento 1 para copiar como base de um evento de teste (conteúdo público válido).
+ * Ficam de fora as chaves que outros arquivos de teste gravam no evento 1 enquanto rodam em
+ * paralelo (hoje só "reminders", de reminders.test.ts): copiá-las faria o evento novo herdar
+ * um estado transitório de outro arquivo, conforme a ordem em que os workers chegam ao banco.
+ */
+export async function legacySettingsBase(db: Database) {
+  return db
+    .select()
+    .from(eventSettings)
+    .where(
+      and(eq(eventSettings.eventId, LEGACY_EVENT_ID), sql`${eventSettings.key} <> ${"reminders"}`),
+    );
 }

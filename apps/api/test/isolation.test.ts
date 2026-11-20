@@ -26,7 +26,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Mailer } from "../src/mailer.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
 import type { EventCtx } from "../src/tenancy/types.ts";
-import { createTestEvents, TEST_WEB_KEY, testApp, type TestEvents } from "./helpers.ts";
+import {
+  createTestEvents,
+  legacySettingsBase,
+  TEST_WEB_KEY,
+  testApp,
+  type TestEvents,
+} from "./helpers.ts";
 
 // Rotas públicas por evento (/api/e/:slug/*): nada de B aparece em A, e o que é de B usado em A
 // (slug de presente, token de convite, publicId de pedido) é 404. As rotas antigas seguem
@@ -101,10 +107,7 @@ beforeAll(async () => {
   legacySlug = legacy!.slug;
 
   // Configurações do evento 1 copiadas para A e B, com nome e prazo próprios.
-  const base = await db
-    .select()
-    .from(eventSettings)
-    .where(eq(eventSettings.eventId, LEGACY_EVENT_ID));
+  const base = await legacySettingsBase(db);
   for (const ev of [A, B]) {
     await db.insert(eventSettings).values(
       base.map((s) => ({

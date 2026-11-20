@@ -9,7 +9,7 @@ import {
   type Database,
 } from "@casamento/db";
 import { ApiError, GiftsResponse, OrderView, PayWithCardResponse } from "@casamento/shared";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MailMessage, Mailer } from "../src/mailer.ts";
 import type { Notifier } from "../src/orders/notify.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
@@ -127,6 +127,28 @@ provider.approve = (id) => {
 };
 
 const flush = () => new Promise((r) => setTimeout(r, 20));
+
+/*
+ * Os avisos de pedido pago saem sem await (notifyPaid roda depois da resposta e ainda consulta o
+ * banco), então podem chegar depois do beforeEach do teste seguinte. Cada teste que confere avisos
+ * usa um comprador próprio e espera o Telegram dele (o último aviso que notifyPaid dispara junto
+ * com os e-mails), em vez de um tempo fixo.
+ */
+let buyerSeq = 0;
+function uniqueBuyer() {
+  const tag = `${run}-${++buyerSeq}`;
+  return {
+    ...buyer,
+    buyerName: `Ana Teste ${tag}`,
+    buyerEmail: `ana-${tag}@exemplo.com`,
+    message: `Felicidades ${tag}!`,
+  };
+}
+const noticesFor = (b: { buyerName: string }) => telegrams.filter((t) => t.includes(b.buyerName));
+const waitNotices = (b: { buyerName: string }, count: number) =>
+  vi.waitFor(() => expect(noticesFor(b).length).toBeGreaterThanOrEqual(count), {
+    timeout: 5000,
+  });
 
 beforeEach(() => {
   clock = new Date();
@@ -246,7 +268,8 @@ describe("POST /api/orders (Pix)", () => {
 describe("pagamento aprovado (Pix simulado → webhook)", () => {
   it("marca como pago, grava o pagamento e o recado e avisa todo mundo", async () => {
     const gift = await makeGift(db, { quotaTotal: 2 });
-    const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
+    const b = uniqueBuyer();
+    const created = OrderView.parse(await (await order({ ...b, giftSlug: gift.slug })).json());
 
     const res = await app.request(
       `/api/e/${T.eventA.slug}/dev/orders/${created.publicId}/approve`,
@@ -271,20 +294,17 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     expect(pays).toHaveLength(1);
     expect(pays[0]).toMatchObject({ method: "pix", grossCents: 10000, gateway: "simulado" });
     const msgs = await db.select().from(messages).where(eq(messages.giftOrderId, row!.id));
-    expect(msgs[0]).toMatchObject({ author: "Ana Teste", body: "Felicidades!", approved: false });
+    expect(msgs[0]).toMatchObject({ author: b.buyerName, body: b.message, approved: false });
 
-    await flush();
+    await waitNotices(b, 1);
     // Destinatários = anfitriões do evento (aqui, o da fixture: só este arquivo o usa).
-    expect(sent.map((m) => m.to)).toContain("ana@exemplo.com");
-    expect(sent.find((m) => m.to === "ana@exemplo.com")?.subject).toBe("Presente enviado");
-    const hostMails = sent.filter((m) => m.to !== "ana@exemplo.com");
+    expect(sent.map((m) => m.to)).toContain(b.buyerEmail);
+    expect(sent.find((m) => m.to === b.buyerEmail)?.subject).toBe("Presente enviado");
+    const hostMails = sent.filter((m) => m.to !== b.buyerEmail && m.text.includes(b.message));
     expect(hostMails.map((m) => m.to)).toEqual([T.users.host.email]);
-    for (const m of hostMails) {
-      expect(m.text).toContain("Felicidades!");
-      expect(m.fromName).toBe(T.eventA.name);
-    }
-    expect(telegrams[0]).toContain("Ana Teste");
-    expect(telegrams[0]).toMatch(/^\[.+\] Presente recebido/);
+    for (const m of hostMails) expect(m.fromName).toBe(T.eventA.name);
+    const [notice] = noticesFor(b);
+    expect(notice).toMatch(/^\[.+\] Presente recebido/);
   });
 
   it("revalida só as tags do evento do pedido: gifts, e messages quando há recado", async () => {
@@ -294,9 +314,10 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
         headers: write(),
       });
     const gift = await makeGift(db, { quotaTotal: 5 });
-    const withNote = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
+    const b = uniqueBuyer();
+    const withNote = OrderView.parse(await (await order({ ...b, giftSlug: gift.slug })).json());
     const noNote = OrderView.parse(
-      await (await order({ ...buyer, giftSlug: gift.slug, message: "", showOnWall: false })).json(),
+      await (await order({ ...b, giftSlug: gift.slug, message: "", showOnWall: false })).json(),
     );
     revalidated.length = 0;
     expect((await approve(withNote.publicId)).status).toBe(200);
@@ -308,11 +329,13 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     revalidated.length = 0;
     expect((await approve(noNote.publicId)).status).toBe(200);
     expect(revalidated).toEqual([]);
+    await waitNotices(b, 2); // os dois avisos chegam aqui, não no teste seguinte
   });
 
   it("webhook repetido não paga nem avisa duas vezes", async () => {
     const gift = await makeGift(db, { quotaTotal: 1 });
-    const created = OrderView.parse(await (await order({ ...buyer, giftSlug: gift.slug })).json());
+    const b = uniqueBuyer();
+    const created = OrderView.parse(await (await order({ ...b, giftSlug: gift.slug })).json());
     const [row] = await db
       .select()
       .from(giftOrders)
@@ -328,8 +351,10 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     const again = await deliver();
     expect(again.status).toBe(200);
     expect(await again.json()).toMatchObject({ duplicate: true });
+    await waitNotices(b, 1);
     await flush();
-    expect(sent.filter((m) => m.to === "ana@exemplo.com")).toHaveLength(1);
+    expect(sent.filter((m) => m.to === b.buyerEmail)).toHaveLength(1);
+    expect(noticesFor(b)).toHaveLength(1);
     expect(await quotaSold(gift.id)).toBe(1);
   });
 

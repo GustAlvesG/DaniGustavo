@@ -7,7 +7,6 @@ import {
   guests,
   inArray,
   invitations,
-  LEGACY_EVENT_ID,
   messages,
   newPublicId,
   rsvpReminders,
@@ -19,6 +18,7 @@ import type { MailMessage, Mailer } from "../src/mailer.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
 import {
   createTestEvents,
+  legacySettingsBase,
   setEventSetting,
   TEST_WEB_KEY,
   testApp,
@@ -67,10 +67,7 @@ beforeAll(async () => {
   cookieStranger = await T.login(app, "stranger");
 
   // Conteúdo público completo (copiado do evento 1) em A e B: o PUT de configurações o exige válido.
-  const base = await db
-    .select()
-    .from(eventSettings)
-    .where(eq(eventSettings.eventId, LEGACY_EVENT_ID));
+  const base = await legacySettingsBase(db);
   for (const ev of [T.eventA, T.eventB]) {
     await db
       .insert(eventSettings)
