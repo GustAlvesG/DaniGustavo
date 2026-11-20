@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
-import { LineIcon, MonogramDG, iconForText } from "@/components/brand";
+import { LineIcon, Monograma, iconForText } from "@/components/brand";
 import { Swatches } from "@/components/home/Swatches";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
-import { FotoImg } from "@/components/album";
+import { Enfase, FotoImg } from "@/components/album";
 import { ButtonLink, SectionHeading } from "@/components/ui";
-import { getContent, getSite } from "@/lib/api/site";
+import { getMonogram, getSite, getSiteWithModule } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
-import { formatHour, monthGrid } from "@/lib/site";
+import { emphasizeLast, formatHour, monthGrid } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Manual dos padrinhos",
-  description: "Traje, horários, missões e recados para madrinhas e padrinhos.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { vocabulary } = (await getSite()).event;
+  return {
+    title: vocabulary.godparentsPage || "Manual dos padrinhos",
+    description: "Traje, horários, missões e recados para o grupo de honra.",
+  };
+}
 
 const h2 = "titulo text-display-sm! m-0!";
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"] as const;
@@ -48,13 +50,15 @@ function Block({
  * Manual dos padrinhos (docs/marca/manual-padrinhos.pdf), na linguagem do
  * álbum: foto no arco na capa, cartões de fio duplo (madrinhas, padrinhos,
  * músicas e fotos), o arco marinho (para o grande dia) e o versículo num selo
- * no fim. Todo o texto vem de /api/site; a foto da capa, de content/paginas.ts.
+ * no fim. Todo o texto vem de /api/e/<slug>/site (`godparents`, foto da capa em
+ * `sections.pages.godparents`). Módulo desligado ou manual vazio → 404.
  */
 export default async function GodparentsPage() {
-  // Manual dos padrinhos só no casamento original (lib/legacy-content); nos outros, 404.
-  const { padrinhos, paginas } = await getContent();
-  if (!padrinhos) notFound();
-  const site = await getSite();
+  const site = await getSiteWithModule("godparents");
+  const title = site.event.vocabulary.godparentsPage || "Manual dos padrinhos";
+  const photo = site.sections.pages.godparents.photo;
+  const iniciais = await getMonogram();
+  const wedding = site.event.type === "wedding";
   const g = site.godparents;
   const tz = site.wedding.timezone;
   const cal = monthGrid(site.wedding.datetime, tz);
@@ -72,24 +76,24 @@ export default async function GodparentsPage() {
               <SectionHeading
                 as="h1"
                 id="padrinhos-titulo"
-                rotulo="Para quem vai ao altar com a gente"
+                rotulo={
+                  wedding ? "Para quem vai ao altar com a gente" : "Para quem está do nosso lado"
+                }
               >
-                Manual dos <em>padrinhos</em>
+                <Enfase texto={emphasizeLast(title)} />
               </SectionHeading>
               <p className="mt-4 max-w-[52ch] text-xl text-ink-soft">
                 {g.invitation ??
-                  "Obrigado por estar do nosso lado no altar. Aqui está o que combinar antes do dia."}
+                  (wedding
+                    ? "Obrigado por estar do nosso lado no altar. Aqui está o que combinar antes do dia."
+                    : "Obrigado por estar do nosso lado. Aqui está o que combinar antes do dia.")}
               </p>
             </div>
             {/* A capa do manual: uma foto do casal no arco. */}
-            {paginas.padrinhos.foto ? (
+            {photo ? (
               <figure className="arco r3 assenta w-[min(80%,22rem)] lg:col-span-4 lg:col-start-9">
                 <div className="relative aspect-[3/4.3]">
-                  <FotoImg
-                    foto={paginas.padrinhos.foto}
-                    sizes="(max-width: 1024px) 80vw, 360px"
-                    fill
-                  />
+                  <FotoImg foto={photo} sizes="(max-width: 1024px) 80vw, 360px" fill />
                 </div>
               </figure>
             ) : null}
@@ -314,7 +318,7 @@ export default async function GodparentsPage() {
             <figure className="page-wrap flex justify-center">
               <div className="relative flex aspect-square w-full max-w-[22rem] items-center justify-center rounded-full border border-line-soft px-[12%] text-center outline-1 outline-offset-[-10px] outline-line-soft sm:max-w-[30rem]">
                 <div className="flex w-full flex-col items-center gap-4 sm:gap-5">
-                  <MonogramDG bold={10} className="w-12 text-accent sm:w-14" />
+                  <Monograma iniciais={iniciais} bold={10} className="w-12 text-accent sm:w-14" />
                   <blockquote className="font-display text-lg leading-snug text-ink italic sm:text-2xl">
                     {g.verse.text}
                   </blockquote>

@@ -3,14 +3,14 @@ import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { Monograma } from "@/components/brand";
 import { ButtonLink, SectionHeading } from "@/components/ui";
-import { getContent, getSite } from "@/lib/api/site";
+import { getMonogram, getSite } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 
 export const metadata = noindex({ title: "Convite não encontrado" });
 
 /** `notFound()` em /c/[token]: link errado, incompleto ou convite apagado. */
 export default async function ConviteNaoEncontrado() {
-  const [site, { iniciais, legado }] = await Promise.all([getSite(), getContent()]);
+  const [site, iniciais] = await Promise.all([getSite(), getMonogram()]);
   const { contact } = site;
   return (
     <PageTransition>
@@ -22,7 +22,7 @@ export default async function ConviteNaoEncontrado() {
             <SectionHeading
               as="h1"
               rotulo="Ops"
-              lead={`Esse link não abre nenhum convite. Pode ter faltado um pedaço quando foi copiado. Busque pelo seu nome ou fale com ${legado ? "os noivos" : "quem te convidou"}.`}
+              lead={`Esse link não abre nenhum convite. Pode ter faltado um pedaço quando foi copiado. Busque pelo seu nome ou fale com ${site.event.vocabulary.hosts}.`}
             >
               Convite não encontrado
             </SectionHeading>

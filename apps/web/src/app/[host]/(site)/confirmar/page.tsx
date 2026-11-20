@@ -3,7 +3,7 @@ import { LookupForm } from "@/components/rsvp/LookupForm";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
-import { getSite } from "@/lib/api/site";
+import { getSiteWithModule } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 import { formatDayMonth } from "@/lib/site";
 
@@ -13,7 +13,8 @@ export const metadata = noindex({
 });
 
 export default async function ConfirmarPage() {
-  const site = await getSite();
+  // Confirmação de presença desligada → 404.
+  const site = await getSiteWithModule("rsvp");
   return (
     <PageTransition>
       <SiteNav site={site} current="/confirmar" />

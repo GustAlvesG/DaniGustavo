@@ -10,7 +10,7 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
 import { currentEvent, eventPath } from "@/lib/api/event";
-import { getSite } from "@/lib/api/site";
+import { getSite, getSiteWithModule } from "@/lib/api/site";
 import { noindex } from "@/lib/seo";
 
 export const metadata = noindex({
@@ -25,8 +25,8 @@ export const metadata = noindex({
 export const instant = false;
 
 export default async function ConviteRoute({ params }: PageProps<"/[host]/c/[token]">) {
-  // Cacheado ("use cache" em apiGet): não bloqueia por pedido.
-  const site = await getSite();
+  // Cacheado ("use cache" em apiGet): não bloqueia por pedido. Sem RSVP no evento → 404.
+  const site = await getSiteWithModule("rsvp");
   return (
     <PageTransition>
       <SiteNav site={site} />

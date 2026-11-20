@@ -8,7 +8,7 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { ButtonLink, SectionHeading } from "@/components/ui";
 import { apiReadFresh } from "@/lib/api/client";
 import { currentEvent, eventPath } from "@/lib/api/event";
-import { getContent, getSite } from "@/lib/api/site";
+import { getSite } from "@/lib/api/site";
 import { firstName } from "@/lib/presentes";
 import { noindex } from "@/lib/seo";
 
@@ -44,10 +44,11 @@ async function Obrigado({
 }) {
   const { publicId } = await params;
   const ev = await currentEvent();
-  const [result, { home }] = await Promise.all([
+  const [result, site] = await Promise.all([
     apiReadFresh(eventPath(ev, `/orders/${encodeURIComponent(publicId)}`), OrderView),
-    getContent(ev),
+    getSite(ev),
   ]);
+  const { gifts } = site.sections;
   if (!result.ok) {
     if (result.status === 404) notFound();
     return (
@@ -81,11 +82,11 @@ async function Obrigado({
       </div>
       <OrderSummary order={order} className="r6 lg:col-span-5 lg:col-start-8 lg:row-span-2" />
       {/* Celular: depois do resumo. Desktop: na coluna do título, abaixo dos botões. */}
-      {home.presentes.foto ? (
+      {gifts.photo ? (
         <Polaroid
-          foto={home.presentes.foto}
+          foto={gifts.photo}
           sizes="240px"
-          legenda={home.presentes.legendaFoto}
+          legenda={gifts.photoCaption || undefined}
           className="r1 mx-auto w-[220px] lg:col-span-4 lg:col-start-2 lg:row-start-2 lg:mx-0 lg:w-[210px]"
         />
       ) : null}

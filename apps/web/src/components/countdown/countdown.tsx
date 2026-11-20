@@ -129,7 +129,16 @@ export function Countdown({
             aria-hidden="true"
           >
             {COUNTDOWN_UNITS.map((unit) => (
-              <UnitView key={unit} unit={unit} target={target} now={now} ready={ready} />
+              // A chave muda quando fica pronto: os dígitos nascem com o valor certo em vez de
+              // rolar a partir do esqueleto "000" (no 1º segundo, todos rolavam juntos e os
+              // números pareciam embaralhados).
+              <UnitView
+                key={`${unit}-${ready}`}
+                unit={unit}
+                target={target}
+                now={now}
+                ready={ready}
+              />
             ))}
           </div>
         </>

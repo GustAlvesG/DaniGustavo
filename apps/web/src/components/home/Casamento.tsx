@@ -1,11 +1,11 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho, FotoImg } from "@/components/album";
 import { ButtonLink, buttonStyles } from "@/components/ui";
-import type { HomeContent } from "@/content/home";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { cx } from "@/lib/cx";
 import {
   formatHour,
+  fillSiteText,
   formatLongDate,
   hasAddress,
   mapsLink,
@@ -17,28 +17,26 @@ import {
 import styles from "./home.module.css";
 
 /**
- * O casamento: foto numa moldura de papel com cantoneiras e, ao lado,
- * cartões de fio duplo com quando, onde e onde ficar. Tudo do banco
- * (/api/site), menos a foto, a legenda e a frase de apoio (content/home.ts).
+ * O evento ("O casamento", "A festa"...): foto numa moldura de papel com cantoneiras e, ao
+ * lado, cartões de fio duplo com quando, onde e onde ficar. Dados do evento e textos da seção
+ * (`sections.event`), tudo de /api/e/<slug>/site.
  */
 export function Casamento({
-  home,
   site,
   agenda,
   pagina,
 }: {
-  home: HomeContent;
   site: SiteContent;
   /** De qual evento é a agenda (UID, título e link do site). */
   agenda: CalendarSource;
   pagina?: number;
 }) {
-  const { casamento } = home;
+  const { event } = site.sections;
   const tz = site.wedding.timezone;
   const start = site.wedding.datetime;
   const ceremonyTime = site.ceremony.time || formatHour(start, tz);
   const times = [
-    `Cerimônia às ${ceremonyTime}`,
+    `${site.event.type === "wedding" ? "Cerimônia" : "Início"} às ${ceremonyTime}`,
     site.reception.time ? `recepção às ${site.reception.time}` : null,
   ]
     .filter(Boolean)
@@ -57,21 +55,21 @@ export function Casamento({
           className={styles.cab}
           id="casamento-titulo"
           pagina={pagina}
-          rotulo={casamento.rotulo}
-          titulo={weddingHeadline(start, tz)}
-          lead={casamento.lead}
+          rotulo={event.label || site.event.vocabulary.eventLabel}
+          titulo={event.title ? fillSiteText(event.title, site) : weddingHeadline(start, tz)}
+          lead={event.lead ? fillSiteText(event.lead, site) : undefined}
         />
         <div className={styles.casamentoGrid}>
-          {casamento.foto ? (
+          {event.photo ? (
             <figure className="moldura-papel r1 assenta">
               <span className="canto a" />
               <span className="canto b" />
               <span className="canto c" />
               <span className="canto d" />
               <div className={styles.fotoPaisagem}>
-                <FotoImg foto={casamento.foto} sizes="(max-width: 860px) 92vw, 560px" fill />
+                <FotoImg foto={event.photo} sizes="(max-width: 860px) 92vw, 560px" fill />
               </div>
-              <figcaption>{casamento.legendaFoto}</figcaption>
+              {event.photoCaption ? <figcaption>{event.photoCaption}</figcaption> : null}
             </figure>
           ) : null}
 
@@ -148,7 +146,7 @@ export function Casamento({
               >
                 <IconHouse />
                 <div className="rotulo">Hospedagem</div>
-                <h3 id="hospedagem-titulo">{casamento.tituloHospedagem}</h3>
+                <h3 id="hospedagem-titulo">{event.accommodationTitle || "Onde ficar"}</h3>
                 <ul className={styles.hosp}>
                   {site.accommodation.items.map((item) => (
                     <li key={item.name}>

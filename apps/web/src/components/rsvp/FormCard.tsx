@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { Monograma } from "@/components/brand";
-import { getContent } from "@/lib/api/site";
+import { getMonogram } from "@/lib/api/site";
 import { cx } from "@/lib/cx";
 
 /**
  * Cartão dos formulários de RSVP: o "cartão-resposta" do álbum (papel com
- * fio a 9px da borda e sombra de papel), com o DG no topo. Os formulários
+ * fio a 9px da borda e sombra de papel), com o monograma no topo. Os formulários
  * ficam no claro: campos brancos, texto marinho, erro escuro.
  */
 export async function FormCard({
@@ -15,7 +15,7 @@ export async function FormCard({
   children: ReactNode;
   className?: string;
 }) {
-  const { iniciais } = await getContent();
+  const iniciais = await getMonogram();
   return (
     <div
       className={cx(

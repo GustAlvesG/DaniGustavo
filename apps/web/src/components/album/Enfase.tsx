@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { partesEnfase } from "@/lib/texto";
 
-/** Texto de src/content com *palavras* em itálico (vira <em>). */
+/** Texto do conteúdo do evento com *palavras* em itálico (vira <em>). */
 export function Enfase({ texto }: { texto: string }) {
   return (
     <>

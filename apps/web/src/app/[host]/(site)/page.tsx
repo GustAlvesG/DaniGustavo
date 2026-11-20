@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import type { HomeSectionId } from "@casamento/shared";
 import { Album } from "@/components/home/Album";
 import { Casamento } from "@/components/home/Casamento";
 import { Duvidas } from "@/components/home/Duvidas";
@@ -13,49 +14,43 @@ import { Versiculo } from "@/components/home/Versiculo";
 import styles from "@/components/home/home.module.css";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
-import type { SecaoHome } from "@/content/home";
 import { currentEvent } from "@/lib/api/event";
 import { getWall } from "@/lib/api/messages";
-import { getContent, getSite } from "@/lib/api/site";
-import { hostUrl } from "@/lib/site";
+import { getMonogram, getSite } from "@/lib/api/site";
+import { homeSections, hostUrl } from "@/lib/site";
 
 /*
  * Home (Proposta C, "Álbum"). Página estática por host: pré-renderizada com o
- * cache de /api/e/<slug>/site, então o hero sai pronto no HTML. Textos e fotos
- * de apresentação vêm de lib/legacy-content (o casamento original ou a versão
- * neutra); dados do evento, da API.
+ * cache de /api/e/<slug>/site, então o hero sai pronto no HTML. Textos, fotos, ordem das
+ * seções, módulos e vocabulário vêm todos de lá (`site.sections`, `site.event`).
  *
- * A ordem das seções é a de `home.secoes`; seções sem dado no banco
- * (ex.: programação vazia) somem sozinhas.
+ * Seções desligadas no editor, de módulo desligado ou sem dado (ex.: programação vazia)
+ * somem sozinhas (`homeSections` em lib/site, a mesma regra do menu).
  */
 export default async function Home() {
   const ev = await currentEvent();
-  const [site, wall] = await Promise.all([getSite(ev), getWall(ev)]);
-  const { home, iniciais } = await getContent(ev);
+  const site = await getSite(ev);
+  const [wall, iniciais] = await Promise.all([
+    site.event.modules.messages ? getWall(ev) : null,
+    getMonogram(ev),
+  ]);
   const agenda = { slug: ev.slug, type: ev.type, baseUrl: hostUrl(ev.primaryHost) };
 
-  // Numeração "Página N" só nas seções com rótulo (o versículo não conta).
+  // Numeração "Página N" só nas seções com rótulo (a citação não conta).
   let page = 0;
-  const next = () => (home.numerarPaginas ? ++page : undefined);
+  const next = () => (site.sections.numberPages ? ++page : undefined);
 
-  const render: Record<SecaoHome, () => ReactNode> = {
-    historia: () =>
-      home.historia.momentos.length ? <Historia home={home} pagina={next()} /> : null,
-    album: () => (home.album.fotos.length ? <Album home={home} pagina={next()} /> : null),
-    casamento: () => <Casamento home={home} site={site} agenda={agenda} pagina={next()} />,
-    versiculo: () => <Versiculo home={home} />,
-    programacao: () =>
-      site.schedule.length ? <Programacao home={home} site={site} pagina={next()} /> : null,
-    traje: () =>
-      site.dressCode.text || site.dressCode.palette.length || home.traje.foto ? (
-        <Traje home={home} site={site} pagina={next()} />
-      ) : null,
-    presentes: () => <Presentes home={home} pagina={next()} />,
-    recados: () => (
-      <Recados home={home} wall={wall} timeZone={site.wedding.timezone} pagina={next()} />
-    ),
-    rsvp: () => <Rsvp home={home} site={site} iniciais={iniciais} pagina={next()} />,
-    duvidas: () => (site.faq.length ? <Duvidas home={home} site={site} pagina={next()} /> : null),
+  const render: Record<HomeSectionId, () => ReactNode> = {
+    story: () => <Historia site={site} pagina={next()} />,
+    album: () => <Album site={site} pagina={next()} />,
+    event: () => <Casamento site={site} agenda={agenda} pagina={next()} />,
+    verse: () => <Versiculo site={site} />,
+    schedule: () => <Programacao site={site} pagina={next()} />,
+    dresscode: () => <Traje site={site} pagina={next()} />,
+    gifts: () => <Presentes site={site} pagina={next()} />,
+    messages: () => (wall ? <Recados site={site} wall={wall} pagina={next()} /> : null),
+    rsvp: () => <Rsvp site={site} iniciais={iniciais} pagina={next()} />,
+    faq: () => <Duvidas site={site} pagina={next()} />,
   };
 
   return (
@@ -64,8 +59,8 @@ export default async function Home() {
       <div className={styles.page}>
         <SiteNav site={site} variant="home" />
         <main id="conteudo">
-          <Hero home={home} site={site} iniciais={iniciais} />
-          {home.secoes.map((s) => (
+          <Hero site={site} iniciais={iniciais} />
+          {homeSections(site).map((s) => (
             <Fragment key={s}>{render[s]()}</Fragment>
           ))}
         </main>

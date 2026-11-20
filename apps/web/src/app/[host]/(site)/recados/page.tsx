@@ -6,7 +6,7 @@ import styles from "@/components/recados/recados.module.css";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
-import { getContent, getSite } from "@/lib/api/site";
+import { getSiteWithModule } from "@/lib/api/site";
 import { getWall } from "@/lib/api/messages";
 
 export const metadata: Metadata = {
@@ -15,12 +15,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * /recados: o mural com os recados aprovados pelos noivos (cache de /api/e/<slug>/messages,
- * tag "messages:<id>") e o formulário para deixar um recado novo, que entra como pendente.
+ * /recados: o mural com os recados aprovados pelos anfitriões (cache de
+ * /api/e/<slug>/messages, tag "messages:<id>") e o formulário para deixar um recado novo, que
+ * entra como pendente. Módulo de recados desligado → 404.
  */
 export default async function RecadosPage() {
-  const [site, wall, { paginas }] = await Promise.all([getSite(), getWall(), getContent()]);
-  const t = paginas.recados;
+  const site = await getSiteWithModule("messages");
+  const wall = await getWall();
+  const t = site.sections.pages.messages;
   return (
     <PageTransition>
       <SiteNav site={site} current="/recados" />
@@ -29,17 +31,17 @@ export default async function RecadosPage() {
           <SectionHeading
             as="h1"
             id="recados-titulo"
-            rotulo={t.rotulo}
+            rotulo={t.label}
             className="mx-auto mb-14 max-w-[640px] items-center text-center"
-            lead={t.lead}
+            lead={t.lead || undefined}
           >
-            <Enfase texto={t.titulo} />
+            <Enfase texto={t.title} />
           </SectionHeading>
 
           {wall.messages.length ? (
-            <Mural recados={wall.messages} timeZone={site.wedding.timezone} label={t.rotulo} />
+            <Mural recados={wall.messages} timeZone={site.wedding.timezone} label={t.label} />
           ) : (
-            <p className={styles.vazio}>{wall.available ? t.vazio : t.indisponivel}</p>
+            <p className={styles.vazio}>{wall.available ? t.empty : t.unavailable}</p>
           )}
 
           <div className="mt-16 sm:mt-20">

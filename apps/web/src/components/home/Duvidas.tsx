@@ -1,22 +1,13 @@
 import type { SiteContent } from "@casamento/shared";
 import { Cabecalho } from "@/components/album";
 import { ContactLinks } from "@/components/rsvp/ContactLinks";
-import type { HomeContent } from "@/content/home";
 import { cx } from "@/lib/cx";
 import { Faq } from "./Faq";
 import styles from "./home.module.css";
 
-/** Dúvidas: perguntas e respostas do banco, num acordeão, e o contato dos noivos. */
-export function Duvidas({
-  home,
-  site,
-  pagina,
-}: {
-  home: HomeContent;
-  site: SiteContent;
-  pagina?: number;
-}) {
-  const { duvidas } = home;
+/** Dúvidas: perguntas e respostas do banco, num acordeão, e o contato dos anfitriões. */
+export function Duvidas({ site, pagina }: { site: SiteContent; pagina?: number }) {
+  const { faq: duvidas } = site.sections;
   return (
     <section className={styles.sec} id="duvidas" aria-labelledby="duvidas-titulo">
       <div className={styles.wrap}>
@@ -24,8 +15,9 @@ export function Duvidas({
           className={styles.cab}
           id="duvidas-titulo"
           pagina={pagina}
-          rotulo={duvidas.rotulo}
-          titulo={duvidas.titulo}
+          rotulo={duvidas.label}
+          titulo={duvidas.title}
+          lead={duvidas.lead || undefined}
         />
         <div className={cx(styles.faqLista, "rv")}>
           <Faq items={site.faq} />

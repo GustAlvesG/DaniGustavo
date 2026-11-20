@@ -1,13 +1,9 @@
 import type { CSSProperties } from "react";
 import { getImageProps } from "next/image";
-import type { SiteContent } from "@casamento/shared";
+import type { Photo, SiteContent } from "@casamento/shared";
 import { Monograma } from "@/components/brand";
 import { Countdown } from "@/components/countdown";
-import type { Foto, HomeContent } from "@/content/home";
-import { foto } from "@/lib/fotos";
-import { formatWeddingDate } from "@/lib/countdown";
-import { cityFromAddress, formatDotDate, splitCoupleNames } from "@/lib/site";
-import { preencher } from "@/lib/texto";
+import { cityFromAddress, fillSiteText, formatDotDate, splitCoupleNames } from "@/lib/site";
 import styles from "./home.module.css";
 
 /**
@@ -20,35 +16,36 @@ import styles from "./home.module.css";
  * com duas fontes. `getImageProps` dá as URLs otimizadas do next/image sem
  * renderizar um <Image>, para montar o <picture> à mão.
  */
-export function Hero({
-  home,
-  site,
-  iniciais,
-}: {
-  home: HomeContent;
-  site: SiteContent;
-  iniciais: string | null;
-}) {
-  const { hero } = home;
+export function Hero({ site, iniciais }: { site: SiteContent; iniciais: string | null }) {
+  const { hero } = site.sections;
+  const vocab = site.event.vocabulary;
+  // Texto vazio no editor = o do vocabulário do tipo de evento.
+  const countdown = {
+    title: hero.countdown.title || vocab.countdownTitle,
+    today: hero.countdown.today || vocab.countdownToday,
+    after: hero.countdown.after || vocab.countdownAfter,
+  };
+  const desktopFoto = hero.photoDesktop ?? hero.photoMobile;
+  const mobileFoto = hero.photoMobile ?? hero.photoDesktop;
   const { first, second } = splitCoupleNames(site.couple.names);
   const tz = site.wedding.timezone;
   const city = cityFromAddress(site.ceremony.address).split(",")[0];
 
-  const fotos = heroPicture(hero.fotoDesktop, hero.fotoCelular);
+  const fotos = heroPicture(desktopFoto, mobileFoto);
   return (
     <section
       className={styles.hero}
       id="inicio"
       aria-labelledby="hero-titulo"
-      // Parte visível de cada foto quando cortada (content/home.ts → posicao).
+      // Parte visível de cada foto quando cortada (posição escolhida no editor).
       style={
         {
-          "--pos-celular": hero.fotoCelular?.posicao ?? "center",
-          "--pos-desktop": hero.fotoDesktop?.posicao ?? "center",
+          "--pos-celular": mobileFoto?.position ?? "center",
+          "--pos-desktop": desktopFoto?.position ?? "center",
         } as CSSProperties
       }
     >
-      {/* Sem foto (eventos sem conteúdo próprio): fica o fundo marinho do hero. */}
+      {/* Sem foto: fica o fundo marinho do hero. */}
       <div className={styles.heroBg}>
         {fotos ? (
           <picture>
@@ -62,9 +59,15 @@ export function Hero({
 
       <div className={styles.heroConteudo}>
         <Monograma iniciais={iniciais} className={styles.heroMono} bold={10} />
-        <p className={styles.sobre}>{hero.chamada}</p>
+        <p className={styles.sobre}>{hero.kicker || vocab.heroKicker}</p>
         <h1 id="hero-titulo" className={styles.nomes}>
-          {first} <span className={styles.e}>&amp;</span> {second}
+          {second ? (
+            <>
+              {first} <span className={styles.e}>&amp;</span> {second}
+            </>
+          ) : (
+            first
+          )}
         </h1>
         <p className={styles.heroData} data-hero-date="">
           <i />
@@ -80,11 +83,9 @@ export function Hero({
       <div className={styles.contador}>
         <Countdown
           target={site.wedding.datetime}
-          title={hero.contador.titulo}
-          todayMessage={hero.contador.hoje}
-          afterMessage={preencher(hero.contador.depois, {
-            data: formatWeddingDate(site.wedding.datetime, tz),
-          })}
+          title={fillSiteText(countdown.title, site)}
+          todayMessage={fillSiteText(countdown.today, site)}
+          afterMessage={fillSiteText(countdown.after, site)}
         />
       </div>
     </section>
@@ -95,11 +96,9 @@ export function Hero({
  * Foto diferente no celular e no computador ("art direction"): `getImageProps` dá as URLs
  * otimizadas do next/image sem renderizar um <Image>, para montar o <picture> à mão.
  */
-function heroPicture(desktopFoto: Foto | null, mobileFoto: Foto | null) {
-  if (!desktopFoto || !mobileFoto) return null;
-  const desktop = foto(desktopFoto.arquivo);
-  const mobile = foto(mobileFoto.arquivo);
-  const common = { alt: mobileFoto.alt, sizes: "100vw", quality: 75 } as const;
+function heroPicture(desktop: Photo | null, mobile: Photo | null) {
+  if (!desktop || !mobile) return null;
+  const common = { alt: mobile.alt, sizes: "100vw", quality: 75 } as const;
   const {
     props: { srcSet: desktopSrcSet },
   } = getImageProps({ ...common, src: desktop.src, width: desktop.width, height: desktop.height });

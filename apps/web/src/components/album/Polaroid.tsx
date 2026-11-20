@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
-import type { Foto } from "@/content/home";
 import { cx } from "@/lib/cx";
-import { FotoImg } from "./FotoImg";
+import { FotoImg, type FotoSrc } from "./FotoImg";
 
 export type PolaroidProps = {
-  foto: Foto;
+  foto: FotoSrc;
   sizes: string;
   /** Linha pequena em caixa alta (ex.: o ano). */
   sobre?: string;

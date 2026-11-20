@@ -1,10 +1,12 @@
 import Image from "next/image";
-import type { Foto } from "@/content/home";
-import { foto as fotoInfo } from "@/lib/fotos";
+import type { Photo } from "@casamento/shared";
 import { cx } from "@/lib/cx";
 
+/** O que a foto precisa para aparecer: URL, tamanho, alt e posição do corte. */
+export type FotoSrc = Pick<Photo, "src" | "width" | "height" | "alt" | "position">;
+
 export type FotoImgProps = {
-  foto: Foto;
+  foto: FotoSrc;
   /** Larguras em que a foto aparece (ajuda o navegador a baixar o tamanho certo). */
   sizes: string;
   /**
@@ -19,17 +21,16 @@ export type FotoImgProps = {
 };
 
 /**
- * Foto de `public/fotos` pelo nome (content/home.ts). O `next/image` gera
- * versões menores (WebP/AVIF) no tamanho de cada tela e carrega só perto da
- * vista; largura e altura vêm do próprio arquivo.
+ * Foto do evento (`SiteContent`: `/uploads/<evento>/...`, repassado à API). O `next/image`
+ * gera versões menores (WebP/AVIF) no tamanho de cada tela e carrega só perto da vista;
+ * largura e altura vêm da API.
  */
 export function FotoImg({ foto, sizes, fill, preload, className }: FotoImgProps) {
-  const info = fotoInfo(foto.arquivo);
-  const style = foto.posicao ? { objectPosition: foto.posicao } : undefined;
+  const style = foto.position ? { objectPosition: foto.position } : undefined;
   if (fill) {
     return (
       <Image
-        src={info.src}
+        src={foto.src}
         alt={foto.alt}
         fill
         sizes={sizes}
@@ -41,10 +42,10 @@ export function FotoImg({ foto, sizes, fill, preload, className }: FotoImgProps)
   }
   return (
     <Image
-      src={info.src}
+      src={foto.src}
       alt={foto.alt}
-      width={info.width}
-      height={info.height}
+      width={foto.width}
+      height={foto.height}
       sizes={sizes}
       preload={preload}
       className={cx("block h-auto w-full", className)}

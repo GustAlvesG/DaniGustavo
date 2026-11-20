@@ -1,169 +1,238 @@
 /**
- * O conteúdo fixo do casamento (src/content/*: textos, fotos de public/fotos, galeria,
- * manual dos padrinhos, versículo e o monograma DG) é do evento `dani-gustavo` e de mais
- * nenhum. Este é o ÚNICO ponto que decide isso: os outros eventos recebem uma versão
- * neutra, montada só com o que vem de `/api/e/<slug>/site` (nomes, data, locais...).
+ * PONTE TEMPORÁRIA da Fase 2 (some na integração, junto com `src/content/{home,galeria,
+ * paginas}.ts`, `lib/fotos.ts` e `public/fotos`).
  *
- * TODO(fase2): o conteúdo de apresentação vira dado do evento (editor de conteúdo/temas)
- * e este arquivo some.
+ * O site já se monta só com `SiteContent` (`sections`, `gallery`, `event`). Enquanto o
+ * conteúdo do casamento não foi importado para o banco (`content:import-legacy`, frente D),
+ * o evento `dani-gustavo` chega da API com as seções neutras do tipo; aqui elas são trocadas
+ * pela tradução de `content/*.ts` no mesmo formato (fotos de `public/fotos`). Depois da
+ * importação, `site.sections` deixa de ser o neutro e esta ponte não age mais.
  */
-import { siteDefaults, type SiteContent } from "@casamento/shared";
-import { galeria, type Galeria } from "@/content/galeria";
-import { home, type HomeContent } from "@/content/home";
-import { paginas, type Paginas } from "@/content/paginas";
-import { SITE_FALLBACK } from "@/content/site-fallback";
+import {
+  defaultSections,
+  PublicSiteSections,
+  resolveSections,
+  type GalleryPhoto,
+  type Photo,
+  type SiteContent,
+} from "@casamento/shared";
+import { galeria } from "@/content/galeria";
+import { home, type Foto, type HomeContent } from "@/content/home";
+import { paginas } from "@/content/paginas";
+import { initialsOf } from "@/lib/site";
 
 /** Slug do casamento original (evento 1). */
 export const LEGACY_EVENT_SLUG = "dani-gustavo";
 
-/** O mínimo do evento que o conteúdo precisa (o resto vem de /api/e/<slug>/site). */
-export type EventBasics = {
-  slug: string;
-  name: string;
-  type: string;
-  timezone: string;
-  startsAt: string | null;
-};
+type EventRef = { slug: string; name: string };
 
-export type EventContent = {
-  /** true só no casamento original: fotos, galeria, padrinhos e monograma DG. */
-  legado: boolean;
-  home: HomeContent;
-  paginas: Paginas;
-  /** null = sem página /galeria (404 e fora do menu). */
-  galeria: Galeria | null;
-  /** false = sem página /padrinhos (404 e fora do menu). */
-  padrinhos: boolean;
-  /** Iniciais do monograma em texto; null = a ligadura DG desenhada. */
-  iniciais: string | null;
-};
-
-/** "Ana & Bruno" → "AB"; "Festa da Maria" → "FM"; "Lia" → "L". */
-export function initialsOf(name: string): string {
-  const words = name
-    .split(/[\s&+]+/)
-    .filter((w) => w && !/^(e|de|da|do|das|dos)$/i.test(w))
-    .map((w) => w.normalize("NFD").replace(/[^\p{L}\p{N}]/gu, ""))
-    .filter(Boolean);
-  if (!words.length) return "·";
-  const first = words[0]![0]!;
-  const last = words.length > 1 ? words[words.length - 1]![0]! : "";
-  return (first + last).toUpperCase();
+/**
+ * Iniciais do monograma em texto; null = a ligadura DG desenhada (só no casamento original).
+ * TODO(fase2-integracao): decidir a arte do monograma pelo tema/conteúdo, não pelo slug.
+ */
+export function monogramFor(ev: EventRef): string | null {
+  return ev.slug === LEGACY_EVENT_SLUG ? null : initialsOf(ev.name);
 }
 
-/** Rótulo da seção principal do evento ("O casamento", "A festa"...). */
-function eventLabel(type: string): string {
-  if (type === "wedding") return "O casamento";
-  if (type === "fifteen" || type === "birthday") return "A festa";
-  return "O evento";
-}
+/** Tamanho das fotos de public/fotos (lido do disco no servidor). */
+export type PhotoSize = (arquivo: string) => { src: string; width: number; height: number };
 
-/** Home sem fotos nem textos do casal: as seções aparecem conforme os dados da API. */
-function neutralHome(type: string): HomeContent {
-  const evento = eventLabel(type);
+const toPhoto = (size: PhotoSize, f: Foto, alt = f.alt): Photo => {
+  const info = size(f.arquivo);
   return {
-    ...home,
-    secoes: home.secoes.filter((s) => s !== "versiculo" && s !== "historia" && s !== "album"),
+    src: info.src,
+    thumbSrc: null,
+    width: info.width,
+    height: info.height,
+    alt,
+    position: f.posicao ?? null,
+  };
+};
+
+/** `content/{home,paginas,galeria}.ts` no formato de `site.sections` (fotos resolvidas). */
+export function legacySections(size: PhotoSize): PublicSiteSections {
+  const p = (f: Foto | null) => (f ? toPhoto(size, f) : null);
+  const ids = {
+    historia: "story",
+    album: "album",
+    casamento: "event",
+    versiculo: "verse",
+    programacao: "schedule",
+    traje: "dresscode",
+    presentes: "gifts",
+    recados: "messages",
+    rsvp: "rsvp",
+    duvidas: "faq",
+  } as const;
+  const links = (l: { texto: string; link: string }[]) =>
+    l.map((x) => ({ text: x.texto, link: x.link }));
+  const r = paginas.recados;
+  return PublicSiteSections.parse({
+    order: home.secoes.map((s) => ({ id: ids[s], enabled: true })),
+    numberPages: home.numerarPaginas,
     hero: {
-      ...home.hero,
-      chamada: "Você é nosso convidado",
-      fotoDesktop: null,
-      fotoCelular: null,
-      contador: {
-        titulo: "Faltam para o grande dia",
-        hoje: "É hoje! Nos vemos lá.",
-        depois: "A festa foi em {data}. Obrigado por fazer parte.",
+      kicker: home.hero.chamada,
+      photoDesktop: p(home.hero.fotoDesktop),
+      photoMobile: p(home.hero.fotoCelular),
+      countdown: {
+        title: home.hero.contador.titulo,
+        today: home.hero.contador.hoje,
+        after: home.hero.contador.depois,
       },
     },
-    historia: { ...home.historia, momentos: [] },
-    album: { ...home.album, fotos: [], linkGaleria: "" },
-    casamento: {
-      ...home.casamento,
-      menu: evento,
-      rotulo: evento,
-      lead: "",
-      foto: null,
-      legendaFoto: "",
+    story: {
+      menu: home.historia.menu,
+      label: home.historia.rotulo,
+      title: home.historia.titulo,
+      lead: home.historia.lead,
+      items: home.historia.momentos.map((m) => ({
+        year: m.ano,
+        title: m.titulo,
+        text: m.texto,
+        photo: p(m.foto),
+      })),
     },
-    versiculo: { ...home.versiculo, foto: null, linhas: [], referencia: "" },
-    programacao: { ...home.programacao, lead: "" },
-    traje: { ...home.traje, titulo: "Traje", lead: undefined, foto: null },
-    presentes: {
-      ...home.presentes,
-      texto:
-        "Se quiser presentear, a lista está aqui no site. Escolha um item ou contribua com o valor que quiser, no Pix ou no cartão.",
-      foto: null,
-      legendaFoto: "",
+    album: {
+      label: home.album.rotulo,
+      title: home.album.titulo,
+      photos: home.album.fotos.map((f) => ({ photo: p(f), caption: f.legenda })),
+      galleryLink: home.album.linkGaleria,
     },
-    recados: {
-      ...home.recados,
-      titulo: "Palavras de *quem quer bem*",
-      lead: "Os recados aparecem aqui depois de lidos pelos anfitriões.",
+    event: {
+      menu: home.casamento.menu,
+      label: home.casamento.rotulo,
+      lead: home.casamento.lead,
+      photo: p(home.casamento.foto),
+      photoCaption: home.casamento.legendaFoto,
+      accommodationTitle: home.casamento.tituloHospedagem,
     },
-    rsvp: { ...home.rsvp, fotos: [] },
-    menu: { ...home.menu, extras: [] },
-    rodape: {
-      frase: "",
-      links: home.rodape.links.filter((l) => l.link !== "/galeria" && l.link !== "/padrinhos"),
+    verse: {
+      photo: p(home.versiculo.foto),
+      lines: home.versiculo.linhas,
+      reference: home.versiculo.referencia,
     },
-  };
+    schedule: {
+      menu: home.programacao.menu,
+      label: home.programacao.rotulo,
+      title: home.programacao.titulo,
+      lead: home.programacao.lead,
+    },
+    dresscode: {
+      menu: home.traje.menu,
+      label: home.traje.rotulo,
+      title: home.traje.titulo,
+      lead: home.traje.lead ?? "",
+      photo: p(home.traje.foto),
+    },
+    gifts: {
+      menu: home.presentes.menu,
+      menuLink: home.presentes.menuLink,
+      label: home.presentes.rotulo,
+      title: home.presentes.titulo,
+      text: home.presentes.texto,
+      photo: p(home.presentes.foto),
+      photoCaption: home.presentes.legendaFoto,
+      buttons: links(home.presentes.botoes),
+      notice: home.presentes.aviso,
+    },
+    messages: {
+      menu: home.recados.menu,
+      menuLink: home.recados.menuLink,
+      label: home.recados.rotulo,
+      title: home.recados.titulo,
+      lead: home.recados.lead,
+      count: home.recados.quantidade,
+      seeAll: home.recados.verMural,
+      write: home.recados.escrever,
+      empty: home.recados.vazio,
+    },
+    rsvp: {
+      label: home.rsvp.rotulo,
+      title: home.rsvp.titulo,
+      text: home.rsvp.texto,
+      photos: home.rsvp.fotos.map((f) => toPhoto(size, f)),
+      card: {
+        title: home.rsvp.cartao.titulo,
+        text: home.rsvp.cartao.texto,
+        button: home.rsvp.cartao.botao,
+      },
+    },
+    faq: { menu: home.duvidas.menu, label: home.duvidas.rotulo, title: home.duvidas.titulo },
+    nav: { cta: home.menu.cta, extras: links(home.menu.extras) },
+    footer: { phrase: home.rodape.frase, links: links(home.rodape.links) },
+    pages: {
+      gallery: { title: galeria.titulo, soonNotice: galeria.avisoPreWedding },
+      godparents: { photo: p(paginas.padrinhos.foto) },
+      messages: {
+        label: r.rotulo,
+        title: r.titulo,
+        lead: r.lead,
+        empty: r.vazio,
+        unavailable: r.indisponivel,
+        formTitle: r.formTitulo,
+        formLead: r.formLead,
+        formButton: r.formBotao,
+        privacy: r.privacidade,
+        sentTitle: r.enviadoTitulo,
+        sentText: r.enviadoTexto,
+      },
+      notFound: { photo: p(paginas.naoEncontrada.foto), caption: paginas.naoEncontrada.legenda },
+    },
+  });
 }
 
-function neutralPaginas(): Paginas {
-  return {
-    padrinhos: { foto: null },
-    recados: {
-      ...paginas.recados,
-      titulo: "Palavras de *quem quer bem*",
-      lead: "Os recados aparecem aqui depois de lidos pelos anfitriões. Obrigado pelo carinho.",
-      formLead: "Escreva o que quiser. Os anfitriões leem tudo, e o recado entra no mural depois.",
-      privacidade:
-        "Privacidade: guardamos só o nome e o texto que você escrever, para mostrar no mural depois de aprovado. Não pedimos e-mail nem guardamos o seu IP.",
-      enviadoTexto: "Assim que for lido, ele aparece no mural.",
-    },
-    naoEncontrada: { foto: null, legenda: "" },
-  };
+/** Fotos de `content/galeria.ts` no formato da galeria da API. */
+export function legacyGallery(size: PhotoSize): GalleryPhoto[] {
+  return galeria.fotos.map((f) => ({
+    ...toPhoto(size, f),
+    caption: f.legenda ?? "",
+    album: null,
+  }));
 }
 
-/** O conteúdo de apresentação do evento: o do casamento original ou o neutro. */
-export function contentFor(ev: Pick<EventBasics, "slug" | "name" | "type">): EventContent {
-  if (ev.slug === LEGACY_EVENT_SLUG) {
-    return { legado: true, home, paginas, galeria, padrinhos: true, iniciais: null };
-  }
-  return {
-    legado: false,
-    home: neutralHome(ev.type),
-    paginas: neutralPaginas(),
-    galeria: null,
-    padrinhos: false,
-    iniciais: initialsOf(ev.name),
-  };
+/** As seções são as neutras do tipo (nada gravado em `site.sections`)? */
+export function hasDefaultSections(site: SiteContent): boolean {
+  const neutral = resolveSections(
+    defaultSections(site.event.type, site.event.vocabulary),
+    () => null,
+  );
+  return JSON.stringify(site.sections) === JSON.stringify(neutral);
 }
 
 /**
- * Conteúdo de reserva quando `/api/e/<slug>/site` não responde: o do casamento só para
- * ele; os outros eventos saem com o nome e a data que já vieram de `/api/hosts`.
+ * Conteúdo do casamento original enquanto ele não está no banco: seções e galeria de
+ * `content/*.ts`. Qualquer outro evento, ou o casamento já importado, passa direto.
  */
-export function siteFallbackFor(ev: EventBasics): SiteContent {
-  if (ev.slug === LEGACY_EVENT_SLUG) return SITE_FALLBACK;
-  const datetime = ev.startsAt ?? SITE_FALLBACK.wedding.datetime;
-  const local = { ...SITE_FALLBACK.ceremony, name: "Local a definir", address: "", time: "" };
+export function withLegacyContent(
+  ev: { slug: string },
+  site: SiteContent,
+  size: PhotoSize,
+): SiteContent {
+  if (ev.slug !== LEGACY_EVENT_SLUG || !hasDefaultSections(site)) return site;
   return {
-    ...SITE_FALLBACK,
-    ...siteDefaults(ev.type),
-    couple: { names: ev.name, monogram: initialsOf(ev.name) },
-    wedding: { datetime, timezone: ev.timezone },
-    ceremony: local,
-    reception: local,
-    schedule: [],
-    dressCode: { text: "", palette: [], avoid: [] },
-    accommodation: { items: [], howToGetThere: "" },
-    faq: [],
-    story: [],
-    godparents: { dressCode: "", schedule: [], palette: [], notes: [] },
-    gallery: { items: [], officialPhotosSoon: false },
-    contact: { whatsapp: "", email: "", message: "Alguma dúvida? Fale com a gente." },
-    rsvp: { deadline: datetime },
-    seo: { title: ev.name, description: "", ogTitle: ev.name, ogDescription: "" },
+    ...site,
+    sections: legacySections(size),
+    gallery: { ...site.gallery, items: legacyGallery(size) },
+  };
+}
+
+export type EventContent = {
+  legado: boolean;
+  /** Iniciais do monograma em texto; null = a ligadura DG. */
+  iniciais: string | null;
+  /** Só o que a imagem OG (frente C) ainda lê: a foto do hero no celular. */
+  home: { hero: Pick<HomeContent["hero"], "fotoCelular"> };
+};
+
+/**
+ * @deprecated Fase 2: o site lê `SiteContent.sections`. Mantido só para os ícones e a imagem
+ * OG (frente C) até a integração.
+ */
+export function contentFor(ev: EventRef): EventContent {
+  const legado = ev.slug === LEGACY_EVENT_SLUG;
+  return {
+    legado,
+    iniciais: monogramFor(ev),
+    home: { hero: { fotoCelular: legado ? home.hero.fotoCelular : null } },
   };
 }

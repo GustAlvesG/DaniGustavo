@@ -5,7 +5,7 @@ import { PageTransition } from "@/components/site/PageTransition";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { getGifts } from "@/lib/api/gifts";
-import { getContent, getSite } from "@/lib/api/site";
+import { getSiteWithModule } from "@/lib/api/site";
 
 export const metadata: Metadata = {
   title: "Lista de presentes",
@@ -14,10 +14,14 @@ export const metadata: Metadata = {
 
 /**
  * /presentes: a lista vem do cache de `/api/e/<slug>/gifts` (30 s, tag "gifts:<id>"), então
- * a página sai pré-renderizada; os filtros rodam no navegador.
+ * a página sai pré-renderizada; os filtros rodam no navegador. Módulo de presentes desligado →
+ * 404 (o pagamento e o comprovante de um pedido que já existe continuam abrindo).
  */
 export default async function PresentesPage() {
-  const [site, list, { legado }] = await Promise.all([getSite(), getGifts(), getContent()]);
+  const site = await getSiteWithModule("gifts");
+  const list = await getGifts();
+  // Casamento: o texto do casal ("para nós dois"); os outros tipos, o neutro.
+  const legado = site.event.type === "wedding";
   return (
     <PageTransition>
       <SiteNav site={site} current="/presentes" />

@@ -2,7 +2,7 @@ import { Cabecalho } from "@/components/album";
 import { Mural } from "@/components/recados/Mural";
 import recados from "@/components/recados/recados.module.css";
 import { ButtonLink } from "@/components/ui";
-import type { HomeContent } from "@/content/home";
+import type { SiteContent } from "@casamento/shared";
 import type { Wall } from "@/lib/api/messages";
 import styles from "./home.module.css";
 
@@ -11,18 +11,16 @@ import styles from "./home.module.css";
  * formulário. Sem recado aprovado ainda, convida a escrever o primeiro.
  */
 export function Recados({
-  home,
+  site,
   wall,
-  timeZone,
   pagina,
 }: {
-  home: HomeContent;
+  site: SiteContent;
   wall: Wall;
-  timeZone: string;
   pagina?: number;
 }) {
-  const t = home.recados;
-  const ultimos = wall.messages.slice(0, t.quantidade);
+  const t = site.sections.messages;
+  const ultimos = wall.messages.slice(0, t.count);
   return (
     <section className={styles.sec} id="recados" aria-labelledby="recados-titulo">
       <div className={styles.wrap}>
@@ -30,23 +28,28 @@ export function Recados({
           className={styles.cab}
           id="recados-titulo"
           pagina={pagina}
-          rotulo={t.rotulo}
-          titulo={t.titulo}
-          lead={t.lead}
+          rotulo={t.label}
+          titulo={t.title}
+          lead={t.lead || undefined}
         />
         {ultimos.length ? (
-          <Mural recados={ultimos} timeZone={timeZone} layout="fileira" label={t.rotulo} />
+          <Mural
+            recados={ultimos}
+            timeZone={site.wedding.timezone}
+            layout="fileira"
+            label={t.label}
+          />
         ) : (
-          <p className={recados.vazio}>{t.vazio}</p>
+          <p className={recados.vazio}>{t.empty}</p>
         )}
         <div className={recados.acoes}>
           {ultimos.length ? (
             <ButtonLink href="/recados" variant="primary">
-              {t.verMural}
+              {t.seeAll}
             </ButtonLink>
           ) : null}
           <ButtonLink href="/recados#escrever" variant={ultimos.length ? "secondary" : "primary"}>
-            {t.escrever}
+            {t.write}
           </ButtonLink>
         </div>
       </div>
