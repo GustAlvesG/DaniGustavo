@@ -12,6 +12,10 @@ if (existsSync(rootEnv)) {
 }
 
 const port = Number(process.env.E2E_PORT ?? 3100);
+// API dos e2e: 3333 por padrão (a do .env). Com E2E_API_PORT, sobe outra API nessa porta e o
+// site e os testes passam a apontar para ela (API_URL), sem tocar nos servidores abertos.
+const apiPort = Number(process.env.E2E_API_PORT ?? 3333);
+if (process.env.E2E_API_PORT) process.env.API_URL = `http://localhost:${apiPort}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -58,11 +62,24 @@ export default defineConfig({
   ],
   webServer: [
     {
-      // API (Hono) para os e2e de RSVP e de conteúdo; precisa do MariaDB no ar.
-      command: "pnpm --filter @casamento/api dev:server",
-      // Nunca o Asaas do .env de dev (chave de produção) nos e2e.
-      env: { PAYMENT_PROVIDER: "simulado" },
-      url: "http://localhost:3333/api/health",
+      // API (Hono) para os e2e de RSVP e de conteúdo; precisa do MariaDB no ar. O painel é
+      // montado antes (vite build), para os e2e nunca testarem um painel/dist antigo.
+      command: "pnpm --filter @casamento/api build && pnpm --filter @casamento/api dev:server",
+      // Nunca o Asaas do .env de dev (chave de produção) nos e2e. A revalidação do cache
+      // (POST /api/revalidar) vai para o site deste e2e, não para o da porta 3000.
+      env: {
+        PAYMENT_PROVIDER: "simulado",
+        PORT: String(apiPort),
+        WEB_INTERNAL_URL: `http://localhost:${port}`,
+        // Em outra porta, o login do painel precisa da origem certa no Better Auth.
+        ...(process.env.E2E_API_PORT
+          ? {
+              API_URL: `http://localhost:${apiPort}`,
+              BETTER_AUTH_URL: `http://localhost:${apiPort}`,
+            }
+          : {}),
+      },
+      url: `http://localhost:${apiPort}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

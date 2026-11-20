@@ -41,7 +41,5 @@ export const config = {
   // Fora do proxy: arquivos do build, estáticos de public/, uploads (repassados à API),
   // o service worker, o /api/revalidar (a API chama com o eventId no corpo, sem host) e o
   // /api/health (healthcheck do Docker/edge: responde com qualquer Host, sem evento).
-  matcher: [
-    "/((?!_next/|uploads/|sw\\.js$|offline\\.html$|api/revalidar$|api/health$).*)",
-  ],
+  matcher: ["/((?!_next/|uploads/|sw\\.js$|offline\\.html$|api/revalidar$|api/health$).*)"],
 };

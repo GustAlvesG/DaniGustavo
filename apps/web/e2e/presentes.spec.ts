@@ -94,7 +94,8 @@ test.describe("pagamento (modo simulado)", () => {
     await dialog.getByLabel(/Recado para os noivos/).fill("Que a casa seja leve.");
     await dialog.getByRole("button", { name: "Presentear" }).click();
 
-    await expect(page).toHaveURL(/\/presentes\/pagamento\/[0-9A-Z]{26}$/);
+    // O 1º acesso à página de pagamento compila a rota no next dev: mais tempo que o padrão.
+    await expect(page).toHaveURL(/\/presentes\/pagamento\/[0-9A-Z]{26}$/, { timeout: 15_000 });
     await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
     await expect(page.getByRole("tab", { name: "Pix" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByLabel("Pix copia e cola")).toHaveValue(/SIMULACAO/);
@@ -119,7 +120,7 @@ test.describe("pagamento (modo simulado)", () => {
     await dialog.getByLabel("Seu nome").fill("Rafael Teste");
     await dialog.getByLabel("Seu e-mail").fill(email(info.testId));
     await dialog.getByRole("button", { name: "Presentear" }).click();
-    await expect(page).toHaveURL(/\/presentes\/pagamento\//);
+    await expect(page).toHaveURL(/\/presentes\/pagamento\//, { timeout: 15_000 });
 
     await page.getByRole("tab", { name: "Cartão" }).click();
     const card = page.getByTestId("card-panel");
@@ -132,7 +133,7 @@ test.describe("pagamento (modo simulado)", () => {
     await card.getByLabel("CVV").fill("123");
     await card.getByRole("button", { name: /Pagar/ }).click();
     await expect(card.getByRole("alert")).toContainText("recusado");
-    await expect(page).toHaveURL(/\/presentes\/pagamento\//);
+    await expect(page).toHaveURL(/\/presentes\/pagamento\//, { timeout: 15_000 });
 
     await card.getByLabel("Número do cartão").fill("4111 1111 1111 1111");
     await card.getByRole("button", { name: /Pagar/ }).click();

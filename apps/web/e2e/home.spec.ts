@@ -19,7 +19,7 @@ test("home exibe os nomes no h1 sobre a foto do casal", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Dani & Gustavo" })).toBeVisible();
   // Foto de fundo do hero (art direction: <picture> com fonte para telas largas).
-  await expect(page.locator("#inicio picture img")).toHaveAttribute("src", /fotos/);
+  await expect(page.locator("#inicio picture img")).toHaveAttribute("src", /uploads/);
   await expect(page.locator("#inicio picture source")).toHaveCount(1);
 });
 

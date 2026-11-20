@@ -21,6 +21,7 @@ import {
   payments,
   sql,
 } from "@casamento/db";
+import { ensureE2eHost } from "@casamento/db/testing";
 
 type NewInvitation = {
   label: string;
@@ -175,6 +176,32 @@ async function main(): Promise<unknown> {
     case "message-delete": {
       await db.delete(messages).where(eq(messages.author, arg ?? ""));
       return { ok: true };
+    }
+    case "e2e-host": {
+      const input = JSON.parse(arg ?? "{}") as {
+        slug: string;
+        email: string;
+        name: string;
+        password: string;
+      };
+      return { ok: true, ...(await ensureE2eHost(db, input)) };
+    }
+    case "fase2-reset": {
+      // Volta o evento de teste ao site neutro do tipo (seções, tema e módulos padrão).
+      const [ev] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(eq(events.slug, arg ?? ""));
+      if (!ev) throw new Error(`Evento ${arg} não existe.`);
+      await db
+        .delete(eventSettings)
+        .where(
+          and(
+            eq(eventSettings.eventId, ev.id),
+            inArray(eventSettings.key, ["site.sections", "site.theme", "event.modules"]),
+          ),
+        );
+      return { ok: true, eventId: ev.id };
     }
     case "multi-gift": {
       // Presente que só existe no evento de teste (prova que as listas não se misturam).

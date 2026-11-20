@@ -4,13 +4,17 @@
  * (packages/db/src/cli.ts):
  *  - evento 1 (dani-gustavo): localhost:<porta> e evento1.localhost:<porta>;
  *  - evento de teste 2 (ana-bruno, ativo, org-e2e): evento2.localhost:<porta>, com um
- *    presente que só ele tem.
+ *    presente que só ele tem, e um anfitrião só dele (E2E_HOST, senha nova a cada rodada).
  * Os domínios da porta 3000 (dev) já vêm do seed para o evento 1.
  */
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 export const MULTI_EVENT = { slug: "ana-bruno", name: "Ana & Bruno", org: "org-e2e" } as const;
+
+/** Anfitrião só do evento de teste (e2e da Fase 2 no painel); a senha muda a cada rodada. */
+export const E2E_HOST = { email: "anfitriao-e2e@exemplo.com", name: "Anfitrião E2E" } as const;
 
 const dbDir = join(__dirname, "..", "..", "..", "..", "packages", "db");
 // O .env de dev usa Asaas de produção: nada aqui deve depender dele.
@@ -70,4 +74,20 @@ export default function globalSetup() {
     env,
     encoding: "utf8",
   });
+
+  // Variáveis definidas no setup global chegam aos workers dos testes.
+  process.env.E2E_HOST_PASSWORD = randomBytes(18).toString("base64url");
+  execFileSync(
+    process.execPath,
+    [
+      join(__dirname, "db-cli.mts"),
+      "e2e-host",
+      JSON.stringify({
+        slug: MULTI_EVENT.slug,
+        ...E2E_HOST,
+        password: process.env.E2E_HOST_PASSWORD,
+      }),
+    ],
+    { cwd: __dirname, env, encoding: "utf8" },
+  );
 }

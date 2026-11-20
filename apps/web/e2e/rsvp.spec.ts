@@ -29,7 +29,8 @@ test.describe("busca em /confirmar", () => {
     await page.getByLabel("Sobrenome").fill("ramos");
     await page.getByRole("button", { name: "Buscar convite" }).click();
 
-    await expect(page).toHaveURL(/\/c\/[0-9A-Z]{26}$/);
+    // O 1º acesso a /c/[token] compila a rota no next dev: mais tempo que o padrão.
+    await expect(page).toHaveURL(/\/c\/[0-9A-Z]{26}$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tio Otávio e tia Célia");
     await expect(page.getByRole("radiogroup", { name: /Célia Ramos/ })).toBeVisible();
     await expect(page.getByRole("radiogroup", { name: /Otávio Ramos/ })).toBeVisible();

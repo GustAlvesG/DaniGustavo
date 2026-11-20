@@ -69,3 +69,8 @@ export async function approveMessage(author: string): Promise<void> {
 export async function deleteMessages(author: string): Promise<void> {
   run("message-delete", author);
 }
+
+/** Tira seções, tema e módulos gravados do evento (volta ao neutro do tipo); devolve o id. */
+export async function resetFase2(slug: string): Promise<number> {
+  return run<{ eventId: number }>("fase2-reset", slug).eventId;
+}

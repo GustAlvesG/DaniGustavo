@@ -1,16 +1,28 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { SiteContent } from "@casamento/shared";
-import { galeria } from "../src/content/galeria";
-import { home } from "../src/content/home";
 
 /*
- * Páginas de informação. Dados do evento vêm da própria API (nada de data ou
- * local fixo no teste); textos e fotos de apresentação, de src/content.
+ * Páginas de informação do evento 1. Tudo vem da própria API (nada de data, local, texto ou
+ * foto fixos no teste): dados do evento e `site.sections`, importadas por content:import-legacy.
  */
 
 const API_URL = (process.env.API_URL || "http://localhost:3333").replace(/\/+$/, "");
 
-/** Título do content/home.ts sem os asteriscos de ênfase. */
+/** Âncora (id da <section>) de cada seção da home (ver SECTION_ANCHOR em lib/site.ts). */
+const ANCHOR: Record<string, string> = {
+  story: "historia",
+  album: "album",
+  event: "casamento",
+  verse: "versiculo",
+  schedule: "programacao",
+  dresscode: "traje",
+  gifts: "presentes",
+  messages: "recados",
+  rsvp: "rsvp",
+  faq: "duvidas",
+};
+
+/** Título sem os asteriscos de ênfase. */
 const plain = (s: string) => s.replace(/\*/g, "");
 
 async function loadSite(request: APIRequestContext): Promise<SiteContent | null> {
@@ -33,11 +45,11 @@ test("home mostra todas as seções com o conteúdo da API", async ({ page }) =>
   const s = site!;
   await page.goto("/");
 
-  for (const id of home.secoes) {
-    await expect(page.locator(`section#${id}`)).toHaveCount(1);
+  for (const { id } of s.sections.order.filter((o) => o.enabled)) {
+    await expect(page.locator(`section#${ANCHOR[id]}`)).toHaveCount(1);
   }
   await expect(
-    page.getByRole("heading", { level: 2, name: plain(home.historia.titulo) }),
+    page.getByRole("heading", { level: 2, name: plain(s.sections.story.title) }),
   ).toBeAttached();
 
   const wedding = page.locator("#casamento");
@@ -71,7 +83,7 @@ test("home mostra todas as seções com o conteúdo da API", async ({ page }) =>
   }
   // Confirmação na home é um convite a ir para /confirmar (o RSVP é por convite).
   await expect(
-    page.locator("#rsvp").getByRole("link", { name: home.rsvp.cartao.botao }),
+    page.locator("#rsvp").getByRole("link", { name: s.sections.rsvp.card.button }),
   ).toHaveAttribute("href", "/confirmar");
   await expect(page.locator("footer")).toContainText(s.contact.message);
 });
@@ -91,13 +103,15 @@ test("dúvidas: acordeão abre e fecha com aria-expanded", async ({ page }) => {
   await expect(page.getByRole("region", { name: first.question })).toHaveCount(0);
 });
 
-test("nossa história: polaroids do conteúdo local, com ano e foto", async ({ page }) => {
+test("nossa história: polaroids do banco, com ano e foto", async ({ page }) => {
+  test.skip(!site?.sections.story.items.length, "sem história na API");
+  const items = site!.sections.story.items;
   await page.goto("/");
   const story = page.locator("section#historia");
-  await expect(story.locator("li")).toHaveCount(home.historia.momentos.length);
-  for (const m of home.historia.momentos) {
-    await expect(story.getByText(m.titulo, { exact: true })).toBeAttached();
-    await expect(story.getByRole("img", { name: m.foto.alt })).toBeAttached();
+  await expect(story.locator("li")).toHaveCount(items.length);
+  for (const m of items) {
+    await expect(story.getByText(m.title, { exact: true })).toBeAttached();
+    if (m.photo) await expect(story.getByRole("img", { name: m.photo.alt })).toBeAttached();
   }
   // As fotos passam pelo otimizador do next/image.
   const src = await story.locator("img").first().getAttribute("src");
@@ -161,16 +175,21 @@ test("/padrinhos carrega o manual", async ({ page }) => {
   }
 });
 
-test("/galeria carrega as fotos do conteúdo local", async ({ page }) => {
+test("/galeria carrega as fotos do evento (event_media)", async ({ page }) => {
+  test.skip(!site?.gallery.items.length, "sem fotos na galeria");
+  const s = site!;
   await page.goto("/galeria");
-  await expect(page.getByRole("heading", { level: 1, name: galeria.titulo })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: s.sections.pages.gallery.title || "Galeria" }),
+  ).toBeVisible();
   const imgs = page.locator("[data-gallery] img");
-  await expect(imgs).toHaveCount(galeria.fotos.length);
+  await expect(imgs).toHaveCount(s.gallery.items.length);
   await expect(imgs.first()).toBeVisible();
   await expect(page.locator("[data-gallery] a").first()).toHaveAttribute(
     "href",
-    `/fotos/${galeria.fotos[0]!.arquivo}`,
+    s.gallery.items[0]!.src,
   );
+  expect(s.gallery.items[0]!.src).toMatch(/^\/uploads\/\d+\//);
 });
 
 test("imagem Open Graph é um PNG", async ({ page, request }) => {

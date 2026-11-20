@@ -76,8 +76,9 @@ test("PWA: manifest válido com ícones que existem", async ({ request, page }) 
   expect(m).toMatchObject({
     start_url: "/",
     display: "standalone",
-    theme_color: "#14213d",
-    background_color: "#faf7f1",
+    // Cores do tema do evento (Álbum/marinho), em qualquer caixa.
+    theme_color: expect.stringMatching(/^#14213d$/i),
+    background_color: expect.stringMatching(/^#faf7f1$/i),
   });
   expect(m.name).toBeTruthy();
   const sizes = m.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes}:${i.purpose}`);
