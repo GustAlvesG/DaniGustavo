@@ -576,38 +576,10 @@ export function Configuracoes() {
       <Section
         id="cfg-avancado"
         title="Avançado"
-        description="Nossa história, galeria e manual dos padrinhos. As fotos ficam na pasta do site (veja docs/PERSONALIZAR.md)."
-        keys={["story.items", "gallery.items", "gallery.official_soon", "godparents.manual"]}
+        description="Aviso de fotos oficiais e manual dos padrinhos. A história e as fotos da galeria agora são editadas em Site e Galeria."
+        keys={["gallery.official_soon", "godparents.manual"]}
         {...sectionProps}
       >
-        <ListEditor
-          label="Nossa história"
-          items={list("story.items")}
-          fields={[
-            { key: "when", label: "Quando" },
-            { key: "title", label: "Título" },
-            { key: "text", label: "Texto", type: "textarea", wide: true },
-            { key: "image", label: "Imagem (caminho, ex.: /fotos/x.jpg)" },
-            { key: "imageAlt", label: "Descrição da imagem" },
-            { key: "id", label: "Identificador" },
-          ]}
-          blank={{ id: "", when: "", title: "", text: "", image: "/", imageAlt: "" }}
-          itemName={(it, i) => String(it.title || `Momento ${i + 1}`)}
-          onChange={(x) => set("story.items", x)}
-        />
-        <ListEditor
-          label="Galeria"
-          items={list("gallery.items")}
-          fields={[
-            { key: "src", label: "Imagem (caminho)" },
-            { key: "alt", label: "Descrição" },
-            { key: "width", label: "Largura (px)", type: "number" },
-            { key: "height", label: "Altura (px)", type: "number" },
-          ]}
-          blank={{ src: "/", alt: "", width: 1200, height: 800 }}
-          itemName={(it, i) => String(it.alt || `Foto ${i + 1}`)}
-          onChange={(x) => set("gallery.items", x)}
-        />
         <label className="check">
           <input
             type="checkbox"

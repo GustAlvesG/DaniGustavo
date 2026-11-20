@@ -1,0 +1,128 @@
+/* Editor do site e galeria (Fase 2, frente A). Usa os tokens de styles.css. */
+
+.editor-section > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.editor-section > summary::-webkit-details-marker {
+  display: none;
+}
+.editor-section > summary h2::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.15s;
+}
+.editor-section[open] > summary h2::before {
+  transform: rotate(90deg);
+}
+.editor-section[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.editor-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  background: var(--papel);
+  border-top: 1px solid var(--linha);
+}
+
+.photo-field__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.thumb--lg {
+  width: 72px;
+  height: 72px;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.picker-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  max-height: 60vh;
+  overflow: auto;
+}
+.picker-grid__item {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--info-fundo);
+  cursor: pointer;
+}
+.picker-grid__item:hover,
+.picker-grid__item:focus-visible {
+  border-color: var(--enfase);
+}
+.picker-grid__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.gallery-toolbar__filter {
+  min-width: 12rem;
+}
+
+.media-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.media-card {
+  height: 100%;
+  background: var(--branco);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+.media-card--off .media-card__img {
+  opacity: 0.55;
+}
+.media-card__img {
+  aspect-ratio: 4 / 3;
+  background: var(--info-fundo);
+}
+.media-card__img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.media-card__body {
+  padding: 0.75rem;
+}
+
+@media (max-width: 699px) {
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
+}
