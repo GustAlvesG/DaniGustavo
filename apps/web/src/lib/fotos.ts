@@ -2,7 +2,7 @@ import "server-only";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { imageSize, type ImageSize } from "./image-size";
+import { imageSize, type ImageSize } from "@casamento/shared";
 
 /** Pasta das fotos do site: `apps/web/public/fotos` (servida em `/fotos/...`). */
 const FOTOS_DIR = join(process.cwd(), "public", "fotos");

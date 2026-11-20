@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { OrderStatus, PaymentMethod } from "./gifts.ts";
+import { SiteSections } from "./content.ts";
+import { EventSides, VocabularyOverrides } from "./event-types.ts";
+import { EventModulesInput } from "./modules.ts";
 import { AgeRange, RsvpStatus } from "./rsvp.ts";
+import { ThemeSelection } from "./themes.ts";
 import {
   AccommodationItem,
   FaqItem,
@@ -361,9 +365,27 @@ export const SETTINGS_SCHEMAS = {
   "gallery.items": z.array(GalleryPhoto),
   "gallery.official_soon": z.boolean(),
   seo: SiteContent.shape.seo,
+  // Fase 2 (docs/saas/fase-2.md). `event.sides` é privado (a migration 0008 grava sem is_public).
+  "site.sections": SiteSections,
+  "site.theme": ThemeSelection,
+  "event.modules": EventModulesInput,
+  "event.sides": EventSides,
+  "event.vocabulary": VocabularyOverrides,
 } as const;
 
 export type SettingsKey = keyof typeof SETTINGS_SCHEMAS;
+
+/**
+ * Chaves com rota própria no painel (validação extra, revalidação certa): o PUT genérico de
+ * /settings recusa. `site.sections` → /site; `site.theme` → /appearance; `event.*` → /config.
+ */
+export const DEDICATED_SETTINGS_KEYS: readonly SettingsKey[] = [
+  "site.sections",
+  "site.theme",
+  "event.modules",
+  "event.sides",
+  "event.vocabulary",
+];
 export const SETTINGS_KEYS = Object.keys(SETTINGS_SCHEMAS) as SettingsKey[];
 
 export const SettingsUpdate = z.object({

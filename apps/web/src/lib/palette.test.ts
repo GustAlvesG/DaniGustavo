@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { contrastRatio } from "./contrast";
+import { contrastRatio } from "@casamento/shared";
 import { CONTRAST_PAIRS, PALETTE, minimumRatio } from "./palette";
 
 describe("paleta do álbum (WCAG 2.2 AA)", () => {

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { contrastLevel, contrastRatio, formatRatio, parseHex, relativeLuminance } from "./contrast";
+import {
+  contrastLevel,
+  contrastRatio,
+  formatRatio,
+  parseHex,
+  relativeLuminance,
+} from "../src/color.ts";
 
 describe("parseHex", () => {
   it("lê seis e três dígitos, com ou sem #", () => {

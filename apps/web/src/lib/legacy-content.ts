@@ -7,7 +7,7 @@
  * TODO(fase2): o conteúdo de apresentação vira dado do evento (editor de conteúdo/temas)
  * e este arquivo some.
  */
-import type { SiteContent } from "@casamento/shared";
+import { siteDefaults, type SiteContent } from "@casamento/shared";
 import { galeria, type Galeria } from "@/content/galeria";
 import { home, type HomeContent } from "@/content/home";
 import { paginas, type Paginas } from "@/content/paginas";
@@ -150,6 +150,7 @@ export function siteFallbackFor(ev: EventBasics): SiteContent {
   const local = { ...SITE_FALLBACK.ceremony, name: "Local a definir", address: "", time: "" };
   return {
     ...SITE_FALLBACK,
+    ...siteDefaults(ev.type),
     couple: { names: ev.name, monogram: initialsOf(ev.name) },
     wedding: { datetime, timezone: ev.timezone },
     ceremony: local,

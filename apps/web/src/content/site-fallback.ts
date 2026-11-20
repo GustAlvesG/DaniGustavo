@@ -1,4 +1,4 @@
-import type { SiteContent } from "@casamento/shared";
+import { siteDefaults, type SiteContent } from "@casamento/shared";
 
 /**
  * Conteúdo de reserva, espelho do seed da API (packages/db/src/seed-data.ts).
@@ -9,6 +9,8 @@ import type { SiteContent } from "@casamento/shared";
 const VENUE_ADDRESS = "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770";
 
 export const SITE_FALLBACK: SiteContent = {
+  // TODO(fase2-B): o casamento de reserva também com as seções dele (hoje: neutras do tipo).
+  ...siteDefaults("wedding"),
   couple: { names: "Dani & Gustavo", monogram: "DG" },
   wedding: { datetime: "2027-04-10T16:00:00-03:00", timezone: "America/Sao_Paulo" },
   ceremony: {
@@ -196,6 +198,10 @@ export const SITE_FALLBACK: SiteContent = {
       alt: `Foto ${i + 1} do pré-wedding (provisória)`,
       width: i % 3 === 0 ? 1200 : 800,
       height: i % 3 === 0 ? 800 : 1200,
+      thumbSrc: null,
+      caption: "",
+      album: null,
+      position: null,
     })),
     officialPhotosSoon: true,
   },

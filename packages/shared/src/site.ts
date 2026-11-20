@@ -1,4 +1,8 @@
 import { z } from "zod";
+import { defaultSections, PublicSiteSections, resolveSections } from "./content.ts";
+import { EventType, eventTypeOf, Vocabulary, vocabularyFor } from "./event-types.ts";
+import { defaultModules, EventModules } from "./modules.ts";
+import { resolveTheme, ResolvedTheme } from "./themes.ts";
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const isoDateTime = z.iso.datetime({ offset: true });
@@ -86,11 +90,26 @@ export const GalleryPhoto = z.object({
   alt: z.string(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),
+  /** Campos da Fase 2 (vindos de `event_media`); opcionais na entrada para aceitar o formato antigo. */
+  thumbSrc: z.string().startsWith("/").nullable().default(null),
+  caption: z.string().default(""),
+  album: z.string().nullable().default(null),
+  position: z.string().nullable().default(null),
 });
 export type GalleryPhoto = z.infer<typeof GalleryPhoto>;
 
-/** Resposta de GET /api/site. */
+/** Resposta de GET /api/e/:slug/site. */
 export const SiteContent = z.object({
+  /** Tipo, módulos ligados e vocabulário final do evento (Fase 2). */
+  event: z.object({
+    type: EventType,
+    modules: EventModules,
+    vocabulary: Vocabulary,
+  }),
+  /** Tema já resolvido (cores e fontes). */
+  theme: ResolvedTheme,
+  /** Textos e fotos das seções (`site.sections`, ou o neutro do tipo). */
+  sections: PublicSiteSections,
   couple: z.object({ names: z.string(), monogram: z.string() }),
   wedding: z.object({ datetime: isoDateTime, timezone: z.string() }),
   ceremony: Venue,
@@ -106,9 +125,11 @@ export const SiteContent = z.object({
     howToGetThere: z.string(),
   }),
   faq: z.array(FaqItem),
+  /** @deprecated Fase 2: a história mora em `sections.story.items`; sai na integração. */
   story: z.array(StoryMoment),
   godparents: GodparentsManual,
   gallery: z.object({
+    /** Fotos de `event_media` com `in_gallery` (antes: chave `gallery.items`). */
     items: z.array(GalleryPhoto),
     /** true enquanto as fotos oficiais não foram publicadas. */
     officialPhotosSoon: z.boolean(),
@@ -128,3 +149,16 @@ export const SiteContent = z.object({
   }),
 });
 export type SiteContent = z.infer<typeof SiteContent>;
+
+/**
+ * Partes da Fase 2 de um evento sem nada gravado (tipo → vocabulário, módulos, tema e seções
+ * neutras, sem fotos). Usado pelo conteúdo de reserva do site quando a API não responde.
+ */
+export function siteDefaults(type: string): Pick<SiteContent, "event" | "theme" | "sections"> {
+  const vocabulary = vocabularyFor(type);
+  return {
+    event: { type: eventTypeOf(type), modules: defaultModules(type), vocabulary },
+    theme: resolveTheme(type),
+    sections: resolveSections(defaultSections(type, vocabulary), () => null),
+  };
+}
