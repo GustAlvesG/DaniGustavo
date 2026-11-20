@@ -159,7 +159,7 @@ export function adminMessageRoutes(deps: AdminDeps) {
   const { db, revalidate } = deps;
   const app = new Hono<EventAdminEnv>();
 
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("messages.read"), async (c) => {
     const ev = c.get("event");
     const filter = c.req.query("status");
     const rows = await db
@@ -221,7 +221,7 @@ export function adminSettingsRoutes(deps: AdminDeps) {
     return new Map(rows.map((r) => [r.key, { value: r.value, isPublic: r.isPublic }]));
   };
 
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("settings.read"), async (c) => {
     const all = await readAll(c.get("event"));
     const values: Record<string, unknown> = {};
     for (const key of SETTINGS_KEYS) values[key] = all.get(key)?.value ?? null;

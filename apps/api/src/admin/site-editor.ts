@@ -22,7 +22,7 @@ export function adminSiteEditorRoutes(deps: AdminDeps) {
   const app = new Hono<EventAdminEnv>();
 
   // Conteúdo gravado, ou o neutro do tipo (o editor abre preenchido).
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("content.read"), async (c) => {
     const ev = c.get("event");
     const stored = await readSetting(ev, db, "site.sections");
     const vocabulary = vocabularyFor(

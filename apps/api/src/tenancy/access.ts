@@ -11,6 +11,7 @@ import {
 import type { MiddlewareHandler } from "hono";
 import type { AdminUser } from "../admin/context.ts";
 import { routeNotFound } from "../errors.ts";
+import { loadHostDeny } from "./permissions.ts";
 import type { EventResolver } from "./resolver.ts";
 import {
   EVENT_ACCESS_ROLES,
@@ -119,7 +120,7 @@ export async function listAccessibleEvents(
 const EVENT_ID = /^[1-9]\d{0,15}$/;
 
 /**
- * `/api/admin/events/:eventId/*`, depois de requireSession. Põe `event` e `eventRole` no
+ * `/api/admin/events/:eventId/*`, depois de requireSession. Põe `event`, `eventRole` e `hostDeny` no
  * contexto. eventId inválido, evento inexistente ou sem acesso → o mesmo 404 de rota
  * inexistente (quem é de fora não descobre quais ids existem).
  */
@@ -138,6 +139,8 @@ export function requireEventAccess(
     if (!role) return routeNotFound(c);
     c.set("event", event);
     c.set("eventRole", role);
+    // Só o anfitrião tem lista de negação; lida a cada requisição (vale na hora em que muda).
+    c.set("hostDeny", role === "event_host" ? await loadHostDeny(event, db) : []);
     await next();
   };
 }
