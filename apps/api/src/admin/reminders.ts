@@ -12,7 +12,9 @@ export function adminReminderRoutes(deps: AdminDeps) {
   const app = new Hono<EventAdminEnv>();
   const rd = (ev: EventAdminEnv["Variables"]["event"]) => ({ ev, env, db, mailer, now });
 
-  app.get("/", async (c) => c.json(await reminderStatus(rd(c.get("event")))));
+  app.get("/", requirePermission("reminders.read"), async (c) =>
+    c.json(await reminderStatus(rd(c.get("event")))),
+  );
 
   app.put("/", requirePermission("reminders.write"), async (c) => {
     const ev = c.get("event");

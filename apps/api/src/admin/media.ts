@@ -93,7 +93,7 @@ export function adminMediaRoutes(deps: AdminDeps) {
     createdAt: m.createdAt.toISOString(),
   });
 
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("content.read"), async (c) => {
     const ev = c.get("event");
     const [rows, used] = await Promise.all([listRows(ev, db), usedIds(ev, db)]);
     return c.json({ media: rows.map((m) => toAdmin(ev, m, used)) });

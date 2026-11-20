@@ -1,5 +1,10 @@
 import type { EventStatus } from "@casamento/db";
-import { EVENT_ACCESS_ROLES, type EventAccessRole, type OrgAccessRole } from "@casamento/shared";
+import {
+  EVENT_ACCESS_ROLES,
+  type EventAccessRole,
+  type EventAction,
+  type OrgAccessRole,
+} from "@casamento/shared";
 import type { AdminUser } from "../admin/context.ts";
 
 /** O evento da requisição. Todo serviço com escopo recebe isto como 1º argumento. */
@@ -24,7 +29,13 @@ export type PublicEventEnv = { Variables: { event: EventCtx } };
 
 /** Rotas do painel `/api/admin/events/:eventId/*` (depois de requireSession). */
 export type EventAdminEnv = {
-  Variables: { user: AdminUser; event: EventCtx; eventRole: EventAccessRole };
+  Variables: {
+    user: AdminUser;
+    event: EventCtx;
+    eventRole: EventAccessRole;
+    /** Ações negadas ao anfitrião neste evento (vazio para os outros papéis). */
+    hostDeny?: readonly EventAction[];
+  };
 };
 
 /** A organização da requisição em `/api/admin/orgs/:orgId/*` (Fase 3). */

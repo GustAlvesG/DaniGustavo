@@ -168,7 +168,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
   const changed = (ev: EventCtx) => revalidate(ev.id, ["gifts"]);
   app.on(["POST", "PUT", "PATCH", "DELETE"], "*", requirePermission("gifts.write"));
 
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("gifts.read"), async (c) => {
     const ev = c.get("event");
     const [list, [cats]] = await Promise.all([
       listAdminGifts(ev, db),

@@ -52,7 +52,10 @@ export function adminEventConfigRoutes(deps: AdminDeps) {
     };
   }
 
-  app.get("/", async (c) => c.json(await configDto(c.get("event"))));
+  // Vocabulário, módulos e lados servem a todo o painel (menu, rótulos): leitura de quem entra.
+  app.get("/", requirePermission("dashboard.read"), async (c) =>
+    c.json(await configDto(c.get("event"))),
+  );
 
   app.put("/", requirePermission("event.configure"), async (c) => {
     const ev = c.get("event");

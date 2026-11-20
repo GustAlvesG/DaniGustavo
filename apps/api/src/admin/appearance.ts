@@ -15,7 +15,7 @@ export function adminAppearanceRoutes(deps: AdminDeps) {
   const { db, revalidate } = deps;
   const app = new Hono<EventAdminEnv>();
 
-  app.get("/", async (c) => {
+  app.get("/", requirePermission("content.read"), async (c) => {
     const ev = c.get("event");
     const stored = await readSetting(ev, db, "site.theme");
     return c.json({

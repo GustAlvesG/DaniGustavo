@@ -11,13 +11,19 @@ export const EVENT_ACTIONS = [
   "dashboard.read",
   "invitations.read",
   "invitations.write",
+  "gifts.read",
   "gifts.write",
   "orders.read",
   "orders.refund",
   "orders.reconcile",
+  "messages.read",
   "messages.moderate",
+  "settings.read",
   "settings.write",
+  "reminders.read",
   "reminders.write",
+  /** Fase 2: ver textos e fotos do site, galeria e aparência. */
+  "content.read",
   /** Fase 2: textos e fotos do site, galeria e aparência (tema). */
   "content.write",
   /** Fase 2: tipo do evento, módulos, lados dos convites e vocabulário. */
@@ -31,13 +37,18 @@ export const EVENT_ACTION_LABELS: Record<EventAction, string> = {
   "dashboard.read": "Ver o início do painel",
   "invitations.read": "Ver convites e respostas",
   "invitations.write": "Criar, editar e importar convites",
+  "gifts.read": "Ver a lista de presentes",
   "gifts.write": "Cadastrar e editar presentes",
   "orders.read": "Ver pedidos de presentes",
   "orders.refund": "Reembolsar pedidos",
   "orders.reconcile": "Conciliar pagamentos",
+  "messages.read": "Ver os recados",
   "messages.moderate": "Aprovar e remover recados",
+  "settings.read": "Ver as configurações do evento",
   "settings.write": "Mudar as configurações do evento",
-  "reminders.write": "Configurar lembretes de confirmação",
+  "reminders.read": "Ver os lembretes de confirmação",
+  "reminders.write": "Configurar e enviar lembretes de confirmação",
+  "content.read": "Ver textos, fotos e aparência do site",
   "content.write": "Editar textos, fotos e aparência do site",
   "event.configure": "Mudar tipo, módulos, lados e palavras do evento",
 };
@@ -64,6 +75,33 @@ export const HostPermissions = z.object({
     .transform((list) => [...new Set(list)]),
 });
 export type HostPermissions = z.infer<typeof HostPermissions>;
+
+/**
+ * Ação que depende de outra: sem ver, não dá para mexer. Negar a leitura ao anfitrião nega
+ * também as escritas da mesma área (ver `withDependents`).
+ */
+export const ACTION_REQUIRES: Partial<Record<EventAction, HostConfigurableAction>> = {
+  "invitations.write": "invitations.read",
+  "gifts.write": "gifts.read",
+  "orders.refund": "orders.read",
+  "orders.reconcile": "orders.read",
+  "messages.moderate": "messages.read",
+  "settings.write": "settings.read",
+  "reminders.write": "reminders.read",
+  "content.write": "content.read",
+};
+
+/**
+ * A lista de negação efetiva: a pedida mais o que depende de algo negado, sem repetição, na
+ * ordem de HOST_CONFIGURABLE_ACTIONS. É o que a API grava e aplica.
+ */
+export function withDependents(deny: readonly HostConfigurableAction[]): HostConfigurableAction[] {
+  const set = new Set<EventAction>(deny);
+  return HOST_CONFIGURABLE_ACTIONS.filter((a) => {
+    const needs = ACTION_REQUIRES[a];
+    return set.has(a) || (needs !== undefined && set.has(needs));
+  });
+}
 
 /** Ações por organização (`/api/admin/orgs/:orgId/*`). */
 export const ORG_ACTIONS = [
