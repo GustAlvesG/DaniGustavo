@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { fase3Cleanup, fase3InviteToken, fase3OrgId } from "./support/db";
+import { fase3Cleanup, fase3InviteToken, fase3Org } from "./support/db";
+import { routeLoginIp } from "./support/login-ip";
 import { E2E_HOST } from "./support/multi-setup";
 
 /*
@@ -20,6 +21,8 @@ const painelUrl =
 const adminEmail = process.env.E2E_ADMIN_EMAIL ?? process.env.ADMIN_EMAIL_1 ?? "";
 const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? process.env.ADMIN_PASSWORD_INICIAL ?? "";
 const hostPassword = process.env.E2E_HOST_PASSWORD ?? "";
+
+test.beforeEach(({ context }) => routeLoginIp(context, "painel-fase3"));
 
 async function login(page: Page, email: string, password: string) {
   await page.goto(painelUrl);
@@ -89,27 +92,33 @@ test.describe("anfitrião", () => {
 });
 
 test.describe("organização: criar evento e convidar anfitrião", () => {
-  test.skip(!adminEmail || !adminPassword, "Defina ADMIN_EMAIL_1 e ADMIN_PASSWORD_INICIAL.");
-
+  // Organização e dona só deste teste: o evento novo não aparece para o admin dos outros e2e.
   const run = Date.now().toString(36);
+  const ownerEmail = `dona-f3-${run}@exemplo.com`;
+  const ownerPass = `Dona-e2e-${run}-ok`;
   const slug = `e2e-f3-${run}`;
   const hostEmail = `anfitriao-f3-${run}@exemplo.com`;
   const hostPass = `Senha-e2e-${run}-ok`;
+  let orgId = 0;
 
+  test.beforeAll(() => {
+    orgId = fase3Org(run, ownerPass).orgId;
+  });
   test.afterAll(() => fase3Cleanup(run));
 
   test("criar evento → negar presentes → convidar → aceitar → anfitrião só no evento dele", async ({
     page,
     browser,
   }) => {
-    const orgId = fase3OrgId();
-    await login(page, adminEmail, adminPassword);
+    await login(page, ownerEmail, ownerPass);
+    // Dona sem evento: entra direto no início da organização.
+    await expect(page).toHaveURL(new RegExp(`#/o/${orgId}$`));
 
     // Novo evento pela UI: endereço conferido na hora; nasce rascunho e abre no painel.
     await page.goto(`${painelUrl}#/o/${orgId}/eventos/novo`);
     await page.getByLabel("Nome do evento").fill(`Festa E2E ${run}`);
     await page.getByLabel("Data").fill("2031-05-10");
-    await page.getByLabel("Endereço do evento").fill(slug);
+    await page.getByLabel(/^Endereço do evento/).fill(slug);
     await expect(page.getByText("Disponível.")).toBeVisible();
     await page.getByRole("button", { name: "Criar evento" }).click();
     await expect(page).toHaveURL(/#\/e\/\d+$/);
@@ -132,13 +141,16 @@ test.describe("organização: criar evento e convidar anfitrião", () => {
     const token = fase3InviteToken(hostEmail);
 
     // Aceite em contexto anônimo: cria a conta com senha e entra direto no evento.
-    const anon = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const anon = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    await routeLoginIp(anon, "painel-fase3-aceite");
     const guest = await anon.newPage();
     await guest.goto(`${painelUrl}#/aceitar/${token}`);
     await expect(guest.getByRole("heading", { name: "Convite para o painel" })).toBeVisible();
     await guest.getByLabel("Seu nome").fill("Anfitriã E2E");
-    await guest.getByLabel("Senha", { exact: true }).fill(hostPass);
-    await guest.getByLabel("Repita a senha").fill(hostPass);
+    await guest.getByLabel(/^Senha/).fill(hostPass);
+    await guest.getByLabel(/^Repita a senha/).fill(hostPass);
     await guest.getByRole("button", { name: "Criar conta e aceitar" }).click();
     await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
 
@@ -151,11 +163,15 @@ test.describe("organização: criar evento e convidar anfitrião", () => {
     // Área negada pelo hash: aviso no painel (e a API responde 403).
     await guest.goto(`${painelUrl}#/e/${eventId}/presentes`);
     await expect(guest.getByRole("heading", { name: "Sem permissão" })).toBeVisible();
+    const gifts = await guest.request.get(
+      `${painelUrl.replace(/\/painel\/$/, "")}/api/admin/events/${eventId}/gifts`,
+    );
+    expect(gifts.status()).toBe(403);
 
     // Organização e outros eventos não são dele: volta para o próprio evento.
     await guest.goto(`${painelUrl}#/o/${orgId}`);
     await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
-    await guest.goto(`${painelUrl}#/e/${eventId === 1 ? 2 : 1}`);
+    await guest.goto(`${painelUrl}#/e/1`);
     await expect(guest).toHaveURL(new RegExp(`#/e/${eventId}$`));
     await anon.close();
   });

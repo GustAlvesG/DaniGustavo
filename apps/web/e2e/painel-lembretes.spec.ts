@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { routeLoginIp } from "./support/login-ip";
+
+test.beforeEach(({ context }) => routeLoginIp(context, "painel-lembretes"));
 
 /*
  * Fase 6: lembretes de RSVP no painel. Não envia e-mail de verdade: confere a contagem, o

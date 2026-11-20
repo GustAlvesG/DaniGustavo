@@ -75,9 +75,9 @@ export async function resetFase2(slug: string): Promise<number> {
   return run<{ eventId: number }>("fase2-reset", slug).eventId;
 }
 
-/** Fase 3: organização do evento 1 (onde o e2e cria o evento). */
-export function fase3OrgId(): number {
-  return run<{ orgId: number }>("fase3-org").orgId;
+/** Fase 3: organização própria do e2e, com a dona `dona-f3-<run>@exemplo.com`. */
+export function fase3Org(runId: string, password: string): { orgId: number } {
+  return run<{ orgId: number }>("fase3-org", JSON.stringify({ run: runId, password }));
 }
 
 /** Fase 3: token conhecido para o convite pendente deste e-mail (o banco só tem o hash). */
@@ -85,7 +85,7 @@ export function fase3InviteToken(email: string): string {
   return run<{ token: string }>("fase3-invite-token", email).token;
 }
 
-/** Fase 3: apaga o evento, os convites e a conta criados pelo e2e com este `run`. */
+/** Fase 3: apaga a organização do e2e (evento e convites juntos) e as contas criadas. */
 export function fase3Cleanup(runId: string): void {
   run("fase3-cleanup", runId);
 }

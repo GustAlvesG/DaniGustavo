@@ -21,10 +21,9 @@ import {
   payments,
   sql,
   teamInvites,
-  user,
 } from "@casamento/db";
 import { createHash, randomBytes } from "node:crypto";
-import { ensureE2eHost } from "@casamento/db/testing";
+import { cleanupE2eOrg, ensureE2eHost, ensureE2eOrg } from "@casamento/db/testing";
 
 type NewInvitation = {
   label: string;
@@ -232,12 +231,14 @@ async function main(): Promise<unknown> {
       return { ok: true, eventId: ev.id };
     }
     case "fase3-org": {
-      // Organização do evento 1 (a do casamento), onde o e2e da Fase 3 cria o evento.
-      const [ev] = await db
-        .select({ orgId: events.organizationId })
-        .from(events)
-        .where(eq(events.id, LEGACY_EVENT_ID));
-      return { orgId: ev!.orgId };
+      // Organização própria do e2e da Fase 3, com uma dona de senha dada.
+      const input = JSON.parse(arg ?? "{}") as { run: string; password: string };
+      return ensureE2eOrg(db, {
+        slug: `e2e-f3-org-${input.run}`,
+        name: `Organização E2E ${input.run}`,
+        email: `dona-f3-${input.run}@exemplo.com`,
+        password: input.password,
+      });
     }
     case "fase3-invite-token": {
       // O banco só guarda o hash do token e o e-mail vai para o console da API: o e2e troca o
@@ -254,11 +255,12 @@ async function main(): Promise<unknown> {
       return { token };
     }
     case "fase3-cleanup": {
-      // Evento criado pelo e2e (convites e vínculos saem em cascata) e a conta do anfitrião.
+      // Organização do e2e (o evento, convites e vínculos saem junto) e as duas contas.
       const run = String(arg);
-      await db.delete(teamInvites).where(eq(teamInvites.email, `anfitriao-f3-${run}@exemplo.com`));
-      await db.delete(events).where(eq(events.slug, `e2e-f3-${run}`));
-      await db.delete(user).where(eq(user.email, `anfitriao-f3-${run}@exemplo.com`));
+      await cleanupE2eOrg(db, `e2e-f3-org-${run}`, [
+        `dona-f3-${run}@exemplo.com`,
+        `anfitriao-f3-${run}@exemplo.com`,
+      ]);
       return { ok: true };
     }
     default:

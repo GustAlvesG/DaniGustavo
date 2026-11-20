@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { painelCleanup, painelFixture } from "./support/db";
+import { routeLoginIp } from "./support/login-ip";
+
+test.beforeEach(({ context }) => routeLoginIp(context, "painel"));
 
 /*
  * Fase 5: painel dos noivos (servido pela API em /painel). Usa um presente, um pedido pago

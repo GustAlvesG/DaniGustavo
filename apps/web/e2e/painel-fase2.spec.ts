@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { resetFase2 } from "./support/db";
 import { E2E_HOST, MULTI_EVENT } from "./support/multi-setup";
+import { routeLoginIp } from "./support/login-ip";
+
+test.beforeEach(({ context }) => routeLoginIp(context, "painel-fase2"));
 
 /*
  * Fase 2: o que o anfitrião muda no painel aparece no site do evento. Usa o evento de teste

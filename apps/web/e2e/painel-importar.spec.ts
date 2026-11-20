@@ -1,6 +1,9 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { routeLoginIp } from "./support/login-ip";
+
+test.beforeEach(({ context }) => routeLoginIp(context, "painel-importar"));
 
 /*
  * Painel: importar os 50 convidados do CSV de exemplo → ver convites → exportar a lista do
