@@ -185,6 +185,15 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
   },
   // TODO(conteudo): confirmar o prazo final do RSVP.
   { key: "rsvp.deadline", value: "2027-03-10T23:59:59-03:00", isPublic: true },
+  // Lados dos convites (a migration 0008 grava o mesmo para os eventos que já existiam).
+  {
+    key: "event.sides",
+    value: [
+      { key: "dani", label: "Dani" },
+      { key: "gustavo", label: "Gustavo" },
+    ],
+    isPublic: false,
+  },
   // TODO(conteudo): percentual real da tarifa de cartão no Asaas. É o que soma ao valor
   // quando o convidado marca "Quero cobrir a taxa" no pagamento com cartão.
   { key: "payments.card_fee_percent", value: 4.98, isPublic: true },

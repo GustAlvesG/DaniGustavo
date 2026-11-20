@@ -16,6 +16,7 @@ export const SCOPED_TABLES = [
   "payments",
   "messages",
   "event_settings",
+  "event_media",
 ] as const;
 
 const SCOPED = new Set<string>(SCOPED_TABLES);

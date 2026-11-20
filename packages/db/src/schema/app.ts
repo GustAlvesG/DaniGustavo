@@ -14,6 +14,11 @@ import {
 import { createdAt, fk, json, pk, timestamps, utcDatetime } from "./columns.ts";
 import { events } from "./tenancy.ts";
 
+/**
+ * Lados do evento 1 (casamento). Desde a migration 0008 a coluna `invitations.side` é varchar:
+ * cada evento define seus lados em `event_settings` › `event.sides` ([{ key, label }]).
+ * TODO(fase2-D): o tipo `Side` vira `string` (chave do lado) quando a frente D trocar os usos.
+ */
 export const SIDES = ["dani", "gustavo"] as const;
 export const RSVP_STATUSES = ["pending", "confirmed", "declined"] as const;
 export const AGE_RANGES = ["0-2", "3-7", "8-12"] as const;
@@ -47,7 +52,8 @@ export const invitations = mysqlTable(
     token: varchar("token", { length: 26 }).notNull().unique(),
     label: varchar("label", { length: 191 }).notNull(),
     maxGuests: int("max_guests").notNull().default(1),
-    side: mysqlEnum("side", SIDES).notNull(),
+    /** Chave de um dos lados do evento (`event.sides`); "dani"/"gustavo" no evento 1. */
+    side: varchar("side", { length: 32 }).$type<Side>().notNull(),
     allowPlusOne: boolean("allow_plus_one").notNull().default(false),
     /** Contato do grupo para o e-mail de confirmação e para os noivos. Preenchido no RSVP. */
     contactEmail: varchar("contact_email", { length: 191 }),
@@ -282,4 +288,42 @@ export const eventSettings = mysqlTable(
     ...timestamps(),
   },
   (t) => [primaryKey({ name: "event_settings_pk", columns: [t.eventId, t.key] })],
+);
+
+/**
+ * Fotos do evento (galeria e fotos das seções do site). Os arquivos ficam no Storage
+ * (`<eventId>/<file>`, servidos em `/uploads/<eventId>/<file>`); a miniatura é gerada no
+ * navegador antes do upload. Largura e altura gravadas para o site não ler o arquivo.
+ */
+export const eventMedia = mysqlTable(
+  "event_media",
+  {
+    id: pk(),
+    eventId: eventId("cascade"),
+    /** Nome do arquivo no Storage do evento (ULID + extensão). */
+    file: varchar("file", { length: 191 }).notNull(),
+    /** Miniatura (largura MEDIA_THUMB_WIDTH); nula em fotos antigas sem miniatura. */
+    thumbFile: varchar("thumb_file", { length: 191 }),
+    mime: varchar("mime", { length: 32 }).notNull(),
+    width: int("width", { unsigned: true }).notNull(),
+    height: int("height", { unsigned: true }).notNull(),
+    bytes: int("bytes", { unsigned: true }).notNull(),
+    /** Texto alternativo (leitor de tela). */
+    alt: varchar("alt", { length: 300 }).notNull().default(""),
+    /** Legenda em itálico sob a polaroid (vazia = sem legenda). */
+    caption: varchar("caption", { length: 300 }).notNull().default(""),
+    /** Álbum dentro da galeria (ex.: "pre-wedding", "oficial"); nulo = sem álbum. */
+    album: varchar("album", { length: 64 }),
+    /** Parte visível no corte (CSS object-position), ex.: "center 30%". */
+    position: varchar("position", { length: 40 }),
+    /** Aparece na página /galeria (false = foto só usada nas seções). */
+    inGallery: boolean("in_gallery").notNull().default(true),
+    sort: int("sort").notNull().default(0),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("event_media_event_id_id_idx").on(t.eventId, t.id),
+    uniqueIndex("event_media_event_file_idx").on(t.eventId, t.file),
+    index("event_media_event_gallery_sort_idx").on(t.eventId, t.inGallery, t.sort),
+  ],
 );

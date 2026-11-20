@@ -9,8 +9,9 @@ import { createDb, type Database } from "../src/client.ts";
 import { requireDatabaseUrl } from "../src/env.ts";
 import { MIGRATIONS_FOLDER, runMigrations } from "../src/migrate.ts";
 
-// Migrations 0006 (multi-evento) e 0007 (sem DEFAULT em event_id) sobre dados no formato antigo: banco temporário, aplica
-// 0000–0005, insere um pouco de tudo, aplica a 0006 e confere que nada se perdeu.
+// Migrations 0006 (multi-evento), 0007 (sem DEFAULT em event_id) e 0008 (lados/mídia) sobre dados no
+// formato antigo: banco temporário, aplica 0000–0005, insere um pouco de tudo, aplica o resto e
+// confere que nada se perdeu.
 
 const dbName = `casamento_mig_${ulid().toLowerCase()}`;
 const serverUrl = new URL(requireDatabaseUrl());
@@ -158,7 +159,8 @@ describe("migrations 0006 (multi-evento) e 0007", () => {
 
   it("copia settings para event_settings e apaga a tabela antiga", async () => {
     const rows = await q(
-      "SELECT event_id, `key`, value, is_public FROM event_settings ORDER BY `key`",
+      // event.sides vem da 0008 (testada abaixo).
+      "SELECT event_id, `key`, value, is_public FROM event_settings WHERE `key` <> 'event.sides' ORDER BY `key`",
     );
     expect(rows).toHaveLength(OLD_SETTINGS.length);
     for (const [key, value, isPublic] of OLD_SETTINGS) {
@@ -230,5 +232,49 @@ describe("migrations 0006 (multi-evento) e 0007", () => {
         "INSERT INTO invitations (token, label, max_guests, side, created_at, updated_at) VALUES ('01JTESTE0000000000000SEMEV', 'X', 1, 'dani', NOW(3), NOW(3))",
       ),
     ).rejects.toThrow(/event_id/);
+  });
+});
+
+describe("migration 0008 (conteúdo, temas e lados por evento)", () => {
+  it("invitations.side vira varchar e os convites antigos mantêm o lado", async () => {
+    const [col] = await q(
+      `SELECT data_type, character_maximum_length AS len FROM information_schema.columns
+       WHERE table_schema = DATABASE() AND table_name = 'invitations' AND column_name = 'side'`,
+    );
+    expect(String(col!.data_type).toLowerCase()).toBe("varchar");
+    expect(Number(col!.len)).toBe(32);
+    const sides = await q("SELECT DISTINCT side FROM invitations ORDER BY side");
+    expect(sides.map((r) => r.side)).toEqual(["dani"]);
+    // Lado de outro evento (chave livre) passa a ser aceito pelo banco.
+    await q(
+      "INSERT INTO invitations (event_id, token, label, max_guests, side, created_at, updated_at) VALUES (1, '01JTESTE0000000000000LADO1', 'X', 1, 'familia-noiva', NOW(3), NOW(3))",
+    );
+    await q("DELETE FROM invitations WHERE token = '01JTESTE0000000000000LADO1'");
+  });
+
+  it("grava os lados antigos em event.sides de cada evento (privado)", async () => {
+    const [row] = await q(
+      "SELECT value, is_public FROM event_settings WHERE event_id = 1 AND `key` = 'event.sides'",
+    );
+    const value = typeof row!.value === "string" ? JSON.parse(row!.value) : row!.value;
+    expect(value).toEqual([
+      { key: "dani", label: "Dani" },
+      { key: "gustavo", label: "Gustavo" },
+    ]);
+    expect(Boolean(row!.is_public)).toBe(false);
+  });
+
+  it("cria event_media com arquivo único por evento", async () => {
+    const insert = (file: string) =>
+      q(
+        "INSERT INTO event_media (event_id, file, mime, width, height, bytes, created_at, updated_at) VALUES (1, ?, 'image/jpeg', 800, 600, 1000, NOW(3), NOW(3))",
+        [file],
+      );
+    await insert("01JTESTEFOTO.jpg");
+    await expect(insert("01JTESTEFOTO.jpg")).rejects.toThrow(/duplicate/i);
+    const [m] = await q("SELECT alt, caption, in_gallery, sort FROM event_media");
+    expect(m).toMatchObject({ alt: "", caption: "", sort: 0 });
+    expect(Boolean(m!.in_gallery)).toBe(true);
+    await q("DELETE FROM event_media");
   });
 });

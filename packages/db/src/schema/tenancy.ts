@@ -14,7 +14,15 @@ import { createdAt, fk, pk, timestamps, utcDatetime } from "./columns.ts";
 
 export const ORGANIZATION_STATUSES = ["active", "suspended"] as const;
 export const EVENT_STATUSES = ["draft", "active", "archived"] as const;
-export const EVENT_TYPES = ["wedding", "fifteen", "birthday", "other"] as const;
+/** Tipos de evento (vocabulário, módulos e tema padrão em `@casamento/shared` › event-types). */
+export const EVENT_TYPES = [
+  "wedding",
+  "fifteen",
+  "birthday",
+  "baby_shower",
+  "corporate",
+  "other",
+] as const;
 export const ORGANIZATION_ROLES = ["owner", "member"] as const;
 export const EVENT_ROLES = ["host"] as const;
 export const PLATFORM_ROLES = ["admin"] as const;
@@ -49,7 +57,7 @@ export const events = mysqlTable(
       .references(() => organizations.id, { onDelete: "restrict" }),
     /** Único na plataforma: entra nas rotas públicas `/api/e/:slug`. */
     slug: varchar("slug", { length: 64 }).notNull().unique(),
-    /** wedding, fifteen, birthday ou other (varchar para aceitar tipos novos sem migration). */
+    /** Um de EVENT_TYPES (varchar para aceitar tipos novos sem migration). */
     type: varchar("type", { length: 32 }).notNull().default("wedding"),
     name: varchar("name", { length: 191 }).notNull(),
     status: mysqlEnum("status", EVENT_STATUSES).notNull().default("draft"),
