@@ -2,8 +2,9 @@ import { bigint, customType, datetime } from "drizzle-orm/mysql-core";
 
 /**
  * JSON portátil entre MySQL 8 e MariaDB 10.4.
- * No MariaDB, `JSON` é um alias de LONGTEXT e o driver devolve string; no MySQL 8 o
- * driver já devolve objeto. Este tipo aceita os dois formatos na leitura.
+ * No MariaDB, `JSON` é um alias de LONGTEXT; no MySQL 8 (e no MariaDB ≥ 10.5) a coluna vem
+ * marcada como JSON. O pool usa `jsonStrings: true` (client.ts), então o driver sempre devolve
+ * o texto e o parse é feito aqui. Objeto já pronto também é aceito, por garantia.
  */
 export const json = <TData>(name: string) =>
   customType<{ data: TData; driverData: string }>({

@@ -7,7 +7,7 @@
 
 ## Próximos passos, em ordem
 
-1. **Merge do `origin/main` na `saas`**: o remoto tem 3 PRs de deploy (Docker, Caddy, VPS, `docs/DEPLOY.md`). Uma tentativa foi abortada (sem perdas). Conflitos esperados: `CLAUDE.md`, `apps/api/src/admin/revalidate.ts`, `apps/api/src/env.ts`, `packages/db/src/cli.ts`, `packages/db/src/seed.ts`, `packages/db/test/seed.test.ts`. Preservar as duas intenções (multi-evento + deploy), garantir `/api/health` com o `proxy.ts` e anotar em DEPLOY.md o que muda na plataforma.
+1. ~~**Merge do `origin/main` na `saas`**~~ — **feito** (merge commit "merge: traz o deploy do main para a plataforma"): Docker/edge/`DEPLOY.md` na plataforma; `/api/health` do Next fora do `proxy.ts`; `setup` de produção também garante evento 1, vínculos e o host de `SITE_URL` em `event_domains`; seção "Plataforma multi-evento" em `docs/DEPLOY.md` (migrations 0006+ com backup, `setup` depois do `migrate`, CLI no container, on-demand TLS como próxima etapa). `docker build` não foi rodado (sem Docker na máquina de dev).
 2. **Frentes A–D da Fase 2 em paralelo** (`fase-2.md`, regras em `AGENTES.md`). O isolamento automático de worktree do Claude Code falhou neste Windows (criou a partir do `main` e recusou o caminho): criar os worktrees à mão a partir da `saas`, fora do repositório (ex.: `git worktree add C:\dev\casamento-wt\f2a -b saas-f2a saas`), e passar o caminho a cada agente.
 3. Integração da Fase 2 (apagar conteúdo fixo, importar o legado no banco `casamento`, e2e, screenshots).
 4. Fases 3 a 7, no mesmo fluxo (fundação → frentes → integração).

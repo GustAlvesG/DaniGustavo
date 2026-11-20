@@ -39,6 +39,9 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Fora do proxy: arquivos do build, fotos/estáticos de public/, uploads (repassados à API),
-  // o service worker e o /api/revalidar (a API chama com o eventId no corpo, sem host).
-  matcher: ["/((?!_next/|uploads/|fotos/|placeholder/|sw\\.js$|offline\\.html$|api/revalidar$).*)"],
+  // o service worker, o /api/revalidar (a API chama com o eventId no corpo, sem host) e o
+  // /api/health (healthcheck do Docker/edge: responde com qualquer Host, sem evento).
+  matcher: [
+    "/((?!_next/|uploads/|fotos/|placeholder/|sw\\.js$|offline\\.html$|api/revalidar$|api/health$).*)",
+  ],
 };

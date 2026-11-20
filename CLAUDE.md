@@ -19,7 +19,8 @@ Branch `saas`: plataforma multi-evento (Plataforma → Organização → Evento 
 - `apps/api/src/tenancy/`: resolver de evento (LRU 60 s), `publicEvent`, `requireEventAccess`, permissões, `crossEvent`, `eventBaseUrl`.
 - `packages/db/` schema (`src/schema/tenancy.ts`: organizações, eventos, domínios, membros), migrations, seed, `src/cli.ts` (CLI de plataforma em `src/tenancy-admin.ts`).
 - `docs/saas/` plano e decisões da plataforma (`fase-1.md`).
-- `docs/PROMPT.md` especificação; `.github/workflows/ci.yml`; `docker-compose.yml` (opcional); `.screenshots/` (ignorado pelo git).
+- `docs/PROMPT.md` especificação; `.github/workflows/ci.yml`; `docker-compose.yml` (opcional, só dev); `.screenshots/` (ignorado pelo git).
+- Produção (VPS + Docker): `Dockerfile` (alvos `web` e `api`), `docker-compose.prod.yml`, `deploy/site.caddy`, `deploy/deploy.conf`, `.env.production.example`, `scripts/setup-vps.sh`, `scripts/backup-db.sh`; passo a passo em `docs/DEPLOY.md`.
 
 ## Comandos
 
@@ -27,7 +28,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 
 - `pnpm dev` sobe web e api em paralelo; `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format` / `format:check`.
 - E2E: `pnpm --filter @casamento/web test:e2e`.
-- Banco: `pnpm db:generate`, `db:migrate`, `db:seed`, `db:reset`.
+- Banco: `pnpm db:generate`, `db:migrate`, `db:seed`, `db:reset`; `db:setup` = primeira carga em produção (evento 1, configurações, admins + vínculos, host de `SITE_URL` como domínio do evento 1 se não houver nenhum; sem dados fictícios; idempotente).
 - CLI de plataforma (de qualquer lugar: `pnpm --filter @casamento/db exec node src/cli.ts <comando>`): `org:create`, `event:create`, `domain:add`, `user:add`, `event:list`, `uploads:migrate`; sem argumentos lista as opções. Passo a passo em `docs/PERSONALIZAR.md`.
 - Testes da API usam o banco `casamento_api_test` (ou `TEST_DATABASE_URL`), recriado, migrado e semeado no global-setup; nunca o banco de dev. O auditor de SQL (consulta sem `event_id` fora de `crossEvent` falha) vem ligado; `AUDIT_STRICT=0` desliga.
 - E2E multi-evento: `pnpm --filter @casamento/web exec playwright test --project=multi` (o setup global cria `ana-bruno` e os domínios da porta de teste).
@@ -65,6 +66,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Status do Pix no navegador: Route Handler `/api/pedidos/[publicId]` do Next consultado a cada 3 s.
 - Login do painel só com e-mail e senha (2FA removido a pedido do casal); rate limit do Better Auth ligado em todos os ambientes (5 tentativas/min por IP em `/sign-in/email`).
 - Sem Docker local: dev usa MariaDB do XAMPP; `docker-compose.yml` é opcional; CI usa MySQL 8.
+- Deploy (`docs/DEPLOY.md`, contrato na seção "Deploy: contrato da VPS ArtZan" abaixo): Docker na VPS compartilhada; o Caddy é o edge único (`/srv/edge`), sem Caddy no projeto. `name: casamento` e `SLUG="casamento"` não mudam (volumes com dados); aliases na rede `edge`: `casamento-web` e `casamento-api`; `db` só na rede `banco`. Dois hosts (`deploy/site.caddy`): `DOMAIN` → web, `API_DOMAIN` → api (painel, login, webhook do Asaas); no host da API só passam `/painel`, `/api/auth`, `/api/admin`, `/api/webhooks`, `/api/health` e `/uploads`. Web build com `NEXT_OUTPUT=standalone` (só no Docker) e `outputFileTracingRoot` na raiz; `NEXT_PUBLIC_SITE_URL` e `API_URL` (rewrite de `/uploads`) são build args. Revalidação pela rede interna (`WEB_INTERNAL_URL=http://web:3000`), `/api/revalidar` fechado no `site.caddy`; `/api/health` do Next fica fora do `proxy.ts` (responde com qualquer Host). Plataforma em produção: hosts em `event_domains` (o `setup` cadastra o de `SITE_URL`), ver DEPLOY.md "Plataforma multi-evento". IP real: snippet `ip_real` do edge sobrescreve `X-Forwarded-For`/`X-Real-IP` com `{client_ip}` (Cloudflare em `trusted_proxies` no global do edge). Pool do mysql2 com `jsonStrings: true` (MySQL 8 e MariaDB ≥ 10.5 devolviam JSON já convertido e quebravam o parse).
 - Schema compatível com MariaDB 10.4 e MySQL 8: sem `serial`, coluna JSON customizada (parse na leitura), DATETIME(3) em UTC preenchido pelo app, varchar indexado ≤191.
 - Projeto em `C:\dev\casamento` (fora do OneDrive).
 - Web→API: Server Actions enviam `X-Web-Key` em não-GET `/api/*` (o evento vem do `x-event-host` gravado pelo `proxy.ts`); `/api/webhooks/*` e `/api/auth/*` são isentos. URL e chave da API nunca vão ao bundle do cliente.
@@ -106,3 +108,13 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - `applyCharge`/webhook não revalidam o cache do site (já era assim no `main`; o plano previa e não foi feito): a cota vendida só aparece quando o cache de presentes (`revalidate: 30` s, refeito em segundo plano) é renovado; só mudanças feitas pelo painel revalidam na hora.
 - `.env` de dev tem Asaas de produção: em testes use `PAYMENT_PROVIDER=simulado`.
 - O evento `ana-bruno` existe no banco de dev (criado pelo setup do e2e `multi`).
+
+## Deploy: contrato da VPS ArtZan (siga ao criar ou alterar o deploy)
+
+VPS compartilhada; cada site sobe pelo script `site` (`site novo`/`site atualizar`/`site verificar`) e um único Caddy, o "edge" (`/srv/edge`), é dono de 80/443 e encaminha cada subdomínio pela rede Docker externa `edge`. Texto completo do contrato: `git show origin/main:CLAUDE.md`.
+
+- Arquivos obrigatórios: `docker-compose.prod.yml`, `.env.production.example` (toda variável usada no compose, mesmo vazia), `deploy/deploy.conf` (bash: `SLUG`, `DOMAIN_VARS`, `REQUIRED_VARS`, `SECRET_VARS`, `HEALTH_URLS`, `BACKUP_CMD`, ganchos `primeira_vez`/`pos_subida`; só atribuições no nível do arquivo), `deploy/site.caddy`.
+- Compose: `name: <slug>` = `SLUG`, nunca muda (volumes); nenhuma porta publicada (no máximo `127.0.0.1:` comentado); só quem o Caddy alcança entra na `edge`, com alias `<slug>-<serviço>`; banco só em rede privada (`internal: true`); serviços longos com `restart: unless-stopped`, `healthcheck` (sem depender das migrations) e log `json-file` 10m×3; sem `container_name`; `image: <slug>/<serviço>`; dados em volumes nomeados; ferramentas com `profiles: [tools]` e `run --rm`; URLs públicas a partir das variáveis de domínio; nada de Caddy/Nginx/Traefik/certbot no projeto.
+- `site.caddy`: só blocos de site, `${VAR}` trocado pelo script (não `{$VAR}`), upstreams pelo alias da `edge`, snippets próprios prefixados `<slug>_`; usar `import seguranca` e `import ip_real` (dentro de `reverse_proxy`) do edge sem redefini-los.
+- App: escuta `0.0.0.0` sem TLS; rota de saúde barata sem autenticação (`/api/health`, a mesma do healthcheck e do `HEALTH_URLS`, que espera 2xx/3xx); IP do visitante por `X-Forwarded-For`/`X-Real-IP` (já tratados pelo edge); segredos em hex (`openssl rand -hex 32`); no `.env` do Compose, valores com `$` entre aspas simples; build/start sem depender de outro site da VPS.
+- Subdomínio de um nível em `artzan.tech` (`<nome>`, `painel-<nome>` ou `<nome>-api`): o SSL da Cloudflare cobre só `*.artzan.tech`. DNS na Hostinger: registro A para o IP da VPS, TTL 300, sem AAAA.

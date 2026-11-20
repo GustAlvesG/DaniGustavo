@@ -187,7 +187,9 @@ aprova, `4000 0000 0000 0002` recusa (qualquer nome, validade futura e CVV). O l
 7. **Produção**: na conta real (asaas.com), cadastre uma **chave Pix** (sem ela o Asaas não gera
    o QR), complete a aprovação da conta (inclusive a conta bancária para saque), gere a chave de
    produção (`$aact_prod_...`), cadastre o webhook de produção com um token novo e troque
-   `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no `.env` do servidor. Faça um Pix de R$ 5 e estorne
+   `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no `.env` do servidor (lá a chave vai entre aspas
+   simples, `ASAAS_API_KEY='$aact_prod_...'`, por causa do Docker Compose; ver
+   [DEPLOY.md](DEPLOY.md) §10). Faça um Pix de R$ 5 e estorne
    pelo painel dos noivos para conferir. Ajuste `payments.card_fee_percent` para a taxa de cartão
    do seu plano no Asaas.
 
@@ -206,7 +208,8 @@ na tela inicial.
 ### Acesso
 
 1. Entre com o seu e-mail (`ADMIN_EMAIL_1` ou `ADMIN_EMAIL_2` do `.env`) e a senha inicial
-   (`ADMIN_PASSWORD_INICIAL`), criados pelo `pnpm db:seed`.
+   (`ADMIN_PASSWORD_INICIAL`), criados pelo `pnpm db:seed` (em produção, pelo `setup`; ver
+   [DEPLOY.md](DEPLOY.md) §7).
 2. No primeiro acesso, toque no seu nome (canto de cima) → **Trocar senha**. Marque "Sair dos
    outros aparelhos" se suspeitar que alguém viu a senha.
 3. **Sair** fica no canto de cima. Depois de 5 senhas erradas em um minuto, o login espera um

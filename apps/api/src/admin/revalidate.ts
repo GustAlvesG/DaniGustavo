@@ -9,6 +9,8 @@ export type Revalidate = (eventId: number, tags: CacheTag[]) => Promise<void>;
 /**
  * Avisa o site (Next) para descartar o cache das tags: POST WEB_INTERNAL_URL/api/revalidar (ou SITE_URL) com o
  * mesmo X-Web-Key que o site usa para falar com a API (segredo já compartilhado no .env).
+ * Com WEB_INTERNAL_URL (produção em Docker), o aviso vai pela rede interna, sem sair pela
+ * internet e voltar pelo proxy/Cloudflare.
  * Falha não derruba a ação do painel: o cache expira sozinho em até 60 s.
  */
 export function createWebRevalidator(env: Env): Revalidate {

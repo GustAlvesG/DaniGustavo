@@ -4,7 +4,7 @@ import { createDb } from "./client.ts";
 import { requireDatabaseUrl } from "./env.ts";
 import { runMigrations } from "./migrate.ts";
 import { resetDatabase } from "./reset.ts";
-import { listInvitationTokens, seed } from "./seed.ts";
+import { listInvitationTokens, seed, setup } from "./seed.ts";
 import {
   addDomain,
   addUser,
@@ -18,7 +18,10 @@ const HELP = `Uso: node src/cli.ts <comando> [opções]
 
 Banco:
   migrate                      aplica as migrations
-  seed                         popula dados fictícios (idempotente)
+  seed                         popula dados fictícios (idempotente; desenvolvimento)
+  setup                        primeira carga em produção: evento 1, configurações, admins e o
+                               host de SITE_URL como domínio do evento 1 (sem dados fictícios;
+                               idempotente; docs/DEPLOY.md)
   reset                        apaga tudo, migra e popula (só fora de produção)
 
 Plataforma:
@@ -97,6 +100,8 @@ try {
   } else if (command === "seed") {
     console.log("Seed concluído:", await seed(db));
     await printTokens();
+  } else if (command === "setup") {
+    console.log("Setup concluído:", await setup(db));
   } else if (command === "reset") {
     if (process.env.NODE_ENV === "production") {
       throw new Error("db:reset apaga todos os dados e só pode rodar fora de produção.");

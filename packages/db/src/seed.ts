@@ -45,15 +45,7 @@ export async function seed(
 
   await seedLegacyEvent(db);
   result.domainsCreated = await seedDevDomains(db);
-
-  for (const s of seedSettings) {
-    // INSERT IGNORE: affectedRows = 1 quando inseriu, 0 quando a chave já existia.
-    const [res] = await db
-      .insert(eventSettings)
-      .ignore()
-      .values({ eventId: LEGACY_EVENT_ID, key: s.key, value: s.value, isPublic: s.isPublic });
-    if (res.affectedRows === 1) result.settingsCreated++;
-  }
+  result.settingsCreated = await insertSettings(db);
 
   for (const [i, g] of seedGifts.entries()) {
     const [res] = await db
@@ -144,6 +136,20 @@ async function seedDevDomains(db: Database): Promise<number> {
   return created;
 }
 
+/** Configurações iniciais do evento 1 (textos, datas, locais): só as chaves que ainda não existem. */
+async function insertSettings(db: Database): Promise<number> {
+  let created = 0;
+  for (const s of seedSettings) {
+    // INSERT IGNORE: affectedRows = 1 quando inseriu, 0 quando a chave já existia.
+    const [res] = await db
+      .insert(eventSettings)
+      .ignore()
+      .values({ eventId: LEGACY_EVENT_ID, key: s.key, value: s.value, isPublic: s.isPublic });
+    if (res.affectedRows === 1) created++;
+  }
+  return created;
+}
+
 /**
  * Papéis dos usuários do painel. TODO(fase1-papeis): provisório até o casal decidir; hoje os
  * dois são donos da organização 1 e o Gustavo (dev, ADMIN_NAMES[1]) é admin da plataforma.
@@ -172,6 +178,60 @@ async function seedMembers(db: Database, env: NodeJS.ProcessEnv): Promise<number
     await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
   }
   return created;
+}
+
+export interface SetupResult {
+  settingsCreated: number;
+  adminsCreated: number;
+  domainsCreated: number;
+  membersCreated: number;
+}
+
+/**
+ * Host de SITE_URL (com a porta, se não for a padrão), como fica em `event_domains.host`.
+ * Vazio/inválido → null.
+ */
+export function hostFromSiteUrl(siteUrl: string | undefined): string | null {
+  if (!siteUrl) return null;
+  try {
+    return new URL(siteUrl).host.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Primeira carga em produção (e também depois das migrations da plataforma num banco que já
+ * existia): organização/evento 1, as configurações (o site e a API não sobem sem elas; os
+ * textos provisórios se editam no painel), os dois usuários do painel com os vínculos à
+ * organização 1 e o host de SITE_URL como domínio primário do evento 1, se o evento ainda não
+ * tiver nenhum (sem domínio, o site responde 404). Diferente do `seed`, não cria convites,
+ * presentes nem os domínios de desenvolvimento. Idempotente: não sobrescreve nada que já exista.
+ */
+export async function setup(
+  db: Database,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<SetupResult> {
+  await seedLegacyEvent(db);
+  const settingsCreated = await insertSettings(db);
+  const adminsCreated = await seedAdmins(db, env);
+  const membersCreated = await seedMembers(db, env);
+  let domainsCreated = 0;
+  const host = hostFromSiteUrl(env.SITE_URL);
+  if (host) {
+    const [existing] = await db
+      .select({ n: count() })
+      .from(eventDomains)
+      .where(eq(eventDomains.eventId, LEGACY_EVENT_ID));
+    if ((existing?.n ?? 0) === 0) {
+      const [res] = await db
+        .insert(eventDomains)
+        .ignore()
+        .values({ eventId: LEGACY_EVENT_ID, host, isPrimary: true });
+      domainsCreated = res.affectedRows;
+    }
+  }
+  return { settingsCreated, adminsCreated, domainsCreated, membersCreated };
 }
 
 /** Convites com token e convidados, para testar manualmente (links /c/<token>). */

@@ -8,14 +8,21 @@ import type { NextConfig } from "next";
  * pasta do app, então carregamos o da raiz aqui, antes do build/dev começar,
  * sem sobrescrever o que já veio do ambiente (CI, Vercel, shell).
  */
-function loadRootEnv(): void {
+function findRepoRoot(): string | null {
   let dir = process.cwd();
   for (let i = 0; i < 5 && !existsSync(join(dir, "pnpm-workspace.yaml")); i++) {
     const up = dirname(dir);
-    if (up === dir) return;
+    if (up === dir) return null;
     dir = up;
   }
-  const file = join(dir, ".env");
+  return existsSync(join(dir, "pnpm-workspace.yaml")) ? dir : null;
+}
+
+const repoRoot = findRepoRoot();
+
+function loadRootEnv(): void {
+  if (!repoRoot) return;
+  const file = join(repoRoot, ".env");
   if (!existsSync(file)) return;
   const parsed = parseEnv(readFileSync(file, "utf8"));
   for (const [key, value] of Object.entries(parsed)) {
@@ -29,6 +36,13 @@ const nextConfig: NextConfig = {
   // Pasta de build alternativa (ex.: NEXT_DIST_DIR=.next-e2e): permite um segundo `next dev`
   // ao lado do que já está aberto, sem brigar pelo lock nem pelo cache de .next.
   distDir: process.env.NEXT_DIST_DIR || undefined,
+  // Produção em Docker (NEXT_OUTPUT=standalone, ver Dockerfile): o build gera
+  // .next/standalone com um server.js e só os node_modules usados. Fora do Docker fica
+  // como antes (`next start` não funciona com standalone).
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  // Monorepo: o rastreio de arquivos parte da raiz, para levar packages/shared e o
+  // node_modules do pnpm; por isso o server.js fica em apps/web/ dentro do standalone.
+  outputFileTracingRoot: repoRoot ?? undefined,
   cacheComponents: true,
   partialPrefetching: true,
   // O pacote do workspace exporta .ts cru (sem build). O Turbopack já o

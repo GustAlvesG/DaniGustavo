@@ -11,7 +11,7 @@ import {
   LEGACY_EVENT_ID,
   organizationMembers,
 } from "../src/schema/tenancy.ts";
-import { seed } from "../src/seed.ts";
+import { seed, setup } from "../src/seed.ts";
 import { createTestDb } from "./helpers.ts";
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -72,6 +72,16 @@ describe("seed", () => {
     });
   });
 
+  it("lê JSON que é só uma string (MySQL 8 e MariaDB ≥ 10.5 marcam a coluna como JSON)", async () => {
+    const [row] = await db
+      .select()
+      .from(eventSettings)
+      .where(
+        and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "wedding.datetime")),
+      );
+    expect(row?.value).toBe("2027-04-10T16:00:00-03:00");
+  });
+
   it("cria os dois usuários do painel com conta de senha", async () => {
     const users = await db.select().from(user);
     expect(users.map((u) => u.email).sort()).toEqual([env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2]);
@@ -118,5 +128,42 @@ describe("seed", () => {
       { email: env.ADMIN_EMAIL_1, role: "owner", platformRole: null },
       { email: env.ADMIN_EMAIL_2, role: "owner", platformRole: "admin" },
     ]);
+  });
+});
+
+describe("setup (produção)", () => {
+  const prodEnv = { ...env, SITE_URL: "https://danigustavo.exemplo.com.br" };
+
+  it("cria evento 1, configurações, admins, vínculos e o domínio de SITE_URL, sem dados fictícios", async () => {
+    await resetDatabase(db);
+    await runMigrations(db);
+    const first = await setup(db, prodEnv);
+    expect(first.adminsCreated).toBe(2);
+    expect(first.membersCreated).toBe(2);
+    expect(first.domainsCreated).toBe(1);
+    expect(first.settingsCreated).toBeGreaterThan(0);
+    const [inv] = await db.select({ n: count() }).from(invitations);
+    const [gft] = await db.select({ n: count() }).from(gifts);
+    expect(inv?.n).toBe(0);
+    expect(gft?.n).toBe(0);
+    const [ev] = await db.select().from(events).where(eq(events.id, LEGACY_EVENT_ID));
+    expect(ev).toMatchObject({ slug: "dani-gustavo", status: "active" });
+    const domains = await db.select().from(eventDomains);
+    expect(domains.map((d) => [d.host, d.isPrimary, d.eventId])).toEqual([
+      ["danigustavo.exemplo.com.br", true, LEGACY_EVENT_ID],
+    ]);
+    expect(await setup(db, prodEnv)).toEqual({
+      settingsCreated: 0,
+      adminsCreated: 0,
+      domainsCreated: 0,
+      membersCreated: 0,
+    });
+  });
+
+  it("não mexe nos domínios se o evento 1 já tiver algum", async () => {
+    const r = await setup(db, { ...prodEnv, SITE_URL: "https://outro.exemplo.com.br" });
+    expect(r.domainsCreated).toBe(0);
+    const domains = await db.select({ host: eventDomains.host }).from(eventDomains);
+    expect(domains).toEqual([{ host: "danigustavo.exemplo.com.br" }]);
   });
 });

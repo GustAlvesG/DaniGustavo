@@ -17,6 +17,7 @@
     "db:generate": "pnpm --filter @casamento/db db:generate",
     "db:migrate": "pnpm --filter @casamento/db db:migrate",
     "db:seed": "pnpm --filter @casamento/db db:seed",
+    "db:setup": "pnpm --filter @casamento/db db:setup",
     "db:reset": "pnpm --filter @casamento/db db:reset"
   },
   "devDependencies": {

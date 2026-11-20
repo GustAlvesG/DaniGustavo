@@ -1,0 +1,52 @@
+# Blocos de site do Caddy deste projeto, lidos pelo edge (/srv/edge) via `site registrar`.
+# Sem bloco global e sem snippets: seguranca e ip_real vêm do edge. O script troca ${VAR}
+# pelos valores do .env; os upstreams são os aliases da rede Docker "edge" (docker-compose.prod.yml).
+#
+#   https://${DOMAIN}       → casamento-web:3000  (site Next.js)
+#   https://${API_DOMAIN}   → casamento-api:3333  (painel em /painel, login, webhooks, fotos)
+
+${DOMAIN} {
+	encode zstd gzip
+	import seguranca
+
+	# Aviso de cache que só a API manda, pela rede interna (WEB_INTERNAL_URL).
+	@interno path /api/revalidar
+	respond @interno 404
+
+	reverse_proxy casamento-web:3000 {
+		import ip_real
+		# Repassa cada pedaço na hora: as páginas com <Suspense> chegam em streaming.
+		flush_interval -1
+	}
+}
+
+${API_DOMAIN} {
+	encode zstd gzip
+	import seguranca
+
+	# Planilha de convidados e fotos dos presentes (a API limita as fotos a 2 MB).
+	request_body {
+		max_size 10MB
+	}
+
+	# Só o que precisa ser público neste host. As rotas do site (/api/site, /api/invitations,
+	# /api/orders...) o Next acessa pela rede interna e ficam fechadas aqui.
+	@publico path /painel /painel/* /api/auth/* /api/admin/* /api/webhooks/* /api/health /uploads/*
+	handle @publico {
+		reverse_proxy casamento-api:3333 {
+			import ip_real
+			# Header interno (Next → API); de fora nunca vale.
+			header_up -X-Client-Ip
+		}
+	}
+
+	@raiz path /
+	handle @raiz {
+		# O "*" é obrigatório: um argumento que começa com / seria lido como matcher de caminho.
+		redir * /painel/ 302
+	}
+
+	handle {
+		respond 404
+	}
+}

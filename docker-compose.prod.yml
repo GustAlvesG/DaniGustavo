@@ -1,0 +1,185 @@
+# Produção na VPS (Docker). Passo a passo em docs/DEPLOY.md.
+# O docker-compose.yml da raiz é só para desenvolvimento; este é o de produção.
+#
+#   Internet ──► edge (Caddy único da VPS, /srv/edge, :80/:443)
+#                  ├─ DOMAIN     ──(rede edge, alias casamento-web)──► web :3000 ──(rede proxy)──► api :3333
+#                  └─ API_DOMAIN ──(rede edge, alias casamento-api)──────────────────────────────► api :3333
+#                                                                       api ──(rede banco)──► db :3306
+#
+# Este projeto não tem Caddy nem publica portas: o HTTPS e o roteamento ficam no edge, que
+# lê deploy/site.caddy. A rede "edge" é externa (docker network create edge) e compartilhada
+# com os outros sites da VPS, por isso os aliases com prefixo do slug. O db NUNCA entra na edge.
+# ATENÇÃO: porta publicada pelo Docker passa POR FORA do UFW; nunca publique 3000, 3333 ou
+# 3306 em 0.0.0.0.
+#
+# O nome (casamento) não pode mudar: os volumes db_data e uploads dependem dele.
+#
+# Uso (com COMPOSE_FILE=docker-compose.prod.yml no .env, o -f é dispensável):
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml run --rm migrate
+#   docker compose -f docker-compose.prod.yml run --rm setup
+
+name: casamento
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Variáveis da API (e das ferramentas de banco, que usam a mesma imagem). As URLs saem de
+# DOMAIN e API_DOMAIN: não precisa preencher SITE_URL, BETTER_AUTH_URL etc. no .env.
+x-api-env: &api-env
+  NODE_ENV: production
+  DATABASE_URL: mysql://${MYSQL_USER:?defina MYSQL_USER no .env}:${MYSQL_PASSWORD:?defina MYSQL_PASSWORD no .env}@db:3306/${MYSQL_DATABASE:?defina MYSQL_DATABASE no .env}
+  API_URL: http://api:3333
+  WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina BETTER_AUTH_SECRET no .env}
+  BETTER_AUTH_URL: https://${API_DOMAIN:?defina API_DOMAIN no .env}
+  SITE_URL: https://${DOMAIN:?defina DOMAIN no .env}
+  WEB_INTERNAL_URL: ${WEB_INTERNAL_URL:-http://web:3000}
+  UPLOAD_DIR: /data/uploads
+  ADMIN_EMAIL_1: ${ADMIN_EMAIL_1:-}
+  ADMIN_EMAIL_2: ${ADMIN_EMAIL_2:-}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-}
+  MAIL_USER: ${MAIL_USER:-}
+  MAIL_PASS: ${MAIL_PASS:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+  PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-simulado}
+  ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+  ASAAS_ENV: ${ASAAS_ENV:-}
+  ASAAS_WEBHOOK_TOKEN: ${ASAAS_WEBHOOK_TOKEN:-}
+
+services:
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        # Embutidas no build (ver Dockerfile): mudou o domínio, rebuild do web.
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?defina DOMAIN no .env}
+        API_URL: http://api:3333
+    image: casamento/web:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+      API_URL: http://api:3333
+      WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      proxy:
+      edge:
+        aliases: [casamento-web]
+    logging: *logging
+
+  api:
+    build:
+      context: .
+      target: api
+    image: casamento/api:latest
+    restart: unless-stopped
+    init: true
+    environment: *api-env
+    volumes:
+      - uploads:/data/uploads # fotos dos presentes enviadas pelo painel
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      proxy:
+      banco:
+      edge:
+        aliases: [casamento-api]
+    logging: *logging
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # VPS com 1-2 GB de RAM: descomente para economizar ~200 MB.
+      # - --performance-schema=OFF
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?defina MYSQL_ROOT_PASSWORD no .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: UTC
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      # -h 127.0.0.1 (TCP): durante a 1ª inicialização o MySQL sobe sem rede, e o
+      # healthcheck só passa quando o servidor definitivo estiver no ar.
+      test:
+        [
+          "CMD-SHELL",
+          'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot --silent',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    # Para abrir o banco do seu PC (DBeaver, HeidiSQL) por túnel SSH, descomente.
+    # 127.0.0.1 = só a própria VPS enxerga. No PC: ssh -L 3306:127.0.0.1:3306 deploy@IP_DA_VPS
+    # ports:
+    #   - "127.0.0.1:3306:3306"
+    networks: [banco]
+    logging: *logging
+
+  # ---------- Ferramentas avulsas (profile "tools"; só rodam com `run`) ----------
+
+  # Aplica as migrations: docker compose -f docker-compose.prod.yml run --rm migrate
+  migrate:
+    image: casamento/api:latest
+    build:
+      context: .
+      target: api
+    entrypoint: ["node", "/app/packages/db/src/cli.ts"]
+    command: ["migrate"]
+    environment: *api-env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [banco]
+    profiles: [tools]
+
+  # Primeira carga: configurações (textos provisórios, editáveis no painel) e os dois
+  # usuários do painel (ADMIN_EMAIL_1/2 com ADMIN_PASSWORD_INICIAL). Sem dados fictícios.
+  # docker compose -f docker-compose.prod.yml run --rm setup
+  setup:
+    image: casamento/api:latest
+    build:
+      context: .
+      target: api
+    entrypoint: ["node", "/app/packages/db/src/cli.ts"]
+    command: ["setup"]
+    environment:
+      <<: *api-env
+      ADMIN_PASSWORD_INICIAL: ${ADMIN_PASSWORD_INICIAL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [banco]
+    profiles: [tools]
+
+networks:
+  # Rede privada entre web e api.
+  proxy:
+  # Rede compartilhada com o edge (Caddy único da VPS). Criada uma vez: docker network create edge
+  edge:
+    external: true
+  # Sem saída para a internet: só a API (e as ferramentas) falam com o banco.
+  banco:
+    internal: true
+
+volumes:
+  db_data:
+  uploads:
