@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { and, count, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "../src/client.ts";
@@ -15,7 +18,10 @@ import { seed, setup } from "../src/seed.ts";
 import { createTestDb } from "./helpers.ts";
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+// O seed importa o conteúdo do casamento (fotos para UPLOAD_DIR): pasta temporária nos testes.
+const uploadDir = mkdtempSync(join(tmpdir(), "casamento-db-uploads-"));
 const env = {
+  UPLOAD_DIR: uploadDir,
   ADMIN_EMAIL_1: "teste1@exemplo.com",
   ADMIN_EMAIL_2: "teste2@exemplo.com",
   ADMIN_PASSWORD_INICIAL: "senha-de-teste-123",
@@ -31,6 +37,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  rmSync(uploadDir, { recursive: true, force: true });
   await db?.$client.end();
 });
 

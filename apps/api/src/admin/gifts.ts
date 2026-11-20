@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
   and,
   asc,
@@ -26,6 +24,7 @@ import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { apiError } from "../errors.ts";
 import { invalid, notFound, readJson, sensitiveLimit } from "./context.ts";
+import { STORAGE_FILE, STORAGE_MIME, type Storage } from "../storage/index.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import type { AdminDeps } from "./context.ts";
@@ -113,14 +112,11 @@ export function sniffImage(bytes: Uint8Array): "jpg" | "png" | "webp" | null {
 }
 
 const BAD_IMAGE = "Imagem de outro evento: envie a foto de novo por este painel.";
-// TODO(fase2-D): servir e gravar pelo Storage (src/storage) e usar STORAGE_FILE de lá.
-const UPLOAD_FILE = /^[0-9A-Z]{26}(?:-t)?\.(jpg|png|webp)$/;
-const MIME = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" } as const;
 
 /** Caminho gravado `/uploads/<eventId>/<arquivo>` → pasta e arquivo. */
 function parseUploadPath(path: string | null): { eventId: number; file: string } | null {
   const m = /^\/uploads\/(\d{1,18})\/([^/]+)$/.exec(path ?? "");
-  if (!m || !UPLOAD_FILE.test(m[2]!)) return null;
+  if (!m || !STORAGE_FILE.test(m[2]!)) return null;
   return { eventId: Number(m[1]), file: m[2]! };
 }
 
@@ -131,36 +127,33 @@ function imageBelongs(ev: EventCtx, image: string | null, current: string | null
 }
 
 /** Só apaga arquivo do próprio evento: o caminho de outro evento nunca sai da pasta dele. */
-async function removeUpload(uploadDir: string, ev: EventCtx, path: string | null) {
+async function removeUpload(storage: Storage, ev: EventCtx, path: string | null) {
   const up = parseUploadPath(path);
   if (!up || up.eventId !== ev.id) return;
-  await unlink(join(uploadDir, String(ev.id), up.file)).catch(() => undefined);
+  await storage.delete(ev.id, up.file);
 }
 
 const NOT_FOUND_IMAGE = (c: Context) =>
   apiError(c, 404, ERROR_CODES.notFound, "Imagem não encontrada.");
 
-async function sendUpload(c: Context, path: string, file: string) {
-  const m = UPLOAD_FILE.exec(file);
+async function sendUpload(c: Context, storage: Storage, eventId: number, file: string) {
+  const m = STORAGE_FILE.exec(file);
   if (!m) return NOT_FOUND_IMAGE(c);
-  try {
-    const data = await readFile(path);
-    return c.body(data, 200, {
-      "Content-Type": MIME[m[1] as keyof typeof MIME],
-      "Cache-Control": "public, max-age=31536000, immutable",
-    });
-  } catch {
-    return NOT_FOUND_IMAGE(c);
-  }
+  const data = await storage.get(eventId, file);
+  if (!data) return NOT_FOUND_IMAGE(c);
+  return c.body(data as Uint8Array<ArrayBuffer>, 200, {
+    "Content-Type": STORAGE_MIME[m[2] as keyof typeof STORAGE_MIME],
+    "Cache-Control": "public, max-age=31536000, immutable",
+  });
 }
 
-/** Imagens públicas dos presentes (o site repassa via rewrite): `GET /uploads/:eventId/:file`. */
-export function uploadFileRoutes(uploadDir: string) {
+/** Imagens públicas do evento (o site repassa via rewrite): `GET /uploads/:eventId/:file`. */
+export function uploadFileRoutes(storage: Storage) {
   const app = new Hono();
   app.get("/uploads/:eventId{[0-9]+}/:file", (c) => {
     const { eventId, file } = c.req.param();
-    if (!UPLOAD_FILE.test(file)) return NOT_FOUND_IMAGE(c);
-    return sendUpload(c, join(uploadDir, String(Number(eventId)), file), file);
+    if (!STORAGE_FILE.test(file)) return NOT_FOUND_IMAGE(c);
+    return sendUpload(c, storage, Number(eventId), file);
   });
   return app;
 }
@@ -170,7 +163,7 @@ export function uploadFileRoutes(uploadDir: string) {
 /* ------------------------------------------------------------------------ */
 
 export function adminGiftRoutes(deps: AdminDeps) {
-  const { db, revalidate, uploadDir } = deps;
+  const { db, revalidate, storage } = deps;
   const app = new Hono<EventAdminEnv>();
   const changed = (ev: EventCtx) => revalidate(ev.id, ["gifts"]);
   app.on(["POST", "PUT", "PATCH", "DELETE"], "*", requirePermission("gifts.write"));
@@ -254,7 +247,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
           input.title === current.title ? current.slug : await uniqueSlug(ev, db, input.title, id),
       })
       .where(and(eq(gifts.id, id), byEvent(gifts, ev)));
-    if (current.image !== input.image) await removeUpload(uploadDir, ev, current.image);
+    if (current.image !== input.image) await removeUpload(storage, ev, current.image);
     await changed(c.get("event"));
     const gift = (await listAdminGifts(ev, db)).find((g) => g.id === id);
     return c.json({ gift });
@@ -297,7 +290,7 @@ export function adminGiftRoutes(deps: AdminDeps) {
       );
     }
     await db.delete(gifts).where(and(eq(gifts.id, id), byEvent(gifts, ev)));
-    await removeUpload(uploadDir, ev, current.image);
+    await removeUpload(storage, ev, current.image);
     await changed(c.get("event"));
     return c.json({ ok: true });
   });
@@ -335,9 +328,7 @@ export function adminUploadRoutes(deps: AdminDeps) {
       }
       const name = `${newPublicId()}.${ext}`;
       const ev = c.get("event");
-      const dir = join(deps.uploadDir, String(ev.id));
-      await mkdir(dir, { recursive: true });
-      await writeFile(join(dir, name), bytes);
+      await deps.storage.put(ev.id, name, bytes);
       return c.json({ path: `/uploads/${ev.id}/${name}` }, 201);
     },
   );

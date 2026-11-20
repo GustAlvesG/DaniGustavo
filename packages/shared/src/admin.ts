@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { OrderStatus, PaymentMethod } from "./gifts.ts";
 import { SiteSections } from "./content.ts";
-import { EventSides, VocabularyOverrides } from "./event-types.ts";
+import { EventSides, EventType, SIDE_KEY_PATTERN, VocabularyOverrides } from "./event-types.ts";
 import { EventModulesInput } from "./modules.ts";
 import { AgeRange, RsvpStatus } from "./rsvp.ts";
 import { ThemeSelection } from "./themes.ts";
@@ -33,11 +33,18 @@ const optionalText = (max: number, label: string) =>
       .default(null),
   );
 
+/** PUT /config: tipo, módulos, lados e palavras do evento (Fase 2, frente D). */
+export const AdminEventConfigInput = z.object({
+  type: EventType,
+  modules: EventModulesInput,
+  sides: EventSides,
+  vocabulary: VocabularyOverrides,
+});
+export type AdminEventConfigInput = z.input<typeof AdminEventConfigInput>;
+
 /* ------------------------------------------------------------------------ */
 /* Convites                                                                  */
 /* ------------------------------------------------------------------------ */
-
-export const SIDE_VALUES = ["dani", "gustavo"] as const;
 
 export const AdminGuestInput = z.object({
   /** Ausente: convidado novo. */
@@ -66,7 +73,9 @@ export const AdminInvitationInput = z
       .trim()
       .min(2, { error: "Nome do convite: informe pelo menos 2 letras." })
       .max(191, { error: "Nome do convite: use até 191 caracteres." }),
-    side: z.enum(SIDE_VALUES, { error: "Escolha o lado: Dani ou Gustavo." }),
+    side: z
+      .string({ error: "Escolha o lado do convite." })
+      .regex(SIDE_KEY_PATTERN, { error: "Escolha o lado do convite." }),
     maxGuests: z
       .number({ error: "Máximo de pessoas: informe um número." })
       .int()
@@ -116,7 +125,7 @@ export interface AdminInvitation {
   id: number;
   token: string;
   label: string;
-  side: (typeof SIDE_VALUES)[number];
+  side: string;
   maxGuests: number;
   allowPlusOne: boolean;
   contactEmail: string | null;

@@ -5,6 +5,7 @@ import {
   IMPORT_COLUMNS,
   IMPORT_MAX_ROWS,
   type AgeRange,
+  type EventSides,
   type ImportInvitationPreview,
   type ImportPreview,
   type ImportResult,
@@ -54,7 +55,7 @@ function parseAge(raw: string): AgeRange | null | "invalid" {
 interface ParsedRow {
   line: number;
   invitation: string;
-  side: "dani" | "gustavo" | null;
+  side: string | null;
   name: string;
   isChild: boolean;
   ageRange: AgeRange | null;
@@ -69,7 +70,7 @@ interface ParsedRow {
 
 const q = (s: string) => `“${s}”`;
 
-function parseRow(line: number, get: (k: ColumnKey) => string): ParsedRow {
+function parseRow(line: number, get: (k: ColumnKey) => string, sides: EventSides): ParsedRow {
   const errors: string[] = [];
   const invitation = get("convite").replace(/\s+/g, " ");
   const name = get("nome").replace(/\s+/g, " ");
@@ -84,10 +85,18 @@ function parseRow(line: number, get: (k: ColumnKey) => string): ParsedRow {
   else if (name.length < 2) errors.push("Nome do convidado: informe pelo menos 2 letras.");
   else if (name.length > 191) errors.push("Nome do convidado: use até 191 caracteres.");
 
+  // Aceita o nome ou o código do lado; evento com um lado só dispensa a coluna preenchida.
   const sideKey = foldKey(sideRaw);
-  const side = sideKey === "dani" ? "dani" : sideKey === "gustavo" ? "gustavo" : null;
-  if (!sideRaw) errors.push("Falta o lado (coluna lado): use Dani ou Gustavo.");
-  else if (!side) errors.push(`Lado ${q(sideRaw)} não reconhecido: use Dani ou Gustavo.`);
+  const options = sides.map((s) => s.label).join(" ou ");
+  let side: string | null = null;
+  if (sideKey) {
+    side =
+      sides.find((s) => foldKey(s.label) === sideKey || foldKey(s.key) === sideKey)?.key ?? null;
+  } else if (sides.length === 1) side = sides[0]!.key;
+  if (!sideRaw && !side) errors.push(`Falta o lado (coluna lado): use ${options}.`);
+  else if (sideRaw && !side) {
+    errors.push(`Lado ${q(sideRaw)} não reconhecido: use ${options}.`);
+  }
 
   const typeKey = foldKey(typeRaw);
   let isChild = false;
@@ -181,6 +190,7 @@ export function planImport(
   fileName: string,
   bytes: Uint8Array,
   existing: { label: string; guestNames: string[] }[],
+  sides: EventSides,
 ): ImportPlan {
   const guessedFormat = /\.xlsx$/i.test(fileName) ? "xlsx" : "csv";
   let sheet: { format: "csv" | "xlsx"; rows: string[][] };
@@ -222,10 +232,14 @@ export function planImport(
   }
 
   const parsed = body.map(({ cells, line }) =>
-    parseRow(line, (k) => {
-      const i = colIndex.get(k);
-      return i === undefined ? "" : (cells[i] ?? "").trim();
-    }),
+    parseRow(
+      line,
+      (k) => {
+        const i = colIndex.get(k);
+        return i === undefined ? "" : (cells[i] ?? "").trim();
+      },
+      sides,
+    ),
   );
 
   // Agrupa por convite (nome sem acento/maiúsculas) e valida o grupo.
@@ -293,7 +307,7 @@ export function planImport(
 
     const preview: ImportInvitationPreview = {
       label,
-      side: side ?? "dani",
+      side: side ?? sides[0]!.key,
       maxGuests,
       allowPlusOne,
       contactPhone: list.find((r) => r.phone)?.phone ?? null,

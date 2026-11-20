@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { createDb } from "./client.ts";
 import { requireDatabaseUrl } from "./env.ts";
+import { importLegacyContent } from "./legacy/import.ts";
 import { runMigrations } from "./migrate.ts";
 import { resetDatabase } from "./reset.ts";
 import { listInvitationTokens, seed, setup } from "./seed.ts";
@@ -38,6 +39,9 @@ Plataforma:
                cria o usuário com senha temporária (impressa uma única vez); se já existir,
                só adiciona o vínculo
   event:list                   lista id, slug, organização, status e domínios
+  content:import-legacy [--event dani-gustavo] [--upload-dir <pasta>]
+               leva o conteúdo fixo do casamento (textos, fotos, galeria) para o banco e para
+               o Storage (UPLOAD_DIR); idempotente, não sobrescreve o que foi editado no painel
   uploads:migrate              move UPLOAD_DIR/* para UPLOAD_DIR/1/ e atualiza gifts.image do
                                evento 1 (a API serve por evento; a rota antiga ainda acha os arquivos de 1/)
 `;
@@ -63,6 +67,7 @@ function parseFlags(args: string[]): Flags {
         timezone: { type: "string" },
         status: { type: "string" },
         host: { type: "string" },
+        "upload-dir": { type: "string" },
         primary: { type: "boolean" },
         email: { type: "string" },
         role: { type: "string" },
@@ -166,6 +171,17 @@ try {
     const r = await migrateUploads(db, dir);
     console.log(
       `${r.filesMoved} arquivo(s) movido(s) para ${dir}/1; ${r.giftsUpdated} presente(s) atualizado(s).`,
+    );
+  } else if (command === "content:import-legacy") {
+    const f = parseFlags(rest);
+    const r = await importLegacyContent(db, {
+      event: opt(f, "event"),
+      uploadDir: opt(f, "upload-dir") ?? (process.env.UPLOAD_DIR || undefined),
+    });
+    console.log(
+      `Evento ${r.eventId}: ${r.mediaCreated} foto(s) nova(s) em event_media (${r.mediaTotal} no total), ` +
+        `${r.filesCopied} arquivo(s) copiado(s); site.sections ${r.sectionsWritten ? "gravado" : "já existia (mantido)"}; ` +
+        `${r.legacyKeysRemoved} chave(s) antiga(s) removida(s).`,
     );
   } else if (command === "help" || command === "--help") {
     console.log(HELP);

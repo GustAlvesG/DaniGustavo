@@ -216,7 +216,7 @@ describe("dados de um evento não aparecem nem se alteram pelo outro", () => {
         method: "POST",
         body: JSON.stringify({
           label: "Convite de B",
-          side: "dani",
+          side: "noiva",
           maxGuests: 1,
           guests: [{ name: "Fulano B" }],
         }),

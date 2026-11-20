@@ -6,6 +6,7 @@ import {
 } from "@casamento/shared";
 import { useState } from "react";
 import { api, errorMessage } from "../api.ts";
+import { useEventConfig } from "../config.ts";
 import { plural } from "../format.ts";
 import { Badge, FormError, PageHeader, useToast } from "../ui.tsx";
 import "../tools.css";
@@ -14,6 +15,7 @@ import { ea, eh } from "../nav.ts";
 /* Importar convidados de CSV ou XLSX: escolher → prévia validada → confirmar. */
 
 export function Importar() {
+  const config = useEventConfig().data;
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -195,7 +197,7 @@ export function Importar() {
                       <th scope="col">Situação</th>
                       <th scope="col">Convite</th>
                       <th scope="col">Nome</th>
-                      <th scope="col">Lado</th>
+                      <th scope="col">{config?.vocabulary.sideLabel ?? "Lado"}</th>
                       <th scope="col">Tipo</th>
                     </tr>
                   </thead>
@@ -266,7 +268,11 @@ export function Importar() {
                     <code>{c.key}</code>
                   </td>
                   <td>{c.required ? "Sim" : "Não"}</td>
-                  <td>{c.help}</td>
+                  <td>
+                    {c.key === "lado" && config
+                      ? `Um de: ${config.sides.map((side) => side.label).join(", ")}.`
+                      : c.help}
+                  </td>
                 </tr>
               ))}
             </tbody>

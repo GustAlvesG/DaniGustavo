@@ -72,8 +72,9 @@ describe("GET /api/site", () => {
         "https://waze.com/ul?q=R.%20Papagaio%2C%201800%20-%20Roma%2C%20Volta%20Redonda%20-%20RJ%2C%2027257-770&navigate=yes",
     });
     expect(body.godparents.missions).toHaveLength(6);
-    expect(body.story).toHaveLength(5);
-    expect(body.gallery.items).toHaveLength(8);
+    // O conteúdo do casamento vem do banco (content:import-legacy, rodado pelo seed).
+    expect(body.sections.story.items).toHaveLength(5);
+    expect(body.gallery.items).toHaveLength(27);
     expect(body.faq.length).toBeGreaterThanOrEqual(6);
   });
 });

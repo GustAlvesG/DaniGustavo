@@ -17,6 +17,7 @@ import {
   type AdminGuest,
   type AdminInvitation,
   type AdminRsvpLog,
+  sideLabel,
   type RsvpStatus,
 } from "@casamento/shared";
 import { Hono } from "hono";
@@ -26,6 +27,7 @@ import { resolverFor } from "../tenancy/resolver.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import type { AdminDeps } from "./context.ts";
+import { eventSides } from "./event-config.ts";
 
 type InvitationRow = typeof invitations.$inferSelect;
 type GuestRow = typeof guests.$inferSelect;
@@ -181,6 +183,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
   app.get("/export.csv", async (c) => {
     const wanted = c.req.query("status") ?? "confirmed";
     const all = await loadAll(c.get("event"), db);
+    const sides = await eventSides(c.get("event"), db);
     const rows: (string | number | null)[][] = [
       [
         "Convidado",
@@ -200,7 +203,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
         rows.push([
           g.name,
           inv.label,
-          inv.side === "dani" ? "Dani" : "Gustavo",
+          sideLabel(sides, inv.side),
           STATUS_LABEL[g.rsvpStatus],
           g.isChild ? "Criança" : "Adulto",
           g.ageRange ? (AGE_LABEL[g.ageRange] ?? g.ageRange) : "",
@@ -245,6 +248,10 @@ export function adminInvitationRoutes(deps: AdminDeps) {
     const parsed = AdminInvitationInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
+    const sides = await eventSides(ev, db);
+    if (!sides.some((s) => s.key === input.side)) {
+      return invalid(c, [{ message: "Esse lado não existe neste evento. Escolha um da lista." }]);
+    }
     const moment = now();
     const id = await db.transaction(async (tx) => {
       const [res] = await tx.insert(invitations).values({
@@ -285,6 +292,10 @@ export function adminInvitationRoutes(deps: AdminDeps) {
     const parsed = AdminInvitationInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
+    const sides = await eventSides(ev, db);
+    if (!sides.some((s) => s.key === input.side)) {
+      return invalid(c, [{ message: "Esse lado não existe neste evento. Escolha um da lista." }]);
+    }
     const current = await loadOne(ev, db, id);
     if (!current) return notFound(c, "Convite");
     const existing = new Map(current.guests.map((g) => [g.id, g]));

@@ -1,12 +1,15 @@
+import { eventPhrase } from "./tenancy/modules.ts";
 import type { MailMessage } from "./mailer.ts";
 
 export interface ReminderEmailInput {
   to: string;
-  /** Nome do convite, como os noivos o cadastraram (ex.: "Família Souza"). */
+  /** Nome do convite, como os anfitriões o cadastraram (ex.: "Família Souza"). */
   label: string;
   /** Link do convite (SITE_URL/c/token). */
   link: string;
   coupleNames: string;
+  /** "O casamento", "A festa"...: vocabulário do evento (padrão: casamento). */
+  eventLabel?: string;
   weddingDatetime: string;
   timezone: string;
   deadline: string;
@@ -28,7 +31,7 @@ const longDate = (iso: string, timeZone: string) =>
   }).format(new Date(iso));
 
 /**
- * Lembrete de RSVP, no tom do casal: curto, direto e caloroso. Texto puro e HTML simples
+ * Lembrete de RSVP, no tom dos anfitriões: curto, direto e caloroso. Texto puro e HTML simples
  * (estilos inline, sem imagem externa: funciona em qualquer leitor de e-mail).
  */
 export function buildReminderEmail(input: ReminderEmailInput): MailMessage {
@@ -39,7 +42,7 @@ export function buildReminderEmail(input: ReminderEmailInput): MailMessage {
   const subject = `${coupleNames}: falta a resposta de vocês`;
   const paragraphs = [
     `Oi, ${label}!`,
-    `Ainda não recebemos a resposta de vocês para o nosso casamento, em ${wedding}. Leva um minuto, e dá para mudar depois se algo mudar.`,
+    `Ainda não recebemos a resposta de vocês para ${eventPhrase(input.eventLabel ?? "O casamento")}, em ${wedding}. Leva um minuto, e dá para mudar depois se algo mudar.`,
     `Precisamos da resposta até ${deadline} para fechar os números com o buffet. Se não puderem ir, também queremos saber.`,
   ];
   const footer =

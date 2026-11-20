@@ -3,7 +3,10 @@ import {
   modulesFor,
   type EventModules,
   type EventModulesInput,
+  vocabularyFor,
+  VocabularyOverrides,
   type ModuleId,
+  type Vocabulary,
 } from "@casamento/shared";
 import type { MiddlewareHandler } from "hono";
 import { routeNotFound } from "../errors.ts";
@@ -30,3 +33,23 @@ export function requireModule(db: Database, module: ModuleId): MiddlewareHandler
     await next();
   };
 }
+
+/** Vocabulário do evento (dicionário do tipo + palavras trocadas no painel). */
+export async function eventVocabulary(ev: EventCtx, db: Database): Promise<Vocabulary> {
+  const [row] = await db
+    .select({ value: eventSettings.value })
+    .from(eventSettings)
+    .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, "event.vocabulary")));
+  const parsed = VocabularyOverrides.safeParse(row?.value ?? {});
+  return vocabularyFor(ev.type, parsed.success ? parsed.data : {});
+}
+
+/** "O casamento" → "no casamento", "A festa" → "na festa" (preposição contraída com o artigo). */
+export function inEvent(eventLabel: string): string {
+  const m = /^(o|a)\s+(.+)$/i.exec(eventLabel.trim());
+  if (!m) return `em ${eventLabel.trim().toLowerCase()}`;
+  return `${m[1]!.toLowerCase() === "o" ? "no" : "na"} ${m[2]!.toLowerCase()}`;
+}
+
+/** "O casamento" → "o casamento" (para "para o casamento"). */
+export const eventPhrase = (eventLabel: string) => eventLabel.trim().toLowerCase();

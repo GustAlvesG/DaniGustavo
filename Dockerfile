@@ -97,6 +97,7 @@ COPY --from=api-deps /repo/ ./
 COPY apps/api/src ./apps/api/src
 COPY packages/db/src ./packages/db/src
 COPY packages/db/migrations ./packages/db/migrations
+COPY packages/db/legacy ./packages/db/legacy
 COPY packages/shared/src ./packages/shared/src
 COPY --from=painel-build /repo/apps/api/dist/painel ./apps/api/dist/painel
 # Pasta das fotos dos presentes: vira um volume no compose. Criada aqui com o dono certo,

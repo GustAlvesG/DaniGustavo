@@ -36,6 +36,7 @@ import { crossEvent } from "../tenancy/cross-event.ts";
 import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx } from "../tenancy/types.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
+import type { CacheTag, Revalidate } from "../admin/revalidate.ts";
 import { notifyPaid, type Notifier } from "./notify.ts";
 
 /*
@@ -61,6 +62,8 @@ export interface OrderDeps {
   now: () => Date;
   /** Id → evento (padrão: um resolver por conexão, ver resolverFor). */
   eventResolver?: EventResolver;
+  /** Avisa o site para renovar o cache do evento quando um pedido muda (cota, mural). */
+  revalidate?: Revalidate;
 }
 
 /** Evento de um pedido achado sem escopo (rotina, webhook). Lança se o evento sumiu. */
@@ -690,6 +693,15 @@ export async function applyCharge(
         console.error("[pedidos] Falha ao avisar sobre o presente:", err);
       });
     }
+  }
+  if (result.changedTo && result.order && deps.revalidate) {
+    // A cota vendida (e o recado, se o pedido tinha um) aparecem no site na hora, só do evento
+    // do pedido. Falha não afeta o pagamento: o cache expira sozinho.
+    const tags: CacheTag[] = ["gifts"];
+    if (result.order.message && result.order.showOnWall) tags.push("messages");
+    void deps.revalidate(ev.id, tags).catch((err: unknown) => {
+      console.warn("[pedidos] Não deu para revalidar o site:", describeError(err));
+    });
   }
   return { order: result.order, changedTo: result.changedTo };
 }
