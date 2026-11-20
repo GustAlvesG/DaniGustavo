@@ -54,7 +54,7 @@ export function MobileMenu({ items, cta }: { items: NavItem[]; cta: NavItem | nu
           </Link>
         ))}
         {cta ? (
-          <Link className={styles.mobileCta} href={cta.href} onClick={close}>
+          <Link className={styles.mobileCta} data-cta="" href={cta.href} onClick={close}>
             {cta.label}
           </Link>
         ) : null}

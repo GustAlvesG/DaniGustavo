@@ -221,7 +221,7 @@ export default async function GodparentsPage() {
               <ul className="grid gap-x-[var(--grid-gap)] gap-y-12 sm:grid-cols-2 lg:col-span-12 lg:grid-cols-3">
                 {g.missions.map((m) => (
                   <li key={m.title} className="rv flex gap-5">
-                    <span className="grid size-14 shrink-0 place-items-center rounded-full bg-branco text-tinta shadow-[inset_0_0_0_1px_rgb(27_42_74/0.18),inset_0_0_0_4px_#fff,inset_0_0_0_5px_rgb(27_42_74/0.32)]">
+                    <span className="grid size-14 shrink-0 place-items-center rounded-full bg-branco text-tinta shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-tinta)_18%,transparent),inset_0_0_0_4px_#fff,inset_0_0_0_5px_color-mix(in_srgb,var(--color-tinta)_32%,transparent)]">
                       <LineIcon name={iconForText(m.title)} className="size-7" />
                     </span>
                     <div className="flex flex-col gap-1.5 pt-1">

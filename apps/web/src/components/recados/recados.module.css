@@ -54,8 +54,8 @@
   padding: 26px 24px 18px;
   rotate: var(--r, 0deg);
   box-shadow:
-    0 1px 2px rgb(20 33 61 / 0.08),
-    0 22px 40px -22px rgb(20 33 61 / 0.45);
+    0 1px 2px color-mix(in srgb, var(--color-marinho) 8%, transparent),
+    0 22px 40px -22px color-mix(in srgb, var(--color-marinho) 45%, transparent);
 }
 
 /* A fita washi do polaroid, no topo do bilhete. */
@@ -69,7 +69,7 @@
   margin-left: -42px;
   rotate: -3deg;
   background: rgb(146 168 209 / 0.55);
-  box-shadow: 0 1px 2px rgb(20 33 61 / 0.1);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-marinho) 10%, transparent);
 }
 
 .texto {
@@ -84,7 +84,7 @@
 .rodape {
   margin-top: 18px;
   padding-top: 12px;
-  border-top: 1px solid rgb(27 42 74 / 0.22);
+  border-top: 1px solid color-mix(in srgb, var(--color-tinta) 22%, transparent);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -115,10 +115,10 @@
   background: var(--color-branco);
   color: var(--color-tinta);
   box-shadow:
-    inset 0 0 0 1px rgb(27 42 74 / 0.18),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-tinta) 18%, transparent),
     inset 0 0 0 8px var(--color-branco),
-    inset 0 0 0 9px rgb(27 42 74 / 0.3),
-    0 30px 60px -36px rgb(20 33 61 / 0.5);
+    inset 0 0 0 9px color-mix(in srgb, var(--color-tinta) 30%, transparent),
+    0 30px 60px -36px color-mix(in srgb, var(--color-marinho) 50%, transparent);
 }
 
 .caixaTitulo {

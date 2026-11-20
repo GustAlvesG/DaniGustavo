@@ -192,10 +192,10 @@
 
 @keyframes nav-fundo {
   from {
-    background-color: rgb(20 33 61 / 0);
+    background-color: color-mix(in srgb, var(--color-marinho) 0%, transparent);
   }
   to {
-    background-color: rgb(20 33 61 / 1);
+    background-color: var(--color-marinho);
   }
 }
 

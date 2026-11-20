@@ -56,6 +56,7 @@ export async function SiteNav({ site, variant = "pagina", current }: SiteNavProp
                 <Link
                   href={cta.href}
                   className={styles.cta}
+                  data-cta=""
                   aria-current={cta.href === current ? "page" : undefined}
                 >
                   {cta.label}

@@ -434,7 +434,7 @@ function DoneStep({
                 <span
                   aria-hidden="true"
                   data-inicial={g.name.trim().charAt(0).toUpperCase()}
-                  className="grid size-11 shrink-0 place-items-center rounded-full bg-branco font-display text-xl text-tinta shadow-[inset_0_0_0_1px_rgb(27_42_74/0.18),inset_0_0_0_4px_#fff,inset_0_0_0_5px_rgb(27_42_74/0.32)] before:content-[attr(data-inicial)]"
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-branco font-display text-xl text-tinta shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-tinta)_18%,transparent),inset_0_0_0_4px_#fff,inset_0_0_0_5px_color-mix(in_srgb,var(--color-tinta)_32%,transparent)] before:content-[attr(data-inicial)]"
                 />
                 <span className="text-lg text-ink">{g.name}</span>
               </motion.li>

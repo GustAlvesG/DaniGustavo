@@ -37,7 +37,7 @@ html[data-theme="moderno"] {
   .rotulo > i {
     width: 18px;
     height: 2px;
-    background: var(--color-enfase);
+    background: var(--accent);
     opacity: 1;
   }
 
@@ -116,5 +116,11 @@ html[data-theme="moderno"] {
     letter-spacing: 0.02em;
     font-size: 0.95rem;
     font-weight: 500;
+  }
+  /* O botão de confirmar do menu (CSS Module, sem as classes utilitárias): mesmo desenho, tamanho do menu. */
+  a[data-cta] {
+    border-radius: 6px;
+    text-transform: none;
+    letter-spacing: 0.02em;
   }
 }

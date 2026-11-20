@@ -66,10 +66,10 @@
   inset: 0;
   background: linear-gradient(
     180deg,
-    rgb(20 33 61 / 0.62) 0%,
-    rgb(20 33 61 / 0.22) 34%,
-    rgb(20 33 61 / 0.05) 58%,
-    rgb(20 33 61 / 0.45) 100%
+    color-mix(in srgb, var(--color-marinho) 62%, transparent) 0%,
+    color-mix(in srgb, var(--color-marinho) 22%, transparent) 34%,
+    color-mix(in srgb, var(--color-marinho) 5%, transparent) 58%,
+    color-mix(in srgb, var(--color-marinho) 45%, transparent) 100%
   );
 }
 
@@ -85,7 +85,7 @@
 
 .heroMono {
   width: clamp(80px, 9vw, 112px);
-  filter: drop-shadow(0 2px 10px rgb(20 33 61 / 0.4));
+  filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--color-marinho) 40%, transparent));
 }
 
 .sobre {
@@ -94,7 +94,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  text-shadow: 0 1px 10px rgb(20 33 61 / 0.6);
+  text-shadow: 0 1px 10px color-mix(in srgb, var(--color-marinho) 60%, transparent);
 }
 
 .nomes {
@@ -103,7 +103,7 @@
   font-weight: 400;
   font-size: clamp(3.6rem, 11.5vw, 9rem);
   line-height: 1.05;
-  text-shadow: 0 2px 28px rgb(20 33 61 / 0.55);
+  text-shadow: 0 2px 28px color-mix(in srgb, var(--color-marinho) 55%, transparent);
 }
 
 .nomes .e {
@@ -123,7 +123,7 @@
   font-size: 0.78rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  text-shadow: 0 1px 10px rgb(20 33 61 / 0.6);
+  text-shadow: 0 1px 10px color-mix(in srgb, var(--color-marinho) 60%, transparent);
 }
 
 .heroData i {
@@ -137,7 +137,7 @@
   margin: 8px 0 0;
   font-size: 1.3rem;
   font-style: italic;
-  text-shadow: 0 1px 12px rgb(20 33 61 / 0.7);
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--color-marinho) 70%, transparent);
 }
 
 .contador {
@@ -320,7 +320,7 @@
 
 .hosp li {
   padding: 8px 0;
-  border-top: 1px solid rgb(27 42 74 / 0.18);
+  border-top: 1px solid color-mix(in srgb, var(--color-tinta) 18%, transparent);
   color: var(--color-suave);
 }
 
@@ -361,7 +361,7 @@
 .versiculoVeu {
   position: absolute;
   inset: 0;
-  background: rgb(20 33 61 / 0.58);
+  background: color-mix(in srgb, var(--color-marinho) 58%, transparent);
 }
 
 .versiculo blockquote {
@@ -534,8 +534,8 @@
   margin: 0 auto 10px;
   border-radius: 50%;
   box-shadow:
-    inset 0 0 0 1px rgb(27 42 74 / 0.2),
-    0 10px 20px -12px rgb(20 33 61 / 0.5);
+    inset 0 0 0 1px color-mix(in srgb, var(--color-tinta) 20%, transparent),
+    0 10px 20px -12px color-mix(in srgb, var(--color-marinho) 50%, transparent);
 }
 
 .paleta b {
@@ -557,8 +557,8 @@
   gap: 14px;
   align-items: flex-start;
   padding: 18px 20px;
-  border-top: 1px solid rgb(27 42 74 / 0.18);
-  border-bottom: 1px solid rgb(27 42 74 / 0.18);
+  border-top: 1px solid color-mix(in srgb, var(--color-tinta) 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-tinta) 18%, transparent);
   color: var(--color-suave);
 }
 
@@ -611,10 +611,10 @@
   padding: clamp(28px, 5vw, 60px);
   background: var(--color-branco);
   box-shadow:
-    inset 0 0 0 1px rgb(27 42 74 / 0.18),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-tinta) 18%, transparent),
     inset 0 0 0 10px var(--color-branco),
-    inset 0 0 0 11px rgb(27 42 74 / 0.3),
-    0 30px 60px -36px rgb(20 33 61 / 0.5);
+    inset 0 0 0 11px color-mix(in srgb, var(--color-tinta) 30%, transparent),
+    0 30px 60px -36px color-mix(in srgb, var(--color-marinho) 50%, transparent);
 }
 
 .presentesFoto {

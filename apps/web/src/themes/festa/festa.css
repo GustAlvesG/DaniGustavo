@@ -34,7 +34,8 @@ html[data-theme="festa"] {
     padding: 0.4em 1em;
     border-radius: 999px;
     letter-spacing: 0.16em;
-    color: var(--color-enfase);
+    /* --accent: ênfase no papel, azul-claro (do tema) nas seções escuras. */
+    color: var(--accent);
     background: color-mix(in srgb, var(--color-serenity) 28%, transparent);
   }
   .rotulo > i {
@@ -116,7 +117,8 @@ html[data-theme="festa"] {
   }
 
   /* Botões: pílula cheia, letras mais calmas. */
-  :is(a, button).uppercase.rounded-full {
+  :is(a, button).uppercase.rounded-full,
+  a[data-cta] {
     letter-spacing: 0.1em;
     font-weight: 600;
   }

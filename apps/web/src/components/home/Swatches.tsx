@@ -11,7 +11,7 @@ export function Swatches({ colors, label }: { colors: PaletteColor[]; label: str
         <li key={c.hex + c.name} className="flex flex-col items-center gap-4 text-center">
           <span
             aria-hidden="true"
-            className="block aspect-square w-full max-w-[92px] rounded-full shadow-[inset_0_0_0_1px_rgb(27_42_74/0.2),0_10px_20px_-12px_rgb(20_33_61/0.5)]"
+            className="block aspect-square w-full max-w-[92px] rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-tinta)_20%,transparent),0_10px_20px_-12px_color-mix(in_srgb,var(--color-marinho)_50%,transparent)]"
             style={{ backgroundColor: c.hex }}
           />
           <span className="text-lg leading-tight font-medium text-ink">{c.name}</span>
