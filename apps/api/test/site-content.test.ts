@@ -85,7 +85,7 @@ describe("buildSiteContent", () => {
       row(2, { inGallery: false }),
       row(3, { album: null }),
     ];
-    const site = buildSiteContent(basics({ "gallery.items": [] }), { type: "fifteen", media });
+    const site = buildSiteContent(basics(), { type: "fifteen", media });
     expect(site.gallery.items.map((p) => [p.src, p.album, p.caption])).toEqual([
       ["/uploads/9/f1.jpg", "Festa", "Bolo"],
       ["/uploads/9/f3.jpg", null, ""],

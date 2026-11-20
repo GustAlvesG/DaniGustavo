@@ -129,7 +129,12 @@ export function buildSiteContent(
       const row = byId.get(ref.mediaId);
       return row ? mediaPhoto(row, ref) : null;
     }),
-    couple: { names, monogram: get("couple.monogram") },
+    couple: {
+      names,
+      monogram: get("couple.monogram"),
+      monogramArt: get("couple.monogram_art", null),
+    },
+    calendarUid: get("calendar.uid", null),
     wedding: { datetime, timezone: get("wedding.timezone") },
     ceremony: venue(get("ceremony.venue")),
     reception: venue(get("reception.venue")),
@@ -140,13 +145,13 @@ export function buildSiteContent(
       howToGetThere: get("accommodation.how_to_get_there", ""),
     },
     faq: get("faq.items", []),
-    story: get("story.items", []),
     godparents: get("godparents.manual", { dressCode: "", schedule: [], palette: [], notes: [] }),
     gallery: {
-      // TODO(fase2-B): a chave antiga `gallery.items` sai depois da migração do casamento.
-      items: galleryMedia.length
-        ? galleryMedia.map((m) => ({ ...mediaPhoto(m), caption: m.caption, album: m.album }))
-        : get("gallery.items", []),
+      items: galleryMedia.map((m) => ({
+        ...mediaPhoto(m),
+        caption: m.caption,
+        album: m.album,
+      })),
       officialPhotosSoon: get("gallery.official_soon", false),
     },
     contact: get("couple.contact", {

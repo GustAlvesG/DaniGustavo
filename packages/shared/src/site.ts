@@ -37,15 +37,13 @@ export type AccommodationItem = z.infer<typeof AccommodationItem>;
 export const FaqItem = z.object({ question: z.string(), answer: z.string() });
 export type FaqItem = z.infer<typeof FaqItem>;
 
-export const StoryMoment = z.object({
-  id: z.string(),
-  when: z.string(),
-  title: z.string(),
-  text: z.string(),
-  image: z.string().startsWith("/"),
-  imageAlt: z.string(),
-});
-export type StoryMoment = z.infer<typeof StoryMoment>;
+/**
+ * Artes de monograma desenhadas à mão (`components/brand`). Evento sem arte usa as iniciais de
+ * `couple.monogram` em texto.
+ */
+export const MONOGRAM_ARTS = ["dg"] as const;
+export const MonogramArt = z.enum(MONOGRAM_ARTS);
+export type MonogramArt = z.infer<typeof MonogramArt>;
 
 /** Manual dos padrinhos. Os campos depois de `notes` são opcionais (aditivos) e vêm do manual do casal. */
 export const GodparentsManual = z.object({
@@ -110,7 +108,17 @@ export const SiteContent = z.object({
   theme: ResolvedTheme,
   /** Textos e fotos das seções (`site.sections`, ou o neutro do tipo). */
   sections: PublicSiteSections,
-  couple: z.object({ names: z.string(), monogram: z.string() }),
+  couple: z.object({
+    names: z.string(),
+    monogram: z.string(),
+    /** Arte desenhada do monograma (`couple.monogram_art`); null = iniciais em texto. */
+    monogramArt: MonogramArt.nullable().default(null),
+  }),
+  /**
+   * UID fixo do evento na agenda (`calendar.uid`): quem já salvou não ganha um duplicado se o
+   * padrão mudar. null = `evento-<data>@<slug>`.
+   */
+  calendarUid: z.string().nullable().default(null),
   wedding: z.object({ datetime: isoDateTime, timezone: z.string() }),
   ceremony: Venue,
   reception: Venue,
@@ -125,11 +133,9 @@ export const SiteContent = z.object({
     howToGetThere: z.string(),
   }),
   faq: z.array(FaqItem),
-  /** @deprecated Fase 2: a história mora em `sections.story.items`; sai na integração. */
-  story: z.array(StoryMoment),
   godparents: GodparentsManual,
   gallery: z.object({
-    /** Fotos de `event_media` com `in_gallery` (antes: chave `gallery.items`). */
+    /** Fotos de `event_media` com `in_gallery`. */
     items: z.array(GalleryPhoto),
     /** true enquanto as fotos oficiais não foram publicadas. */
     officialPhotosSoon: z.boolean(),

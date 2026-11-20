@@ -1,8 +1,7 @@
 /**
  * Largura e altura de uma imagem a partir dos primeiros bytes do arquivo
- * (JPEG, PNG ou WebP), sem dependência. Serve para o `next/image` saber a
- * proporção das fotos de `public/fotos` sem que alguém precise digitar o
- * tamanho de cada uma em `content/home.ts`.
+ * (JPEG, PNG ou WebP), sem dependência. A API confere os uploads com isto e o
+ * importador do conteúdo legado grava o tamanho das fotos em `event_media`.
  */
 export type ImageSize = { width: number; height: number };
 

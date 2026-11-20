@@ -2,15 +2,8 @@ import "server-only";
 
 import { notFound } from "next/navigation";
 import { SiteContent, type ModuleId } from "@casamento/shared";
-import { siteFallbackFor } from "@/content/site-fallback";
-import { foto } from "@/lib/fotos";
-import {
-  contentFor,
-  monogramFor,
-  withLegacyContent,
-  type EventContent,
-} from "@/lib/legacy-content";
-import { moduleAvailable } from "@/lib/site";
+import { monogramOf, moduleAvailable } from "@/lib/site";
+import { siteFallbackFor } from "@/lib/site-fallback";
 import { apiGet } from "./client";
 import { currentEvent, type EventInfo } from "./event";
 import { CACHE_TAGS } from "./tags";
@@ -23,11 +16,6 @@ import { CACHE_TAGS } from "./tags";
  */
 export async function getSite(event?: EventInfo): Promise<SiteContent> {
   const ev = event ?? (await currentEvent());
-  // TODO(fase2-integracao): sai com lib/legacy-content (casamento importado para o banco).
-  return withLegacyContent(ev, await readSite(ev), foto);
-}
-
-async function readSite(ev: EventInfo): Promise<SiteContent> {
   if (ev.id === 0) return siteFallbackFor(ev);
   const result = await apiGet(`/api/e/${encodeURIComponent(ev.slug)}/site`, SiteContent, {
     tags: [CACHE_TAGS.site(ev.id)],
@@ -49,12 +37,7 @@ export async function getSiteWithModule(module: ModuleId, event?: EventInfo) {
   return site;
 }
 
-/** Iniciais do monograma do evento da página; null = a ligadura DG desenhada. */
+/** Iniciais do monograma do evento da página; null = a arte desenhada (`couple.monogramArt`). */
 export async function getMonogram(event?: EventInfo): Promise<string | null> {
-  return monogramFor(event ?? (await currentEvent()));
-}
-
-/** @deprecated Fase 2: use `getSite()`; mantido para os ícones e a imagem OG (frente C). */
-export async function getContent(event?: EventInfo): Promise<EventContent> {
-  return contentFor(event ?? (await currentEvent()));
+  return monogramOf(await getSite(event));
 }

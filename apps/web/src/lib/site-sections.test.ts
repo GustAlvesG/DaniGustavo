@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { siteDefaults, type SiteContent } from "@casamento/shared";
-import { siteFallbackFor } from "@/content/site-fallback";
+import { siteFallbackFor } from "@/lib/site-fallback";
 import {
   emphasizeLast,
   fillSiteText,

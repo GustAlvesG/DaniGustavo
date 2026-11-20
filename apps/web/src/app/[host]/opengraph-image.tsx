@@ -1,12 +1,10 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { MONOGRAM_VIEWBOX, monogramMarkup } from "@/components/brand";
 import { getEvent } from "@/lib/api/event";
-import { getContent, getSite } from "@/lib/api/site";
+import { getSite } from "@/lib/api/site";
 import { decodeHostParam } from "@/lib/host";
 import { formatWeddingDate } from "@/lib/countdown";
-import { cityFromAddress } from "@/lib/site";
+import { cityFromAddress, monogramOf } from "@/lib/site";
 import { ogFonts } from "../_og/fonts";
 
 /*
@@ -23,7 +21,21 @@ export const alt = "Convite do evento";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const photoDir = join(process.cwd(), "public", "fotos");
+/** Bytes da foto do hero (servida pela API em `/uploads/...`); null se não houver ou falhar. */
+async function heroPhoto(src: string | undefined): Promise<string | null> {
+  const api = process.env.API_URL?.trim().replace(/\/+$/, "");
+  if (!src || !api || !src.startsWith("/uploads/")) return null;
+  try {
+    const res = await fetch(`${api}${src}`, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "image/jpeg";
+    // Satori lê JPEG e PNG; WebP não.
+    if (!/^image\/(jpeg|png)/.test(type)) return null;
+    return `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 const svgUri = (viewBox: string, body: string) =>
   `data:image/svg+xml;base64,${Buffer.from(
@@ -32,12 +44,9 @@ const svgUri = (viewBox: string, body: string) =>
 
 export default async function OpengraphImage({ params }: { params: Promise<{ host: string }> }) {
   const ev = await getEvent(decodeHostParam((await params).host));
-  const { home, iniciais } = await getContent(ev);
-  const fotoArco = home.hero.fotoCelular;
-  const [photo, site] = await Promise.all([
-    fotoArco ? readFile(join(photoDir, fotoArco.arquivo)) : null,
-    getSite(ev),
-  ]);
+  const site = await getSite(ev);
+  const iniciais = monogramOf(site);
+  const photoUri = await heroPhoto(site.sections.hero.photoMobile?.src);
   // Cores e fontes do tema do evento (Álbum/marinho = as de antes).
   const { theme } = site;
   const COLORS = {
@@ -50,7 +59,6 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
   const date = formatWeddingDate(site.wedding.datetime, site.wedding.timezone);
   const city = cityFromAddress(site.ceremony.address);
   const mono = svgUri(MONOGRAM_VIEWBOX, monogramMarkup({ ink: COLORS.branco, bold: 8 }));
-  const photoUri = photo ? `data:image/jpeg;base64,${photo.toString("base64")}` : null;
 
   const archW = 360;
   const archH = 540;

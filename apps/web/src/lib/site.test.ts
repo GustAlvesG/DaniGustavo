@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SITE_FALLBACK } from "@/content/site-fallback";
+import { siteFallbackFor } from "@/lib/site-fallback";
 import {
   cityFromAddress,
   formatDotDate,
@@ -14,6 +14,30 @@ import {
   weddingEvent,
   whatsappUrl,
 } from "./site";
+
+const SOLARE = {
+  name: "Solare Roma",
+  address: "R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770",
+  lat: null,
+  lng: null,
+  time: "16h",
+  mapsUrl: null,
+  wazeUrl: null,
+};
+/** Um casamento com cerimônia e recepção no mesmo lugar e UID de agenda gravado. */
+const SITE_FALLBACK = {
+  ...siteFallbackFor({
+    slug: "dani-gustavo",
+    name: "Dani & Gustavo",
+    type: "wedding",
+    timezone: "America/Sao_Paulo",
+    startsAt: "2027-04-10T16:00:00-03:00",
+  }),
+  ceremony: SOLARE,
+  reception: { ...SOLARE, time: "17h" },
+  calendarUid: "casamento-20270410@dani-e-gustavo",
+};
+const AGENDA = { slug: "dani-gustavo", type: "wedding", baseUrl: "https://exemplo.com.br" };
 
 describe("splitCoupleNames", () => {
   it("separa pelo &", () => {
@@ -62,12 +86,24 @@ describe("links", () => {
 
 describe("weddingEvent", () => {
   it("monta o evento da agenda a partir do site", () => {
-    const e = weddingEvent(SITE_FALLBACK);
+    const e = weddingEvent(SITE_FALLBACK, AGENDA);
     expect(e.uid).toBe("casamento-20270410@dani-e-gustavo");
+    expect(e.url).toBe("https://exemplo.com.br/");
     expect(e.title).toBe("Casamento de Dani & Gustavo");
     expect(e.location).toBe("Solare Roma, R. Papagaio, 1800 - Roma, Volta Redonda - RJ, 27257-770");
     expect(e.description).toContain("16h");
     expect(new Date(e.end).getTime() - new Date(e.start).getTime()).toBe(8 * 3_600_000);
+  });
+});
+
+describe("weddingEvent sem UID gravado", () => {
+  it("usa a data e o slug do evento", () => {
+    const e = weddingEvent(
+      { ...SITE_FALLBACK, calendarUid: null },
+      { slug: "lia", type: "fifteen", baseUrl: "https://lia.exemplo" },
+    );
+    expect(e.uid).toBe("evento-20270410@lia");
+    expect(e.title).toBe("Dani & Gustavo");
   });
 });
 

@@ -8,12 +8,11 @@ import { ThemeSelection } from "./themes.ts";
 import {
   AccommodationItem,
   FaqItem,
-  GalleryPhoto,
   GodparentsManual,
   PaletteColor,
   ScheduleItem,
   SiteContent,
-  StoryMoment,
+  MonogramArt,
 } from "./site.ts";
 
 /*
@@ -344,6 +343,8 @@ const contact = SiteContent.shape.contact.extend({
 export const SETTINGS_SCHEMAS = {
   "couple.names": z.string().trim().min(1).max(120),
   "couple.monogram": z.string().trim().min(1).max(8),
+  "couple.monogram_art": MonogramArt.nullable(),
+  "calendar.uid": z.string().trim().min(1).max(191),
   "wedding.datetime": isoDateTime,
   "wedding.timezone": z.string().min(3).max(64),
   "ceremony.venue": StoredVenue,
@@ -369,9 +370,7 @@ export const SETTINGS_SCHEMAS = {
   "accommodation.items": z.array(AccommodationItem),
   "accommodation.how_to_get_there": z.string().max(4000),
   "faq.items": z.array(FaqItem),
-  "story.items": z.array(StoryMoment),
   "godparents.manual": GodparentsManual,
-  "gallery.items": z.array(GalleryPhoto),
   "gallery.official_soon": z.boolean(),
   seo: SiteContent.shape.seo,
   // Fase 2 (docs/saas/fase-2.md). `event.sides` é privado (a migration 0008 grava sem is_public).

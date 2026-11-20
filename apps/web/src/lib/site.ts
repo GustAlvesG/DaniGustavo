@@ -208,10 +208,7 @@ export function whatsappUrl(digits: string, text?: string): string | null {
 export type CalendarSource = { slug: string; type: string; baseUrl: string };
 
 /** Evento da agenda: da cerimônia até o fim da festa. */
-export function weddingEvent(
-  site: SiteContent,
-  source: CalendarSource = { slug: "dani-gustavo", type: "wedding", baseUrl: siteUrl() },
-): CalendarEvent {
+export function weddingEvent(site: SiteContent, source: CalendarSource): CalendarEvent {
   const start = site.wedding.datetime;
   const date = start.slice(0, 10).replace(/-/g, "");
   const blocks = venueBlocks(site);
@@ -220,11 +217,8 @@ export function weddingEvent(
     .filter((l, i, all) => l && all.indexOf(l) === i)
     .join(" / ");
   const wedding = source.type === "wedding";
-  // O UID do casamento original não muda: quem já salvou na agenda não ganha um duplicado.
-  const uid =
-    source.slug === "dani-gustavo"
-      ? `casamento-${date}@dani-e-gustavo`
-      : `evento-${date}@${source.slug}`;
+  // UID gravado no evento (`calendar.uid`) não muda: quem já salvou não ganha um duplicado.
+  const uid = site.calendarUid ?? `evento-${date}@${source.slug}`;
   return {
     uid,
     title: wedding ? `Casamento de ${site.couple.names}` : site.couple.names,
@@ -363,6 +357,15 @@ export function fillSiteText(text: string, site: SiteContent): string {
 }
 
 /** "Ana & Bruno" → "AB"; "Festa da Maria" → "FM"; "Lia" → "L". */
+/**
+ * Monograma do evento: null quando há arte desenhada (`couple.monogramArt`, ex.: a ligadura DG);
+ * senão as iniciais de `couple.monogram` (ou do nome, se vazio).
+ */
+export function monogramOf(site: Pick<SiteContent, "couple">): string | null {
+  if (site.couple.monogramArt) return null;
+  return site.couple.monogram.trim() || initialsOf(site.couple.names);
+}
+
 export function initialsOf(name: string): string {
   const words = name
     .split(/[\s&+]+/)

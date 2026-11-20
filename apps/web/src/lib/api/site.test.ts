@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { siteFallbackFor } from "@/content/site-fallback";
+import { siteFallbackFor } from "@/lib/site-fallback";
 
 /*
  * Página de módulo desligado → notFound(). O cliente da API e o evento da página são
@@ -27,7 +27,7 @@ vi.mock("./client", () => ({
   apiGet: async () => ({ ok: true, status: 200, data: site.current }),
 }));
 
-const { getSite, getSiteWithModule } = await import("./site");
+const { getMonogram, getSite, getSiteWithModule } = await import("./site");
 
 describe("getSiteWithModule", () => {
   beforeEach(() => {
@@ -50,7 +50,14 @@ describe("getSiteWithModule", () => {
     await expect(getSiteWithModule("gallery")).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
-  it("evento que não é o casamento original sai como veio da API", async () => {
+  it("o conteúdo sai como veio da API", async () => {
     expect(await getSite()).toEqual(current());
+  });
+
+  it("monograma: iniciais do evento, ou null quando há arte desenhada", async () => {
+    current().couple.monogram = "LI";
+    await expect(getMonogram()).resolves.toBe("LI");
+    current().couple.monogramArt = "dg";
+    await expect(getMonogram()).resolves.toBeNull();
   });
 });

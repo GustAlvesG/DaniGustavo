@@ -25,8 +25,8 @@ describe("imageSize", () => {
     expect(imageSize(new Uint8Array(40))).toBeNull();
   });
 
-  // Fotos reais do casamento (a frente D da Fase 2 as move para packages/db/legacy: ajuste a pasta).
-  const dir = join(__dirname, "..", "..", "..", "apps", "web", "public", "fotos");
+  // Fotos reais do casamento (importadas pelo content:import-legacy).
+  const dir = join(__dirname, "..", "..", "db", "legacy", "dani-gustavo", "fotos");
   it.skipIf(!existsSync(dir))("lê todas as fotos do casamento", () => {
     const files = readdirSync(dir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f));
     expect(files.length).toBeGreaterThan(0);

@@ -7,6 +7,12 @@
  * As fotos ficam em packages/db/legacy/dani-gustavo/fotos e entram em `event_media`.
  */
 
+/** Arte desenhada do monograma (a ligadura DG de `components/brand`). */
+export const LEGACY_MONOGRAM_ART = "dg";
+
+/** UID da agenda que o site já publicava (`casamento-<data>@dani-e-gustavo`): não muda. */
+export const LEGACY_CALENDAR_UID = "casamento-20270410@dani-e-gustavo";
+
 /** Foto usada numa seção: referência ao `event_media` mais o alt/posição daquele uso. */
 export interface LegacyPhotoRef {
   mediaId: number;

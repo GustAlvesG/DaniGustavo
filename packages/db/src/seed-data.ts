@@ -370,7 +370,7 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
     },
     isPublic: true,
   },
-  // TODO(conteudo): fotos reais do pré-wedding. Os arquivos são placeholders em apps/web/public.
+  // TODO(conteudo): fotos oficiais do casamento (a galeria mostra as do pré-wedding até lá).
   { key: "gallery.official_soon", value: true, isPublic: true },
   // TODO(conteudo): textos finais de SEO e da prévia do WhatsApp.
   {

@@ -83,8 +83,6 @@ describe("proxy", () => {
     for (const url of [
       "/_next/static/chunk.js",
       "/uploads/1/a.jpg",
-      "/fotos/a.jpg",
-      "/placeholder/hero.svg",
       "/sw.js",
       "/offline.html",
       "/api/revalidar",

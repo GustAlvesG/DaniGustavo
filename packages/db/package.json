@@ -22,6 +22,7 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
+    "@casamento/shared": "workspace:*",
     "better-auth": "^1.7.25",
     "drizzle-orm": "^0.45.4",
     "mysql2": "^3.24.6",

@@ -231,7 +231,7 @@ export type PublicSiteSections = z.infer<typeof PublicSiteSections>;
 
 /**
  * Conteúdo neutro de um evento sem `site.sections` (o de evento novo): sem fotos, textos pelo
- * vocabulário do tipo. Igual ao "site neutro" da Fase 1 (lib/legacy-content.ts).
+ * vocabulário do tipo (o "site neutro" da Fase 1).
  */
 export function defaultSections(type: string, vocabulary?: Vocabulary): SiteSections {
   const v = vocabulary ?? vocabularyFor(type);

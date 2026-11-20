@@ -3,11 +3,17 @@ import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { and, eq, inArray } from "drizzle-orm";
-import { imageSize } from "../../../shared/src/image-size.ts";
+import { imageSize } from "@casamento/shared";
 import type { Database } from "../client.ts";
 import { eventMedia, eventSettings } from "../schema/app.ts";
 import { events } from "../schema/tenancy.ts";
-import { LEGACY_GALLERY, legacySections, type PhotoOf } from "./dani-gustavo.ts";
+import {
+  LEGACY_CALENDAR_UID,
+  LEGACY_GALLERY,
+  LEGACY_MONOGRAM_ART,
+  legacySections,
+  type PhotoOf,
+} from "./dani-gustavo.ts";
 
 /** Evento do casamento de Dani & Gustavo: o único que tem conteúdo legado. */
 export const LEGACY_SLUG = "dani-gustavo";
@@ -63,6 +69,10 @@ export interface LegacyImportResult {
  * Leva o conteúdo fixo do casamento para o banco: fotos em `event_media` (e os arquivos no
  * Storage local), `site.sections` com os textos de content/home.ts e paginas.ts, galeria pela
  * ordem de content/galeria.ts. Remove as chaves `story.items` e `gallery.items`.
+ *
+ * Grava também `couple.monogram_art` ("dg") e `calendar.uid` (o UID que a agenda já usava).
+ * Miniaturas (`thumb_file`) ficam nulas: gerá-las no servidor exigiria decodificar JPEG (sharp
+ * ou similar, dependência nova); o site usa a foto inteira e o painel gera miniatura nos uploads.
  *
  * Idempotente e sem sobrescrever edição: fotos já importadas e `site.sections` existente ficam
  * como estão.
@@ -197,6 +207,15 @@ export async function importLegacyContent(
       });
     sectionsWritten = true;
   }
+
+  // Marca do evento que antes vinha do slug no código: arte DG do monograma e UID da agenda.
+  await db
+    .insert(eventSettings)
+    .ignore()
+    .values([
+      { eventId: ev.id, key: "couple.monogram_art", value: LEGACY_MONOGRAM_ART, isPublic: true },
+      { eventId: ev.id, key: "calendar.uid", value: LEGACY_CALENDAR_UID, isPublic: true },
+    ]);
 
   const [removed] = await db
     .delete(eventSettings)

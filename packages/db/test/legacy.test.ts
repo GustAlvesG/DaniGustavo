@@ -90,6 +90,11 @@ describe("content:import-legacy", () => {
     expect(await setting("gallery.official_soon")).toBe(true);
   });
 
+  it("grava a arte do monograma e o UID da agenda como dados do evento", async () => {
+    expect(await setting("couple.monogram_art")).toBe("dg");
+    expect(await setting("calendar.uid")).toBe("casamento-20270410@dani-e-gustavo");
+  });
+
   it("rodar de novo não duplica nada nem apaga o que o anfitrião editou", async () => {
     const before = await setting("site.sections");
     await db
