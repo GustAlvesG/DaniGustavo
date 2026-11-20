@@ -95,6 +95,27 @@ export interface TestEvents {
 
 let loginSeq = 0;
 
+/*
+ * Os arquivos de teste rodam em paralelo no mesmo banco e os eventos de cada um têm ids vizinhos:
+ * um `DELETE ... WHERE event_id IN (...)` (e as cascatas) trava intervalos do índice que outro
+ * arquivo está usando, e o InnoDB às vezes derruba um dos dois com deadlock (1213) ou estoura a
+ * espera do lock (1205). No afterAll isso falhava o arquivo inteiro sem teste vermelho
+ * (isolation*.test.ts). O InnoDB pede exatamente isto: repetir a instrução.
+ */
+export async function retryOnDeadlock<T>(fn: () => Promise<T>, tries = 5): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const code =
+        (err as { cause?: { errno?: number }; errno?: number }).cause?.errno ??
+        (err as { errno?: number }).errno;
+      if (i >= tries || (code !== 1213 && code !== 1205)) throw err;
+      await new Promise((r) => setTimeout(r, 50 * i + Math.random() * 100));
+    }
+  }
+}
+
 export async function createTestEvents(db: Database): Promise<TestEvents> {
   const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -199,13 +220,17 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
     },
     async cleanup() {
       // recados, payments e gift_orders (FK restrict) para events: saem antes (o resto vai em cascata).
-      await db.delete(messages).where(inArray(messages.eventId, eventIds));
-      await db.delete(payments).where(inArray(payments.eventId, eventIds));
-      await db.delete(giftOrders).where(inArray(giftOrders.eventId, eventIds));
-      await db.delete(events).where(inArray(events.id, eventIds));
-      await db.delete(organizations).where(inArray(organizations.id, [orgA.id, orgB.id]));
+      await retryOnDeadlock(() => db.delete(messages).where(inArray(messages.eventId, eventIds)));
+      await retryOnDeadlock(() => db.delete(payments).where(inArray(payments.eventId, eventIds)));
+      await retryOnDeadlock(() =>
+        db.delete(giftOrders).where(inArray(giftOrders.eventId, eventIds)),
+      );
+      await retryOnDeadlock(() => db.delete(events).where(inArray(events.id, eventIds)));
+      await retryOnDeadlock(() =>
+        db.delete(organizations).where(inArray(organizations.id, [orgA.id, orgB.id])),
+      );
       const userIds = Object.values(users).map((u) => u.id);
-      await db.delete(user).where(inArray(user.id, userIds));
+      await retryOnDeadlock(() => db.delete(user).where(inArray(user.id, userIds)));
     },
   };
 }

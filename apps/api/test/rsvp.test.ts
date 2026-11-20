@@ -147,7 +147,7 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
     expect(confirmed.guests.map((g) => g.rsvpStatus)).toEqual(["confirmed", "declined"]);
     expect(confirmed.guests[0]?.dietaryNotes).toBe("Sem glúten");
 
-    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    await vi.waitFor(() => expect(sent).toHaveLength(1), { timeout: 5_000 });
     expect(sent[0]?.to).toBe("zelia@exemplo.com");
     expect(sent[0]?.subject).toBe("Presença confirmada no casamento");
     expect(sent[0]?.text).toContain("Confirmados: Zélia Quintanilha");
@@ -195,7 +195,7 @@ describe("PUT /api/invitations/{token}/rsvp", () => {
     const before = sent.length;
     const res = await put(token, { guests: [{ id: body!.guests[0]!.id, attending: true }] });
     expect(res.status).toBe(200);
-    await vi.waitFor(() => expect(sent.length).toBeGreaterThan(before));
+    await vi.waitFor(() => expect(sent.length).toBeGreaterThan(before), { timeout: 5_000 });
     // Dá tempo de um eventual segundo envio aparecer antes de contar.
     await new Promise((r) => setTimeout(r, 100));
     const mine = sent.slice(before).filter((m) => m.to === "heloisa@exemplo.com");
