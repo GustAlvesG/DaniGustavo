@@ -3,6 +3,7 @@ import { count, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { Database } from "./client.ts";
 import { newPublicId } from "./ids.ts";
+import { importLegacyContent } from "./legacy/import.ts";
 import { eventSettings, gifts, guests, invitations } from "./schema/app.ts";
 import { account, user } from "./schema/auth.ts";
 import {
@@ -46,6 +47,8 @@ export async function seed(
   await seedLegacyEvent(db);
   result.domainsCreated = await seedDevDomains(db);
   result.settingsCreated = await insertSettings(db);
+  // Fotos, textos e galeria do casamento vêm do banco (Fase 2): sem isto o site do evento 1 fica nu.
+  await importLegacyContent(db, { uploadDir: env.UPLOAD_DIR || undefined });
 
   for (const [i, g] of seedGifts.entries()) {
     const [res] = await db
@@ -214,6 +217,7 @@ export async function setup(
 ): Promise<SetupResult> {
   await seedLegacyEvent(db);
   const settingsCreated = await insertSettings(db);
+  await importLegacyContent(db, { uploadDir: env.UPLOAD_DIR || undefined });
   const adminsCreated = await seedAdmins(db, env);
   const membersCreated = await seedMembers(db, env);
   let domainsCreated = 0;

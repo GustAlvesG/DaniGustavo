@@ -17,9 +17,7 @@ import { events } from "./tenancy.ts";
 /**
  * Lados do evento 1 (casamento). Desde a migration 0008 a coluna `invitations.side` é varchar:
  * cada evento define seus lados em `event_settings` › `event.sides` ([{ key, label }]).
- * TODO(fase2-D): o tipo `Side` vira `string` (chave do lado) quando a frente D trocar os usos.
  */
-export const SIDES = ["dani", "gustavo"] as const;
 export const RSVP_STATUSES = ["pending", "confirmed", "declined"] as const;
 export const AGE_RANGES = ["0-2", "3-7", "8-12"] as const;
 export const ORDER_STATUSES = ["pending", "paid", "expired", "failed", "refunded"] as const;
@@ -27,7 +25,8 @@ export const PAYMENT_METHODS = ["pix", "card"] as const;
 /** Provedor de pagamento: "simulado" em dev (sem credenciais) ou "asaas". */
 export const PAYMENT_PROVIDERS = ["simulado", "asaas"] as const;
 
-export type Side = (typeof SIDES)[number];
+/** Chave de um lado de `event.sides` (varchar); "dani"/"gustavo" no evento 1. */
+export type Side = string;
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
 export type AgeRange = (typeof AGE_RANGES)[number];
 export type OrderStatus = (typeof ORDER_STATUSES)[number];

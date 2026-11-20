@@ -11,6 +11,15 @@ export {
   type Schema,
 } from "./client.ts";
 export { byEvent } from "./scope.ts";
+export {
+  importLegacyContent,
+  legacyFileName,
+  LEGACY_FOTOS_DIR,
+  LEGACY_SLUG,
+  type LegacyImportOptions,
+  type LegacyImportResult,
+} from "./legacy/import.ts";
+export { LEGACY_GALLERY, legacySections } from "./legacy/dani-gustavo.ts";
 export { loadRootEnv, requireDatabaseUrl, ROOT_ENV_PATH } from "./env.ts";
 export { newPublicId } from "./ids.ts";
 

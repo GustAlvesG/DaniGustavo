@@ -311,53 +311,6 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
     ],
     isPublic: true,
   },
-  // TODO(conteudo): momentos reais da história do casal e fotos.
-  {
-    key: "story.items",
-    value: [
-      {
-        id: "encontro",
-        when: "2016",
-        title: "A gente se conheceu",
-        text: "Foi num churrasco de amigos. Falamos a noite toda sobre nada.",
-        image: "/placeholder/historia-1.svg",
-        imageAlt: "Ilustração de um azulejo azul e branco",
-      },
-      {
-        id: "primeiro-encontro",
-        when: "2017",
-        title: "Primeiro encontro de verdade",
-        text: "Um café que durou quatro horas. O garçom já tinha desistido de nós.",
-        image: "/placeholder/historia-2.svg",
-        imageAlt: "Ilustração de um azulejo com ramos",
-      },
-      {
-        id: "morar-juntos",
-        when: "2020",
-        title: "Casa nova",
-        text: "Duas pessoas, um gato e caixas por todo lado.",
-        image: "/placeholder/historia-3.svg",
-        imageAlt: "Ilustração de um azulejo com flor",
-      },
-      {
-        id: "viagem",
-        when: "2023",
-        title: "A viagem longa",
-        text: "Pegamos o mapa errado e foi o melhor dia da viagem.",
-        image: "/placeholder/historia-4.svg",
-        imageAlt: "Ilustração de um azulejo com ondas",
-      },
-      {
-        id: "pedido",
-        when: "2026",
-        title: "O pedido",
-        text: "Ela disse sim antes de ele terminar a frase.",
-        image: "/placeholder/historia-5.svg",
-        imageAlt: "Ilustração de um azulejo com estrela",
-      },
-    ],
-    isPublic: true,
-  },
   // Manual dos padrinhos (docs/marca/manual-padrinhos.pdf).
   // TODO(conteudo): URLs da playlist do Spotify e do álbum de fotos.
   {
@@ -418,16 +371,6 @@ export const seedSettings: { key: string; value: unknown; isPublic: boolean }[] 
     isPublic: true,
   },
   // TODO(conteudo): fotos reais do pré-wedding. Os arquivos são placeholders em apps/web/public.
-  {
-    key: "gallery.items",
-    value: Array.from({ length: 8 }, (_, i) => ({
-      src: `/placeholder/galeria-${i + 1}.svg`,
-      alt: `Foto ${i + 1} do pré-wedding (provisória)`,
-      width: i % 3 === 0 ? 1200 : 800,
-      height: i % 3 === 0 ? 800 : 1200,
-    })),
-    isPublic: true,
-  },
   { key: "gallery.official_soon", value: true, isPublic: true },
   // TODO(conteudo): textos finais de SEO e da prévia do WhatsApp.
   {
