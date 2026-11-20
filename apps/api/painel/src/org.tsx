@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { MeOrganization } from "./event.tsx";
 import { oh } from "./nav.ts";
+import { parseOrgPath } from "./routes.ts";
 import { Anfitrioes } from "./pages/org/Anfitrioes.tsx";
 import { ConvitesEquipe } from "./pages/org/Convites.tsx";
 import { Equipe } from "./pages/org/Equipe.tsx";
@@ -16,6 +17,7 @@ import { PermissoesAnfitriao } from "./pages/org/Permissoes.tsx";
 
 const OrgContext = createContext<MeOrganization | null>(null);
 export const OrgProvider = OrgContext.Provider;
+export { parseOrgPath };
 
 /** A organização aberta no painel (só dentro de /o/:orgId). */
 export function useOrg(): MeOrganization {
@@ -31,12 +33,6 @@ export const ORG_NAV = [
   { href: "/equipe", label: "Equipe" },
   { href: "/convites", label: "Convites pendentes" },
 ];
-
-/** "/o/2/equipe" → { orgId: 2, rest: "/equipe" }; outro caminho → null. */
-export function parseOrgPath(path: string): { orgId: number; rest: string } | null {
-  const m = /^\/o\/([1-9]\d{0,15})(\/.*)?$/.exec(path);
-  return m ? { orgId: Number(m[1]), rest: m[2] ?? "/" } : null;
-}
 
 /** Página da organização; `path` é relativo a ela ("/eventos/3/anfitrioes"). */
 export function OrgPage({ path }: { path: string }) {

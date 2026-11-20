@@ -2,9 +2,13 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
 import {
+  AccessProvider,
+  canDo,
   EventProvider,
   EventsPage,
   monogramOf,
+  useCan,
+  useEventAccess,
   type MeEvent,
   type MeOrganization,
   type MeResponse,
@@ -14,12 +18,19 @@ import {
   goAbsolute,
   lastEvent,
   oh,
-  orgPath,
   rememberEvent,
   setCurrentEventId,
   setCurrentOrgId,
 } from "./nav.ts";
-import { ORG_NAV, OrgPage, OrgProvider, parseOrgPath } from "./org.tsx";
+import { ORG_NAV, OrgPage, OrgProvider } from "./org.tsx";
+import {
+  parseEventPath,
+  parseOrgPath,
+  pickerTarget,
+  pickerValue,
+  resolveRedirect,
+} from "./routes.ts";
+import type { EventAction } from "@casamento/shared";
 import { Aceitar } from "./pages/Aceitar.tsx";
 import { Aparencia } from "./pages/Aparencia.tsx";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
@@ -56,29 +67,41 @@ function useHashPath(): string {
   return path;
 }
 
-const NAV = [
+/** Menu do evento; `action` é a permissão que libera o item (sem ela, some do menu). */
+const NAV: { href: string; label: string; action?: EventAction }[] = [
   { href: "/", label: "Início" },
-  { href: "/convites", label: "Convites" },
-  { href: "/presentes", label: "Presentes" },
-  { href: "/pedidos", label: "Pedidos" },
-  { href: "/recados", label: "Recados" },
-  { href: "/lembretes", label: "Lembretes" },
-  // Fase 2: A = Site e Galeria; C = Aparência; D = Evento.
-  { href: "/site", label: "Site" },
-  { href: "/galeria", label: "Galeria" },
-  { href: "/aparencia", label: "Aparência" },
-  { href: "/evento", label: "Evento" },
-  { href: "/configuracoes", label: "Configurações" },
+  { href: "/convites", label: "Convites", action: "invitations.read" },
+  { href: "/presentes", label: "Presentes", action: "gifts.write" },
+  { href: "/pedidos", label: "Pedidos", action: "orders.read" },
+  { href: "/recados", label: "Recados", action: "messages.moderate" },
+  { href: "/lembretes", label: "Lembretes", action: "reminders.write" },
+  { href: "/site", label: "Site", action: "content.write" },
+  { href: "/galeria", label: "Galeria", action: "content.write" },
+  { href: "/aparencia", label: "Aparência", action: "content.write" },
+  { href: "/evento", label: "Evento", action: "event.configure" },
+  { href: "/configuracoes", label: "Configurações", action: "settings.write" },
 ];
 
-/** "/e/3/convites?x=1" → { eventId: 3, rest: "/convites?x=1" }; outro caminho → null. */
-function parseEventPath(path: string): { eventId: number; rest: string } | null {
-  const m = /^\/e\/([1-9]\d{0,15})(\/.*)?$/.exec(path);
-  return m ? { eventId: Number(m[1]), rest: m[2] ?? "/" } : null;
-}
+const SECTION_ACTION = new Map(NAV.map((i) => [i.href.slice(1), i.action]));
 
 /** Página do evento; `path` é relativo a ele ("/convites/12"). */
 function Page({ path }: { path: string }) {
+  const section = path.split("?")[0]!.split("/").filter(Boolean)[0] ?? "";
+  const action = SECTION_ACTION.get(section);
+  const allowed = useCan(action ?? "dashboard.read");
+  if (action && !allowed) {
+    return (
+      <div className="stack">
+        <h1>Sem permissão</h1>
+        <p className="muted">Você não tem acesso a esta parte do evento. Fale com quem organiza.</p>
+        <a href={eh("/")}>Voltar ao início</a>
+      </div>
+    );
+  }
+  return <PageRoutes path={path} />;
+}
+
+function PageRoutes({ path }: { path: string }) {
   // "/convites/qr?ids=1,2": a parte depois do "?" vai para a página.
   const [route = "", query = ""] = path.split("?");
   const parts = route.split("/").filter(Boolean);
@@ -193,40 +216,6 @@ function Painel() {
   return <Routed me={data} path={path} />;
 }
 
-/**
- * Para onde o hash deve ir (null = ficar). Um evento só: entra direto nele. Vários: lista em
- * #/eventos. Hashes antigos (#/convites/12, sem /e/:id) vão para o mesmo lugar dentro do
- * evento atual (o único, ou o último aberto neste navegador).
- */
-function resolveRedirect(
-  path: string,
-  events: { id: number }[],
-  remembered: number | null,
-  orgs: { id: number }[] = [],
-): string | null {
-  // Fase 3: páginas da organização (#/o/:orgId/...).
-  const orgParsed = parseOrgPath(path);
-  if (orgParsed) {
-    if (orgs.some((o) => o.id === orgParsed.orgId)) return null;
-    return orgs.length > 0 ? `/o/${orgs[0]!.id}` : "/eventos";
-  }
-  if (events.length === 0) {
-    if (path === "/conta") return null;
-    if (orgs.length > 0) return `/o/${orgs[0]!.id}`;
-    return path === "/eventos" ? null : "/eventos";
-  }
-  const only = events.length === 1 ? events[0] : undefined;
-  const parsed = parseEventPath(path);
-  if (parsed) {
-    if (events.some((e) => e.id === parsed.eventId)) return null;
-    return only ? `/e/${only.id}` : "/eventos";
-  }
-  if (path === "/eventos") return only ? `/e/${only.id}` : null;
-  const current = only ?? events.find((e) => e.id === remembered);
-  if (!current) return path === "/conta" ? null : "/eventos";
-  return `/e/${current.id}${path === "/" ? "" : path}`;
-}
-
 function Routed({ me, path }: { me: MeResponse; path: string }) {
   const redirectTo = resolveRedirect(path, me.events, lastEvent(), me.organizations);
   useEffect(() => {
@@ -257,7 +246,7 @@ function Routed({ me, path }: { me: MeResponse; path: string }) {
     <Frame me={me} event={null} rest="">
       {path === "/conta" ? (
         <Conta />
-      ) : me.events.length === 0 ? (
+      ) : me.events.length === 0 && me.organizations.length === 0 ? (
         <div className="stack">
           <h1>Nenhum evento por aqui</h1>
           <p className="muted">
@@ -266,24 +255,75 @@ function Routed({ me, path }: { me: MeResponse; path: string }) {
           </p>
         </div>
       ) : (
-        <EventsPage events={me.events} />
+        <EventsPage events={me.events} organizations={me.organizations} />
       )}
     </Frame>
   );
 }
 
-function Brand({ event }: { event: MeEvent | null }) {
+function Brand({ event, org }: { event: MeEvent | null; org: MeOrganization | null }) {
+  const label = event ? event.name : org ? org.name : "Painel";
   return (
     <a
       className="brand"
-      href={event ? eh("/") : "#/eventos"}
-      aria-label={event ? `Painel de ${event.name}, início` : "Painel, seus eventos"}
+      href={event ? eh("/") : org ? oh("/") : "#/eventos"}
+      aria-label={
+        event
+          ? `Painel de ${event.name}, início`
+          : org
+            ? `Organização ${org.name}, início`
+            : "Painel, seus eventos"
+      }
     >
       <span className="brand__mark" aria-hidden="true">
-        {event ? monogramOf(event.name) : "&"}
+        {event || org ? monogramOf(label) : "&"}
       </span>
-      <span className="brand__label">{event ? event.name : "Painel"}</span>
+      <span className="brand__label">{label}</span>
     </a>
+  );
+}
+
+/** Seletor do topo: organizações e seus eventos, agrupados; trocar leva a #/o/:id ou #/e/:id. */
+function Picker({
+  me,
+  event,
+  org,
+}: {
+  me: MeResponse;
+  event: MeEvent | null;
+  org: MeOrganization | null;
+}) {
+  if (me.organizations.length + me.events.length <= 1) return null;
+  const groups = new Map<number, { name: string; org: MeOrganization | null; events: MeEvent[] }>();
+  for (const o of me.organizations) groups.set(o.id, { name: o.name, org: o, events: [] });
+  for (const ev of me.events) {
+    const g = groups.get(ev.orgId) ?? { name: ev.orgName, org: null, events: [] };
+    g.events.push(ev);
+    groups.set(ev.orgId, g);
+  }
+  const value = event ? pickerValue("e", event.id) : org ? pickerValue("o", org.id) : "all";
+  return (
+    <label className="topbar__event">
+      <span className="sr-only">Organização e evento</span>
+      <select
+        value={value}
+        onChange={(e) =>
+          goAbsolute(e.target.value === "all" ? "/eventos" : pickerTarget(e.target.value))
+        }
+      >
+        <option value="all">Todas as organizações e eventos</option>
+        {[...groups.entries()].map(([id, g]) => (
+          <optgroup key={id} label={g.name}>
+            {g.org && <option value={pickerValue("o", id)}>Organização: {g.name}</option>}
+            {g.events.map((ev) => (
+              <option key={ev.id} value={pickerValue("e", ev.id)}>
+                {ev.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -303,6 +343,7 @@ function Frame({
   children: ReactNode;
 }) {
   const [signingOut, setSigningOut] = useState(false);
+  const access = useEventAccess(event?.id ?? null);
   const section = `/${rest.split("?")[0]!.split("/")[1] ?? ""}`;
   // Antes de renderizar a página: as rotas e links dela usam o evento atual.
   if (event) setCurrentEventId(event.id);
@@ -324,33 +365,9 @@ function Frame({
         Pular para o conteúdo
       </a>
       <header className="topbar">
-        <Brand event={event} />
+        <Brand event={event} org={org} />
         <div className="topbar__user">
-          {/* Fase 3: entrada provisória do painel da organização; a frente D faz o seletor. */}
-          {me.organizations.length > 0 && !org && (
-            <a
-              className="button button--ghost button--small"
-              href={orgPath(me.organizations[0]!.id)}
-            >
-              Organização
-            </a>
-          )}
-          {me.events.length > 1 && (
-            <label className="topbar__event">
-              <span className="sr-only">Evento</span>
-              <select
-                value={event?.id ?? ""}
-                onChange={(e) => goAbsolute(e.target.value ? `/e/${e.target.value}` : "/eventos")}
-              >
-                {!event && <option value="">Seus eventos</option>}
-                {me.events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <Picker me={me} event={event} org={org} />
           <a href={event ? eh("/conta") : "#/conta"} className="topbar__name" title={me.user.email}>
             {me.user.name}
           </a>
@@ -384,13 +401,27 @@ function Frame({
       {event && (
         <nav className="nav" aria-label="Seções do painel">
           <ul>
-            {NAV.map((item) => (
+            {NAV.filter((item) => !item.action || canDo(access, item.action)).map((item) => (
               <li key={item.href}>
                 <a href={eh(item.href)} aria-current={section === item.href ? "page" : undefined}>
                   {item.label}
                 </a>
               </li>
             ))}
+            {/* Equipe da organização (dono, membro, administração): anfitriões e permissões. */}
+            {(access?.role ?? event.role) !== "event_host" && (
+              <>
+                <li className="nav__sep" aria-hidden="true" />
+                <li>
+                  <a href={`#/o/${event.orgId}/eventos/${event.id}/anfitrioes`}>Anfitriões</a>
+                </li>
+                <li>
+                  <a href={`#/o/${event.orgId}/eventos/${event.id}/permissoes`}>
+                    Permissões do anfitrião
+                  </a>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
       )}
@@ -398,7 +429,7 @@ function Frame({
         {event ? (
           // key: ao trocar de evento a página remonta e recarrega os próprios dados.
           <EventProvider key={event.id} value={event}>
-            {children}
+            <AccessProvider value={access}>{children}</AccessProvider>
           </EventProvider>
         ) : org ? (
           <OrgProvider key={org.id} value={org}>
