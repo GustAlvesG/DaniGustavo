@@ -112,3 +112,19 @@ Merge A → D → C → B na `saas`; apagar `apps/web/src/content/{home,galeria,
 | Lados padrão de evento novo                | Casamento: Noiva/Noivo; 15 anos e aniversário: Família/Amigos; demais: um lado "Convidados".                                                 |
 | Quem pode mudar tipo/módulos/lados         | Todos os papéis do evento (`event.configure`), como o resto da Fase 1.                                                                       |
 | Fotos do casamento no git                  | Copiadas para `packages/db/legacy/dani-gustavo/fotos` (≈9,5 MB, já estavam no git em `public/fotos`).                                        |
+
+## 6. Integração (concluída)
+
+Merges A → D → C → B na `saas` sem conflitos (cada frente ficou nos seus arquivos). Depois:
+
+- **Apagados:** `apps/web/src/content/*` (inclusive `site-fallback.ts`), `lib/legacy-content.ts`, `lib/fotos.ts`, `apps/web/public/fotos` e `public/placeholder` (sem uso), `getContent`/`contentFor`/`monogramFor`, `SiteContent.story` e as chaves `story.items`/`gallery.items` (contrato e `buildSiteContent`; o importador ainda as remove de bancos antigos). Nenhum `slug === "dani-gustavo"` no código do site/API.
+- **Reserva sem API:** `apps/web/src/lib/site-fallback.ts`, neutra (nome, tipo, data e fuso de `/api/hosts`), para o `next build` sem API.
+- **Desvio — duas chaves públicas novas em `event_settings`** (sem migration, são linhas): `couple.monogram_art` (`"dg"` = ligadura DG; `null`/ausente = iniciais de `couple.monogram`) e `calendar.uid` (UID fixo da agenda; ausente = `evento-<data>@<slug>`). `SiteContent` ganhou `couple.monogramArt` e `calendarUid`; o importador grava as duas para o evento 1 (`casamento-20270410@dani-e-gustavo`). Ícones, manifest e imagem OG usam `monogramOf(site)`; a OG busca a foto do hero na API (`/uploads/...`).
+- **`packages/db` depende de `@casamento/shared`** (workspace) em vez do import relativo.
+- **Miniaturas na importação: não geradas** (decodificar JPEG no servidor exigiria dependência); `thumb_file` fica nulo e o site usa a foto inteira.
+- **Temas:** Festa/Moderno corrigidos onde componentes tinham azul-marinho fixo (`color-mix` com os tokens; Álbum fica igual), rótulo com `--accent` e `data-cta` no botão do menu.
+- **Testes instáveis (causa real):** `isolation*.test.ts` copiavam todas as configurações do evento 1, inclusive `reminders` gravado em paralelo por `reminders.test.ts` (helper `legacySettingsBase` sem `reminders`); `orders.test.ts` esperava 20 ms pelos avisos de pedido pago, que saem sem `await` (agora comprador único por teste + `vi.waitFor`).
+- **E2E:** `E2E_API_PORT` (padrão 3333) sobe a API dos e2e em outra porta com `BETTER_AUTH_URL`/`API_URL` certos; `WEB_INTERNAL_URL` aponta para o site do e2e (revalidação); o painel é montado antes. Novo `painel-fase2.spec.ts` (projeto `painel`): seção editada aparece no site, módulo desligado → 404, tema trocado → `data-theme`; usa o evento `ana-bruno` com um anfitrião só dele (`anfitriao-e2e@exemplo.com`, senha nova a cada rodada, criado pelo setup global).
+- **Banco de dev:** `content:import-legacy` rodou no `casamento` (dump antes em scratchpad `casamento-antes-import-legado.sql` e cópia de `uploads`): 30 fotos em `event_media` (27 na galeria), `site.sections`, `couple.monogram_art` e `calendar.uid` gravados, 2 chaves antigas removidas.
+- **Visual:** home, galeria e padrinhos do evento 1 em 390×844 e 1440×900 iguais ao `v1-casamento` por diff de pixels (só a contagem regressiva muda). Screenshots em `.screenshots/saas-fase2/` (v1 em `v1/`), painel (Site, Galeria, Aparência, Evento) e Festa/Moderno.
+- Frentes limpas: worktrees `casamento-wt/f2{a..d}`, branches `saas-f2*` e bancos `casamento_f2*` removidos.

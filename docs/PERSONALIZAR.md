@@ -1,93 +1,95 @@
 # Como personalizar o site
 
-Guia rápido para trocar textos, fotos, cores e dados do casamento. Rode `pnpm dev` e deixe
-http://localhost:3000 aberto: a maioria das mudanças aparece sozinha ao salvar o arquivo.
+Guia rápido para trocar textos, fotos, cores e dados do evento. **Tudo se edita no painel**
+(http://localhost:3333/painel/ em dev), sem mexer em código: salvar valida e avisa o site na hora.
 
-## 1. Textos e fotos da página inicial
+## 1. Textos e seções da página inicial (painel → Site)
 
-Tudo que é "apresentação" da home fica em **`apps/web/src/content/home.ts`**, com comentários em
-cada campo:
+A página **Site** do painel mostra cada seção da home num bloco que abre e fecha:
 
-| O que                                      | Onde em `home.ts`                                                            |
-| ------------------------------------------ | ---------------------------------------------------------------------------- |
-| Ordem das seções / esconder uma seção      | `secoes` (mude a ordem ou apague)                                            |
-| Foto de fundo do topo (computador/celular) | `hero.fotoDesktop`, `hero.fotoCelular`                                       |
-| "Vamos nos casar", título da contagem      | `hero.chamada`, `hero.contador`                                              |
-| Nossa história (polaroids)                 | `historia.momentos` (ano, título, texto, foto)                               |
-| Galeria "Do nosso álbum"                   | `album.fotos` (foto + legenda)                                               |
-| Foto e legenda do casamento                | `casamento.foto`, `casamento.legendaFoto`                                    |
-| Versículo sobre a foto                     | `versiculo.linhas`, `versiculo.referencia`                                   |
-| Títulos e frases de cada seção             | `rotulo`, `titulo`, `lead` de cada seção                                     |
-| Presentes (texto, botões)                  | `presentes` (com `botoes: []` aparece o aviso; a lista em si está no item 5) |
-| Cartão-resposta (confirmação)              | `rsvp.cartao`                                                                |
-| Menu do topo e links do rodapé             | `menu`, `rodape`                                                             |
+| O que                                      | Onde no painel (Site)                                              |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Ordem das seções / esconder uma seção      | **Ordem da página inicial** (subir, descer, ligar/desligar)        |
+| Foto de fundo do topo (computador/celular) | **Abertura** → Foto (computador) / Foto (celular)                  |
+| "Vamos nos casar", textos da contagem      | **Abertura** → Linha acima dos nomes, Contagem                     |
+| Nossa história (polaroids)                 | **Nossa história** → momentos (ano, título, texto, foto)           |
+| "Do nosso álbum"                           | **Álbum de fotos** → fotos escolhidas da galeria, com legenda      |
+| Foto e legenda do evento, versículo        | **O evento** e **Citação sobre foto**                              |
+| Títulos, rótulos e frases de cada seção    | Texto no menu, Rótulo, Título e Frase de apoio de cada seção       |
+| Presentes, recados, confirmação, dúvidas   | blocos com o mesmo nome                                            |
+| Menu do topo, rodapé e páginas internas    | **Menu**, **Rodapé**, **Páginas** (galeria, padrinhos, mural, 404) |
 
 Convenções:
 
-- Palavra entre `*asteriscos*` num título sai em itálico azul: `"Do nosso *álbum*"`.
-- `{prazo}` no texto da confirmação vira a data limite que está no banco.
-- Item do menu: a seção aparece no menu se tiver `menu: "Texto"`.
+- Palavra entre `*asteriscos*` num título sai em ênfase (itálico na cor de destaque).
+- `{prazo}` no texto da confirmação vira a data limite; `{data}`, a data do evento.
+- Uma seção entra no menu se tiver **Texto no menu** preenchido.
+- As palavras padrão ("os noivos", "o casamento"...) vêm do **tipo do evento** e podem ser
+  trocadas em **Evento → Palavras**.
 
-Outras páginas:
+## 2. Fotos (painel → Galeria)
 
-- **`apps/web/src/content/galeria.ts`**: fotos da página `/galeria` (ordem = ordem na página).
-- **`apps/web/src/content/paginas.ts`**: foto da capa de `/padrinhos` e da página 404.
+1. Em **Galeria**, envie as fotos (até 20 por vez; JPEG, PNG ou WebP até 4 MB; o painel gera a
+   miniatura no navegador). Cada foto tem texto alternativo (para leitor de tela), legenda,
+   álbum e posição.
+2. Marque **na galeria** as que aparecem em `/galeria` e ordene.
+3. Nas seções do **Site**, os campos de foto escolhem uma foto desta galeria (pelo id: trocar ou
+   apagar a foto não deixa link quebrado; foto em uso não pode ser apagada).
+4. Rosto cortado? Ajuste a **posição** (é o `object-position` do CSS): `center 30%` mostra mais
+   o alto da foto; `40% center` puxa para a esquerda.
 
-## 2. Fotos
+Formato: **JPEG**, lado maior com 2000 a 2400 px, qualidade ~80. O Next (`next/image`) gera as
+versões menores. Topo no computador: foto deitada; no celular: em pé, com o casal no meio ou no
+alto (a contagem cobre o rodapé da foto). Polaroids recortam em 4:5.
 
-1. Coloque o arquivo em **`apps/web/public/fotos/`** (nome sem espaços, em minúsculas, ex.:
-   `praia-2024.jpg`).
-2. No `home.ts` (ou `galeria.ts`), escreva só o nome: `arquivo: "praia-2024.jpg"`, e uma
-   descrição curta em `alt` (para leitor de tela).
-3. Se um rosto ficar cortado, ajuste `posicao` (é o `object-position` do CSS):
-   `"center 30%"` mostra mais o alto da foto; `"40% center"` puxa para a esquerda.
+Os arquivos ficam em `UPLOAD_DIR/<eventId>/` (padrão `apps/api/storage/uploads`, fora do git),
+servidos pela API em `/uploads/<eventId>/<arquivo>`.
 
-Formato e tamanho: **JPEG**, lado maior com **2000 a 2400 px**, qualidade ~80 (até ~800 KB).
-PNG e WebP também funcionam. Não precisa gerar versões menores: o Next (`next/image`) cria as
-versões em WebP/AVIF no tamanho de cada tela. A largura e a altura são lidas do próprio arquivo.
+> O casamento de Dani & Gustavo veio do código para o banco com
+> `pnpm --filter @casamento/db exec node src/cli.ts content:import-legacy` (o seed já roda):
+> as fotos originais ficam em `packages/db/legacy/dani-gustavo/fotos`. O comando é idempotente e
+> não sobrescreve o que foi editado no painel. As fotos importadas não têm miniatura (gerá-la no
+> servidor exigiria uma dependência para decodificar JPEG); o site usa a foto inteira.
 
-- Topo no computador: foto **deitada** (paisagem). Topo no celular: foto **em pé** (retrato),
-  com o casal no meio ou na metade de cima (a contagem cobre o rodapé da foto).
-- Polaroids da história recortam em 4:5 (retrato); o álbum e a galeria mostram a foto inteira.
-
-> As fotos do casal ficam versionadas no repositório (é privado). Antes de publicar o
-> repositório em algum lugar aberto, tire-as do git.
-
-## 3. Dados do casamento (vêm do banco)
+## 3. Dados do evento (painel → Configurações)
 
 Data e hora, local e endereço, programação, traje (cores e "evite"), hospedagem, perguntas
-frequentes, contato, prazo da confirmação, manual dos padrinhos e textos de SEO ficam na tabela
-`settings` do banco e chegam ao site por `GET /api/e/<slug>/site`. **O jeito normal de editar é o painel**,
-em **Configurações** (passo a passo na seção 7): salvar valida os dados e avisa o site na hora.
-Editado fora do painel, o site guarda a resposta em cache por 60 segundos.
+frequentes, contato, prazo da confirmação, manual dos padrinhos e textos de SEO ficam em
+`event_settings` e chegam ao site por `GET /api/e/<slug>/site`. **Edite pelo painel**, em
+**Configurações** (seção 7). Editado direto no banco, o site guarda a resposta em cache por 60 s.
 
 Outras formas (para quem desenvolve):
 
-- **Drizzle Studio** (planilha no navegador, sem apagar nada):
-  `pnpm --filter @casamento/db exec drizzle-kit studio` → tabela `settings` → coluna `value`
-  (JSON). Ex.: `schedule.items`, `dresscode`, `faq.items`, `couple.contact`, `rsvp.deadline`.
-- **Seed** (`packages/db/src/seed-data.ts`, lista `seedSettings`): é o ponto de partida do banco.
-  O `pnpm db:seed` só cria as chaves que ainda não existem (não sobrescreve). Para aplicar
-  mudanças do seed em chaves existentes, use `pnpm db:reset`, que **apaga e recria o banco
-  inteiro, inclusive convites e respostas**: só antes de enviar os convites.
+- **Drizzle Studio**: `pnpm --filter @casamento/db exec drizzle-kit studio` → tabela
+  `event_settings` (chave `event_id` + `key`, coluna `value` em JSON).
+- **Seed** (`packages/db/src/seed-data.ts`): ponto de partida do evento 1. O `pnpm db:seed` só
+  cria chaves que não existem; `pnpm db:reset` **apaga e recria o banco inteiro**.
 
-O conteúdo de reserva em `apps/web/src/content/site-fallback.ts` só aparece se a API estiver fora
-do ar; mantenha-o parecido com o seed.
+Sem a API (ex.: `next build` no CI), o site usa um conteúdo de reserva neutro
+(`apps/web/src/lib/site-fallback.ts`: só nome, tipo e data do evento).
 
-## 4. Cores e fontes
+Dados de marca do evento, sem tela própria (Drizzle Studio ou CLI):
 
-- **Cores**: `apps/web/src/app/globals.css`, bloco `@theme static` (`--color-papel`,
-  `--color-tinta`, `--color-marinho`, `--color-serenity`…). Viram classes do Tailwind
-  (`bg-papel`, `text-tinta`) e variáveis CSS. Mudou uma cor, atualize
-  `apps/web/src/lib/palette.ts`: `pnpm test` confere o contraste (acessibilidade).
-- **Fontes**: `apps/web/src/app/layout.tsx` (Cormorant Garamond no texto, Jost nos rótulos e
-  botões, Pinyon Script só nos nomes), ligadas aos tokens `--font-serif`, `--font-sans` e
-  `--font-script` em `globals.css`.
-- **Peças do álbum** (polaroid, fita, cartão de fio duplo, moldura com cantoneiras, arco,
-  animações na rolagem): `apps/web/src/app/album.css`. Layout das seções da home:
-  `apps/web/src/components/home/home.module.css`.
-- Imagem de prévia do link (WhatsApp): `apps/web/src/app/opengraph-image.tsx` (usa a foto
-  `hero.fotoCelular`).
+- `couple.monogram_art` = `"dg"`: usa a ligadura DG desenhada (a única arte que existe) no
+  lugar das iniciais de `couple.monogram`, no site, favicon, ícones do app e imagem de prévia.
+- `calendar.uid`: UID fixo do evento na agenda (`.ics`/Google Agenda). Sem ele, o UID é
+  `evento-<data>@<slug>`. O importador grava o UID antigo do casamento para ninguém ganhar um
+  evento duplicado na agenda.
+
+## 4. Aparência (painel → Aparência) e tipo do evento (painel → Evento)
+
+- **Aparência**: tema (**Álbum**, **Festa**, **Moderno**), uma das paletas prontas do tema
+  (todas com contraste aprovado) e as fontes de texto, rótulos e nomes de uma lista curada. A
+  prévia mostra as cores antes de salvar. O tema muda formas, fotos e tipografia por variáveis
+  CSS (`apps/web/src/themes/**`); o Álbum é o desenho original do casamento.
+- **Evento**: tipo do evento, **módulos** (presentes, recados, galeria, padrinhos, confirmação,
+  programação: desligado some do menu e da home e a página dá 404), **lados** dos convites
+  (ex.: Noiva/Noivo; um lado em uso não pode sair) e **palavras** do vocabulário.
+- Para desenvolver um tema: tokens em `apps/web/src/app/globals.css` (nomes do Álbum: `papel`,
+  `tinta`, `marinho`...), registro de temas, paletas e fontes em `packages/shared/src/themes.ts`
+  (o teste confere o contraste), CSS de cada tema em `apps/web/src/themes/<tema>/` e fontes em
+  `apps/web/src/themes/fonts.ts`. Imagem de prévia do link:
+  `apps/web/src/app/[host]/opengraph-image.tsx` (cores do tema e a foto do topo no celular).
 
 ## 5. Lista de presentes
 
@@ -316,9 +318,9 @@ na tela inicial.
   ocultar atualiza o site na hora. Quem não comprou presente também pode escrever em
   `/recados` ("Deixe um recado"): entra como **Aguardando**, com nome e texto apenas (sem
   e-mail, sem guardar o IP), limite de 500 caracteres e 3 recados por pessoa a cada 10 minutos.
-- Textos: home em `content/home.ts` (`recados`, incluindo quantos aparecem na home) e a
-  página do mural e o formulário em `content/paginas.ts` (`recados`). Para tirar o mural da
-  home, apague `"recados"` da lista `secoes`; para tirar do menu, apague `menu`.
+- Textos: painel → **Site** → bloco **Recados** (inclusive quantos aparecem na home) e
+  **Páginas** (mural e formulário). Para tirar da home, desligue a seção na ordem; para tirar o
+  mural inteiro, desligue o módulo em **Evento**.
 
 ### Lembretes de confirmação (e-mail)
 
@@ -336,8 +338,8 @@ na tela inicial.
 ### App instalável (PWA)
 
 O site pode ser instalado no celular ("Instalar app" / "Adicionar à tela inicial"). O nome vem
-do casal (`couple.names`); cores, ícone (monograma DG em marinho) e `start_url` ficam em
-`apps/web/src/app/manifest.ts` e `apps/web/src/lib/pwa-icon.tsx`. O service worker
+de `couple.names`; o ícone (monograma do evento nas cores do tema) e o `start_url` saem de
+`apps/web/src/app/[host]/manifest.webmanifest/` e `apps/web/src/lib/pwa-icon.tsx`. O service worker
 (`apps/web/public/sw.js`) só guarda fontes e ícones e mostra `public/offline.html` quando não
 há internet; nunca guarda páginas, convites (`/c/*`), `/confirmar`, pagamento nem a API. Mudou o
 `sw.js`? Aumente `VERSION` nele. Precisa de HTTPS em produção.
@@ -354,8 +356,8 @@ Cada bloco tem o próprio botão de salvar e é validado antes de ir para o site
 - **Presentes e pagamento**: taxa do cartão (%) e categorias da lista.
 - **Programação**, **Traje** (texto, paleta e o que evitar), **Hospedagem**, **Dúvidas** e
   **Compartilhamento** (título e descrição do link).
-- **Avançado**: nossa história, galeria e manual dos padrinhos (este em JSON). As fotos em si
-  continuam na pasta do site (seção 2).
+- **Avançado**: aviso de fotos oficiais e manual dos padrinhos (este em JSON). História e fotos
+  ficam em **Site** e **Galeria** (seções 1 e 2).
 
 ## 8. Criar um novo evento
 
@@ -378,6 +380,5 @@ node src/cli.ts event:list
 - `user:add` imprime uma senha temporária uma única vez. Para dar acesso à organização inteira,
   troque por `--org minha-org --role owner|member`.
 - O evento só aparece no site com `--status active` (`draft` responde 404).
-- Os textos e as fotos fixos de `apps/web/src/content/` (seções 1, 2 e 4) valem só para o
-  casamento `dani-gustavo`. Os outros eventos mostram um site neutro, montado com os dados do
-  banco, até a Fase 2 trazer o editor de conteúdo e temas.
+- O evento novo abre com o site neutro do tipo (palavras, tema padrão, módulos do tipo, sem
+  fotos); o anfitrião edita tudo no painel (seções 1 a 4).

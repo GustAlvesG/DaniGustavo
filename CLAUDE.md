@@ -14,7 +14,7 @@ Branch `saas`: plataforma multi-evento (Plataforma → Organização → Evento 
 
 ## Estrutura
 
-- `apps/web/` site público (`src/app/[host]/` = site por evento; `src/proxy.ts` transforma o Host no root param `host`; `src/lib/legacy-content.ts` isola o conteúdo fixo do casamento; `src/app`; leia `apps/web/AGENTS.md` e `node_modules/next/dist/docs/`). Textos e fotos de apresentação em `src/content/` (`home.ts`, `galeria.ts`, `paginas.ts`), fotos em `public/fotos/`; guia em `docs/PERSONALIZAR.md`.
+- `apps/web/` site público (`src/app/[host]/` = site por evento; `src/proxy.ts` transforma o Host no root param `host`; `src/lib/site.ts` monta menu/seções/módulos de `SiteContent`; `src/lib/site-fallback.ts` = reserva neutra sem API; temas em `src/themes/` (`vars.ts`, `fonts.ts`, `festa/`, `moderno/`); leia `apps/web/AGENTS.md` e `node_modules/next/dist/docs/`). Nenhum texto/foto de evento no código: tudo vem do banco e se edita no painel; guia em `docs/PERSONALIZAR.md`.
 - `apps/api/` API Hono (`src/app.ts`, `auth.ts`, `env.ts`, `middleware/`, rotas do painel em `src/admin/`) e painel (`painel/`: `App.tsx` com rotas por hash, `pages/`, `ui.tsx`, `api.ts`).
 - `apps/api/src/tenancy/`: resolver de evento (LRU 60 s), `publicEvent`, `requireEventAccess`, permissões, `crossEvent`, `eventBaseUrl`.
 - `packages/db/` schema (`src/schema/tenancy.ts`: organizações, eventos, domínios, membros), migrations, seed, `src/cli.ts` (CLI de plataforma em `src/tenancy-admin.ts`).
@@ -29,9 +29,10 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - `pnpm dev` sobe web e api em paralelo; `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format` / `format:check`.
 - E2E: `pnpm --filter @casamento/web test:e2e`.
 - Banco: `pnpm db:generate`, `db:migrate`, `db:seed`, `db:reset`; `db:setup` = primeira carga em produção (evento 1, configurações, admins + vínculos, host de `SITE_URL` como domínio do evento 1 se não houver nenhum; sem dados fictícios; idempotente).
-- CLI de plataforma (de qualquer lugar: `pnpm --filter @casamento/db exec node src/cli.ts <comando>`): `org:create`, `event:create`, `domain:add`, `user:add`, `event:list`, `uploads:migrate`; sem argumentos lista as opções. Passo a passo em `docs/PERSONALIZAR.md`.
+- CLI de plataforma (de qualquer lugar: `pnpm --filter @casamento/db exec node src/cli.ts <comando>`): `org:create`, `event:create`, `domain:add`, `user:add`, `event:list`, `uploads:migrate`, `content:import-legacy` (leva o casamento de `packages/db/src/legacy` + fotos de `packages/db/legacy/dani-gustavo/fotos` para o banco; idempotente, roda no seed/setup); sem argumentos lista as opções. Passo a passo em `docs/PERSONALIZAR.md`.
 - Testes da API usam o banco `casamento_api_test` (ou `TEST_DATABASE_URL`), recriado, migrado e semeado no global-setup; nunca o banco de dev. O auditor de SQL (consulta sem `event_id` fora de `crossEvent` falha) vem ligado; `AUDIT_STRICT=0` desliga.
-- E2E multi-evento: `pnpm --filter @casamento/web exec playwright test --project=multi` (o setup global cria `ana-bruno` e os domínios da porta de teste).
+- E2E multi-evento: `pnpm --filter @casamento/web exec playwright test --project=multi` (o setup global cria `ana-bruno`, os domínios da porta de teste e o anfitrião `anfitriao-e2e@exemplo.com` só dele, com senha nova a cada rodada).
+- E2E ao lado dos servidores do usuário: `E2E_PORT=3100 E2E_API_PORT=3343 NEXT_DIST_DIR=.next-e2e PAYMENT_PROVIDER=simulado pnpm --filter @casamento/web exec playwright test` (a API dos e2e monta o painel antes e revalida o site do e2e por `WEB_INTERNAL_URL`). Projetos: `mobile`, `desktop`, `painel` (inclui `painel-fase2.spec.ts`), `multi`, `prazo`.
 - Se `drizzle-kit migrate` falhar em silêncio: `pnpm --filter @casamento/db exec node src/cli.ts migrate`.
 
 ## URLs locais
@@ -84,7 +85,17 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Links de e-mail/WhatsApp/QR usam `eventBaseUrl(event)` (host primário de `event_domains`; sem domínio, cai em `SITE_URL`).
 - Avisos de pedido/RSVP vão para os hosts (`event_members`) e, com `notify.org_owners` nas configurações privadas, também para os owners da org (sem hosts, os owners entram). `ADMIN_EMAIL_*` só servem ao seed. Telegram é canal da plataforma (um bot só), com o nome do evento como prefixo da mensagem.
 - Configurações por evento em `event_settings` (PK `event_id, key`), não mais `settings` global. Lembretes de RSVP iteram os eventos ativos, cada um com a sua configuração.
-- Conteúdo fixo do casamento (galeria, padrinhos, textos de `content/`) só aparece para `dani-gustavo` (`legacy-content.ts`) até a Fase 2; outros eventos usam site neutro (monograma por iniciais, sem galeria/padrinhos).
+- Sem conteúdo de evento no código e nenhum `slug === "dani-gustavo"`: o que era especial do casamento virou dado (`couple.monogram_art: "dg"` = ligadura DG; `calendar.uid` = UID fixo da agenda), gravado pelo `content:import-legacy`.
+
+## Decisões da Fase 2 (ver `docs/saas/fase-2.md`)
+
+- Conteúdo em `event_settings` (JSON validado por zod de `packages/shared`): `site.sections` (seções da home e páginas, fotos por `PhotoRef { mediaId }`), `site.theme`, `event.modules`, `event.vocabulary` (públicos) e `event.sides` (privado); cada uma com rota própria no painel (`/site`, `/appearance`, `/config`), o PUT genérico de `/settings` recusa.
+- Fotos do evento na tabela `event_media` (upload múltiplo em `/media`, miniatura gerada no navegador por canvas, tipo conferido pelos bytes) atrás da interface `Storage` (`apps/api/src/storage`, disco local); presentes também pelo `Storage`. Importação legada sem miniatura (exigiria dependência).
+- Temas Álbum/Festa/Moderno por variáveis CSS com os nomes de token do Álbum (`papel`, `tinta`, `marinho`...), paletas prontas validadas na WCAG AA por teste, fontes de lista curada pelo `next/font`; componentes não usam cor fixa (use `color-mix` com os tokens).
+- Vocabulário = `VOCABULARY[type]` + trocas do evento; lados dos convites = chaves livres de `event.sides` (`invitations.side` varchar).
+- Módulo desligado: some do menu e da home, página do site 404 e rotas públicas da API 404; o painel continua mostrando os dados.
+- `applyCharge` revalida `gifts:<id>` (e `messages:<id>` com recado).
+- `packages/db` usa `@casamento/shared` como dependência de workspace.
 
 ## Fases
 
@@ -92,6 +103,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Fase 5 (painel): concluída, aguardando revisão. Dashboard, convites (link, WhatsApp, respostas, CSV), presentes (CRUD, foto, ordem), pedidos (reembolso, conciliação), recados, configurações, trocar senha. E2E: `pnpm --filter @casamento/web exec playwright test --project=painel` (usa `ADMIN_EMAIL_1`/`ADMIN_PASSWORD_INICIAL` ou `E2E_ADMIN_*`; `PAINEL_URL` para outra porta). Complemento: importar convidados CSV/XLSX (`src/admin/guest-import.ts`, leitor próprio em `spreadsheet.ts`: zip pelo diretório central + `inflateRawSync`, sem dependência; exemplo em `docs/exemplos/`), QR em lote para impressão (`#/convites/qr`, gerador próprio em `packages/shared/src/qr.ts`, byte/M, testado com vetores da norma e um decodificador no teste) e listas buffet/cerimonial/portaria (`/api/admin/events/:eventId/invitations/lists/:tipo[.csv]`, `#/convites/listas/:tipo`, portaria sem dados de saúde).
 - Fase 6 (extras): concluída. Mural de recados (`/recados`, `GET/POST /api/e/:slug/messages`: só aprovados; POST com honeypot, 3 por 10 min por IP, entra pendente; tag de cache "messages"), PWA (`manifest.ts`, ícones em `/icons/*` via ImageResponse, `public/sw.js` com cache só de fontes/ícones e `offline.html`) e lembretes de RSVP (`apps/api/src/reminders.ts`, job horário `startReminderJob`, tabela `rsvp_reminders`, config privada em `settings.reminders`, página Lembretes no painel). `NEXT_DIST_DIR=.next-e2e` permite um segundo `next dev` ao lado do aberto.
 - Plataforma (branch saas) — Fase 1 multi-evento: concluída, aguardando revisão (etapas 1–9: schema e migrations 0006–0007, CLI, tenancy, rotas por evento, painel, jobs/avisos/uploads, Next por host, testes de isolamento).
+- Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`). Próxima: Fase 3. Status em `docs/saas/STATUS.md`.
 - Fases seguintes do produto: F2 conteúdo/temas/vocabulário por tipo de evento; F3 painel da organização (criar evento pela UI); F4 tarefas/fornecedores/orçamentos; F5 subcontas Asaas; F6 comercial/planos/LGPD; F7 extras.
 
 ## Pendências
@@ -104,8 +116,8 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - CSP (PROMPT §9): Fase 7. Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
 - E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
 - Decisões aguardando o usuário (`docs/saas/fase-1.md` §9): papéis de Dani/Gustavo (hoje Gustavo é platform admin e os dois são owners da org 1, `TODO(fase1-papeis)`); permissões do `event_host` (hoje tudo); Telegram (adotado: canal da plataforma); domínio base `PLATFORM_BASE_DOMAIN` (ainda não usado pelo código).
-- F2: o enum `invitations.side` é `dani`/`gustavo` e o site neutro ainda diz "O casamento".
-- `applyCharge`/webhook não revalidam o cache do site (já era assim no `main`; o plano previa e não foi feito): a cota vendida só aparece quando o cache de presentes (`revalidate: 30` s, refeito em segundo plano) é renovado; só mudanças feitas pelo painel revalidam na hora.
+- Decisões da Fase 2 aguardando o usuário (`docs/saas/fase-2.md` §5): vocabulário por tipo, paletas/fontes de Festa e Moderno, lados padrão, quem muda tipo/módulos, fotos do casamento versionadas em `packages/db/legacy`.
+- `couple.monogram_art` e `calendar.uid` não têm tela no painel (só banco/CLI).
 - `.env` de dev tem Asaas de produção: em testes use `PAYMENT_PROVIDER=simulado`.
 - O evento `ana-bruno` existe no banco de dev (criado pelo setup do e2e `multi`).
 
