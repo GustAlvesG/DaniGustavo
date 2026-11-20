@@ -7,11 +7,12 @@ import { getContent, getSite } from "@/lib/api/site";
 import { decodeHostParam } from "@/lib/host";
 import { formatWeddingDate } from "@/lib/countdown";
 import { cityFromAddress } from "@/lib/site";
+import { ogFonts } from "../_og/fonts";
 
 /*
  * Imagem da prévia do link (WhatsApp, Open Graph), 1200×630, gerada no build
- * e refeita com o cache de /api/site. Campo marinho com o DG branco, os nomes
- * em Pinyon Script, a data e a cidade; à direita, a foto do hero no arco com
+ * e refeita com o cache de /api/site. Campo escuro do tema com o DG claro, os nomes
+ * na fonte cursiva do tema (Pinyon Script no Álbum), a data e a cidade; à direita, a foto do hero no arco com
  * moldura branca (a mesma forma do traje na home).
  *
  * O ImageResponse (Satori) não lê woff2 nem fontes variáveis: usamos TTFs
@@ -22,9 +23,6 @@ export const alt = "Convite do evento";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const COLORS = { marinho: "#14213D", branco: "#FFFFFF", nevoa: "#D3DDED", serenity: "#92A8D1" };
-
-const fontDir = join(process.cwd(), "src", "app", "_og");
 const photoDir = join(process.cwd(), "public", "fotos");
 
 const svgUri = (viewBox: string, body: string) =>
@@ -36,12 +34,19 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
   const ev = await getEvent(decodeHostParam((await params).host));
   const { home, iniciais } = await getContent(ev);
   const fotoArco = home.hero.fotoCelular;
-  const [pinyon, jost, photo, site] = await Promise.all([
-    readFile(join(fontDir, "PinyonScript-Regular.ttf")),
-    readFile(join(fontDir, "Jost-Medium.ttf")),
+  const [photo, site] = await Promise.all([
     fotoArco ? readFile(join(photoDir, fotoArco.arquivo)) : null,
     getSite(ev),
   ]);
+  // Cores e fontes do tema do evento (Álbum/marinho = as de antes).
+  const { theme } = site;
+  const COLORS = {
+    marinho: theme.colors.marinho,
+    branco: theme.colors.branco,
+    nevoa: theme.colors.nevoa,
+    serenity: theme.colors.serenity,
+  };
+  const fonts = await ogFonts(theme);
   const date = formatWeddingDate(site.wedding.datetime, site.wedding.timezone);
   const city = cityFromAddress(site.ceremony.address);
   const mono = svgUri(MONOGRAM_VIEWBOX, monogramMarkup({ ink: COLORS.branco, bold: 8 }));
@@ -49,6 +54,8 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
 
   const archW = 360;
   const archH = 540;
+  // Álbum: arco; Festa: cantos grandes; Moderno: quase reto.
+  const archTop = theme.theme === "album" ? archW / 2 : theme.theme === "festa" ? 120 : 8;
 
   return new ImageResponse(
     <div
@@ -70,9 +77,7 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
         }}
       >
         {iniciais ? (
-          <div
-            style={{ fontFamily: "Jost", fontSize: 64, letterSpacing: 12, color: COLORS.branco }}
-          >
+          <div style={{ fontFamily: "Ui", fontSize: 64, letterSpacing: 12, color: COLORS.branco }}>
             {iniciais}
           </div>
         ) : (
@@ -81,8 +86,8 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
         )}
         <div
           style={{
-            fontFamily: "Pinyon",
-            fontSize: 128,
+            fontFamily: "Nomes",
+            fontSize: fonts.names.script ? 128 : 92,
             lineHeight: 1.05,
             color: COLORS.branco,
           }}
@@ -92,7 +97,7 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div
             style={{
-              fontFamily: "Jost",
+              fontFamily: "Ui",
               fontSize: 30,
               letterSpacing: 6,
               textTransform: "uppercase",
@@ -104,7 +109,7 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
           {city ? (
             <div
               style={{
-                fontFamily: "Jost",
+                fontFamily: "Ui",
                 fontSize: 26,
                 letterSpacing: 5,
                 textTransform: "uppercase",
@@ -127,8 +132,8 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
               width: archW,
               height: archH,
               border: `10px solid ${COLORS.branco}`,
-              borderTopLeftRadius: archW / 2,
-              borderTopRightRadius: archW / 2,
+              borderTopLeftRadius: archTop,
+              borderTopRightRadius: archTop,
               borderBottomLeftRadius: 14,
               borderBottomRightRadius: 14,
               overflow: "hidden",
@@ -149,8 +154,8 @@ export default async function OpengraphImage({ params }: { params: Promise<{ hos
     {
       ...size,
       fonts: [
-        { name: "Pinyon", data: pinyon, style: "normal", weight: 400 },
-        { name: "Jost", data: jost, style: "normal", weight: 500 },
+        { name: "Nomes", data: fonts.names.data, style: "normal", weight: 400 },
+        { name: "Ui", data: fonts.ui, style: "normal", weight: 500 },
       ],
     },
   );

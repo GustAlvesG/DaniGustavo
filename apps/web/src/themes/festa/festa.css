@@ -1,0 +1,123 @@
+/*
+ * Tema Festa (15 anos, aniversário, chá): cantos redondos, cartões com sombra chapada na
+ * cor de destaque, fotos soltas como adesivos e rótulos em pílula. Texto corrido na fonte
+ * de interface (mais aberta); a fonte de texto fica para os títulos.
+ */
+html[data-theme="festa"] {
+  --text-base: 1.0625rem;
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+  }
+
+  @media (width >= 64rem) {
+    --text-base: 1.125rem;
+  }
+
+  /* Títulos: fonte de texto (DM Serif Display no padrão), em destaque. */
+  .titulo {
+    font-family: var(--font-display);
+    letter-spacing: 0;
+    line-height: 1.05;
+  }
+  .titulo em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .lead {
+    font-size: 1.15rem;
+  }
+
+  /* Rótulo em pílula. */
+  .rotulo {
+    padding: 0.4em 1em;
+    border-radius: 999px;
+    letter-spacing: 0.16em;
+    color: var(--color-enfase);
+    background: color-mix(in srgb, var(--color-serenity) 28%, transparent);
+  }
+  .rotulo > i {
+    display: none;
+  }
+
+  /* Foto = adesivo: moldura grossa e redonda, fita vira "bolinha" colorida. */
+  .polaroid {
+    padding: 12px 12px 18px;
+    border-radius: 22px;
+    box-shadow: 8px 8px 0 var(--color-serenity);
+  }
+  .polaroid::before {
+    top: -14px;
+    width: 54px;
+    height: 28px;
+    margin-left: -27px;
+    border-radius: 999px;
+    background: var(--color-enfase);
+    box-shadow: none;
+  }
+  .polaroid-foto,
+  .polaroid-foto > img {
+    border-radius: 14px;
+  }
+  .legenda b {
+    letter-spacing: 0.18em;
+    color: var(--color-enfase);
+  }
+  .legenda span {
+    font-style: normal;
+    font-family: var(--font-display);
+  }
+
+  .moldura-papel {
+    border-radius: 22px;
+    box-shadow: 8px 8px 0 var(--color-serenity);
+  }
+  .moldura-papel figcaption {
+    font-style: normal;
+  }
+  .canto {
+    display: none;
+  }
+
+  .arco {
+    border-radius: 42% 42% 26px 26px / 28% 28% 26px 26px;
+    border-width: 8px;
+    box-shadow: 8px 8px 0 var(--color-serenity);
+  }
+  .arco-escuro {
+    border-radius: 42% 42% 26px 26px / 28% 28% 26px 26px;
+  }
+
+  /* Cartões: contorno firme e sombra chapada, sem o fio duplo. */
+  .cartao {
+    border-radius: 26px;
+    padding: 30px 28px 28px;
+    box-shadow:
+      inset 0 0 0 2px var(--color-tinta),
+      8px 8px 0 var(--color-serenity);
+  }
+  .cartao-resp {
+    border-radius: 26px;
+    box-shadow:
+      inset 0 0 0 2px var(--color-claro),
+      0 30px 60px -30px color-mix(in srgb, #000 60%, transparent);
+  }
+
+  /* Inclinações mais alegres. */
+  .r1 {
+    --r: -4.5deg;
+  }
+  .r2 {
+    --r: 3.5deg;
+  }
+  .r4 {
+    --r: 4deg;
+  }
+
+  /* Botões: pílula cheia, letras mais calmas. */
+  :is(a, button).uppercase.rounded-full {
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+}

@@ -1,0 +1,8 @@
+/*
+ * Desenho dos temas além do Álbum (que é o de album.css e vale sem escolha). O layout [host]
+ * põe `data-theme="<id>"` no <html>; cada arquivo só mexe no que muda de personalidade
+ * (formas, inclinações, rótulos, tipografia). Cores e fontes vêm das variáveis do tema
+ * (themes/vars.ts), nunca fixas aqui. CSS sem camada: vence os utilitários do Tailwind.
+ */
+@import "./festa/festa.css";
+@import "./moderno/moderno.css";

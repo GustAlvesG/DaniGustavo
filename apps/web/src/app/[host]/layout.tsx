@@ -1,38 +1,12 @@
+import { resolveTheme, type ResolvedTheme } from "@casamento/shared";
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Jost, Pinyon_Script } from "next/font/google";
 import { RegistrarSw, SmoothScroll } from "@/components/motion";
 import { BUILD_HOST, findCurrentEvent, listPrimaryHosts } from "@/lib/api/event";
 import { getSite } from "@/lib/api/site";
 import { hostUrl } from "@/lib/site";
+import { themeFontClasses } from "@/themes/fonts";
+import { themeColors, themeVars } from "@/themes/vars";
 import "../globals.css";
-
-/*
- * Fontes do design "Álbum" (next/font baixa no build e serve do próprio
- * site, sem pedido ao Google no navegador). Cada uma vira uma variável CSS
- * usada pelos tokens de globals.css (--font-serif, --font-sans, --font-script).
- */
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  display: "swap",
-  variable: "--font-cormorant",
-});
-
-const jost = Jost({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-  variable: "--font-jost",
-});
-
-// Só nos nomes do casal (hero e rodapé).
-const pinyon = Pinyon_Script({
-  subsets: ["latin"],
-  weight: "400",
-  display: "swap",
-  variable: "--font-pinyon",
-});
 
 /*
  * Root layout de cada evento: `app/[host]` recebe o Host da requisição (o proxy reescreve
@@ -75,12 +49,31 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Barra do navegador no celular na cor do menu (marinho).
-export const viewport: Viewport = { themeColor: "#14213d", colorScheme: "light" };
+/** Tema do host (o do tipo "casamento" = Álbum se o host não é de nenhum evento). */
+async function currentTheme(): Promise<ResolvedTheme> {
+  const ev = await findCurrentEvent();
+  return ev ? (await getSite(ev)).theme : resolveTheme("wedding");
+}
 
-export default function RootLayout({ children }: LayoutProps<"/[host]">) {
+// Barra do navegador no celular na cor do menu do tema.
+export async function generateViewport(): Promise<Viewport> {
+  return { themeColor: themeColors(await currentTheme()).bar, colorScheme: "light" };
+}
+
+/*
+ * O tema do evento vira variáveis CSS no <html> (cores e pilhas de fontes, sobrescrevendo as do
+ * Álbum em globals.css), `data-theme` para o desenho de Festa/Moderno e as classes do
+ * next/font só das fontes em uso. Álbum + marinho dá os mesmos valores de globals.css.
+ */
+export default async function RootLayout({ children }: LayoutProps<"/[host]">) {
+  const theme = await currentTheme();
   return (
-    <html lang="pt-BR" className={`${cormorant.variable} ${jost.variable} ${pinyon.variable}`}>
+    <html
+      lang="pt-BR"
+      className={themeFontClasses(theme)}
+      data-theme={theme.theme}
+      style={themeVars(theme)}
+    >
       <body className="flex min-h-full flex-col">
         {children}
         <SmoothScroll />
