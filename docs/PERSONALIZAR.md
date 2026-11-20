@@ -361,18 +361,45 @@ Cada bloco tem o próprio botão de salvar e é validado antes de ir para o site
 
 ## 8. Criar um novo evento
 
-O site agora atende vários eventos, um por domínio. Enquanto não existe o painel da organização
-(Fase 3), o evento nasce pela CLI, a partir de `packages/db` (a API não precisa estar parada):
+O site atende vários eventos, um por domínio. Quem é **dono ou membro da organização** cria e
+administra os eventos pelo painel; a CLI continua valendo para a plataforma (criar a própria
+organização, scripts).
+
+### Pelo painel (organização)
+
+1. No seletor do topo, escolha **Organização: <nome>** (ou abra `#/o/<id>`). O **Início** da
+   organização mostra cada evento com data, convidados, confirmados e presentes recebidos.
+2. **Eventos → Novo evento**: nome, tipo, data, horário, fuso (padrão `America/Sao_Paulo`),
+   endereço (o `slug`, conferido enquanto você digita) e, se quiser, o domínio próprio (vira o
+   domínio principal dos links). O evento nasce **rascunho** (o site responde 404) com o site
+   neutro do tipo; em **Eventos**, **Ativar** coloca no ar e **Arquivar** tira (não há apagar).
+3. **Anfitriões** (atalho no menu do evento, para dono e membro): digite o e-mail e **Enviar convite**. A
+   pessoa recebe um link que vale 7 dias e só funciona uma vez; **Reenviar** gera um link novo
+   (o antigo morre) e **Cancelar convite** invalida. Quem não tem conta cria a senha ao aceitar; quem
+   já tem entra com ela e aceita. O anfitrião só vê o próprio evento, nunca a organização.
+4. **Permissões do anfitrião** (outro atalho no menu do evento): desmarque o que os anfitriões daquele evento não podem fazer
+   (por padrão, tudo). Tirar "ver" uma área tira também "mexer" nela; o início do painel fica
+   sempre. Dono e membro da organização não são afetados.
+5. **Equipe** (só o dono): convidar dono ou membro, mudar papel e remover. A organização nunca
+   fica sem dono. Membro cria eventos, convida anfitriões e ajusta permissões, mas não mexe na
+   equipe. **Convites pendentes** lista tudo o que ainda não foi aceito.
+
+Sem SMTP (`MAIL_HOST` vazio), o e-mail do convite sai no console da API, com o link.
+
+### Pela CLI (plataforma)
+
+A partir de `packages/db` (a API não precisa estar parada):
 
 ```bash
 cd packages/db
 node src/cli.ts org:create --slug minha-org --name "Minha organização"
-node src/cli.ts event:create --org minha-org --slug ana-bruno --name "Ana & Bruno" \
-  --type wedding --starts-at 2027-09-18T16:00:00-03:00 --status active
+node src/cli.ts event:create --org minha-org --slug ana-bruno --name "Ana & Bruno"   --type wedding --starts-at 2027-09-18T16:00:00-03:00 --status active
 node src/cli.ts domain:add --event ana-bruno --host ana-bruno.localhost:3000 --primary
 node src/cli.ts user:add --email anfitriao@exemplo.com --name "Ana" --event ana-bruno --role host
 node src/cli.ts event:list
 ```
+
+O painel e a CLI usam o mesmo serviço de criação (`createEventRecord`).
 
 - O host entra como chega no navegador, com a porta em desenvolvimento
   (`ana-bruno.localhost:3000`); em produção, o domínio sem porta. O domínio marcado `--primary`

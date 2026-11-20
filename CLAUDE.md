@@ -97,13 +97,23 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - `applyCharge` revalida `gifts:<id>` (e `messages:<id>` com recado).
 - `packages/db` usa `@casamento/shared` como dependência de workspace.
 
+## Decisões da Fase 3 (ver `docs/saas/fase-3.md`)
+
+- Painel da organização em `#/o/:orgId` (rotas `/api/admin/orgs/:orgId/*`, `requireOrgAccess` + `requireOrgPermission`; sem vínculo → 404): início multievento, eventos (criar pelo mesmo `createEventRecord` da CLI, nasce rascunho; ativar/arquivar, sem apagar), equipe, convites e, por evento, anfitriões e permissões. Matriz: `org.read`/`events.create`/`hosts.manage` para dono e membro, `team.manage` só dono; anfitrião não entra na organização; a org nunca fica sem dono (422).
+- Convites da equipe/anfitrião em `team_invites` (só o SHA-256 do token, 7 dias, uso único, reenviar troca o link); aceite público em `/api/team-invites` (isento de `X-Web-Key`) e `#/aceitar/<token>`: sem conta cria `user` + `account` como o `user:add`; com conta exige sessão do mesmo e-mail. Cadastro público do Better Auth segue desligado.
+- Permissões do anfitrião: lista de negação em `event.host_permissions` (privada, rota da org), aplicada em `requirePermission` só para `event_host`; toda rota de evento declara ação, inclusive leitura (`gifts.read`, `messages.read`, `settings.read`, `reminders.read`, `content.read`); negar a leitura nega a escrita da área (`withDependents`). O menu do evento esconde pelas ações de leitura (`GET /events/:id/access`; falhou → "pode tudo", a API ainda dá 403).
+- Erros: `ApiError` tem `field` opcional (campo culpado) e `ERROR_CODES.conflict` para 409.
+- QR dos convites lê nomes/data de `GET /invitations/card` (`invitations.read`), não de `/settings`.
+- Painel: `useRefreshMe()` recarrega o `/me` depois de criar/mudar evento (senão o hash novo volta para `#/eventos`).
+
 ## Fases
 
 - Fases 0 a 3: concluídas. Fase 4 (presentes e pagamento): concluída; Asaas implementado e testado com respostas gravadas, falta teste real no sandbox.
 - Fase 5 (painel): concluída, aguardando revisão. Dashboard, convites (link, WhatsApp, respostas, CSV), presentes (CRUD, foto, ordem), pedidos (reembolso, conciliação), recados, configurações, trocar senha. E2E: `pnpm --filter @casamento/web exec playwright test --project=painel` (usa `ADMIN_EMAIL_1`/`ADMIN_PASSWORD_INICIAL` ou `E2E_ADMIN_*`; `PAINEL_URL` para outra porta). Complemento: importar convidados CSV/XLSX (`src/admin/guest-import.ts`, leitor próprio em `spreadsheet.ts`: zip pelo diretório central + `inflateRawSync`, sem dependência; exemplo em `docs/exemplos/`), QR em lote para impressão (`#/convites/qr`, gerador próprio em `packages/shared/src/qr.ts`, byte/M, testado com vetores da norma e um decodificador no teste) e listas buffet/cerimonial/portaria (`/api/admin/events/:eventId/invitations/lists/:tipo[.csv]`, `#/convites/listas/:tipo`, portaria sem dados de saúde).
 - Fase 6 (extras): concluída. Mural de recados (`/recados`, `GET/POST /api/e/:slug/messages`: só aprovados; POST com honeypot, 3 por 10 min por IP, entra pendente; tag de cache "messages"), PWA (`manifest.ts`, ícones em `/icons/*` via ImageResponse, `public/sw.js` com cache só de fontes/ícones e `offline.html`) e lembretes de RSVP (`apps/api/src/reminders.ts`, job horário `startReminderJob`, tabela `rsvp_reminders`, config privada em `settings.reminders`, página Lembretes no painel). `NEXT_DIST_DIR=.next-e2e` permite um segundo `next dev` ao lado do aberto.
 - Plataforma (branch saas) — Fase 1 multi-evento: concluída, aguardando revisão (etapas 1–9: schema e migrations 0006–0007, CLI, tenancy, rotas por evento, painel, jobs/avisos/uploads, Next por host, testes de isolamento).
-- Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`). Próxima: Fase 3. Status em `docs/saas/STATUS.md`.
+- Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`).
+- Plataforma — Fase 3 (painel da organização: eventos, equipe, convites, anfitriões e permissões): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase3/`. Próxima: Fase 4. Status em `docs/saas/STATUS.md`.
 - Fases seguintes do produto: F2 conteúdo/temas/vocabulário por tipo de evento; F3 painel da organização (criar evento pela UI); F4 tarefas/fornecedores/orçamentos; F5 subcontas Asaas; F6 comercial/planos/LGPD; F7 extras.
 
 ## Pendências
@@ -115,7 +125,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Login no painel: 5 tentativas/min por IP; e2e + screenshots seguidos podem esbarrar no limite (reinicie a API de teste).
 - CSP (PROMPT §9): Fase 7. Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
 - E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
-- Decisões aguardando o usuário (`docs/saas/fase-1.md` §9): papéis de Dani/Gustavo (hoje Gustavo é platform admin e os dois são owners da org 1, `TODO(fase1-papeis)`); permissões do `event_host` (hoje tudo); Telegram (adotado: canal da plataforma); domínio base `PLATFORM_BASE_DOMAIN` (ainda não usado pelo código).
+- Decisões aguardando o usuário (`docs/saas/fase-1.md` §9): papéis de Dani/Gustavo (hoje Gustavo é platform admin e os dois são owners da org 1, `TODO(fase1-papeis)`); permissões do `event_host` (padrão tudo; a organização ajusta por evento); Telegram (adotado: canal da plataforma); domínio base `PLATFORM_BASE_DOMAIN` (ainda não usado pelo código).
 - Decisões da Fase 2 aguardando o usuário (`docs/saas/fase-2.md` §5): vocabulário por tipo, paletas/fontes de Festa e Moderno, lados padrão, quem muda tipo/módulos, fotos do casamento versionadas em `packages/db/legacy`.
 - `couple.monogram_art` e `calendar.uid` não têm tela no painel (só banco/CLI).
 - `.env` de dev tem Asaas de produção: em testes use `PAYMENT_PROVIDER=simulado`.

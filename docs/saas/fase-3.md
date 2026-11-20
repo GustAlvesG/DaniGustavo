@@ -120,3 +120,18 @@ Merge A → B → C → D na `saas`; apagar `admin/org/stub.ts` e os `TODO(fase3
 | Validade do convite                                | 7 dias, uso único; reenvio gera link novo.                                                           |
 | Evento novo                                        | Nasce rascunho; domínio digitado (sem `PLATFORM_BASE_DOMAIN` automático).                            |
 | Apagar evento pela UI                              | Não: só arquivar (apagar tem pedidos/pagamentos com FK restrict e precisa de política de LGPD — F6). |
+
+## 6. Integração (concluída)
+
+Merges A → B → C → D na `saas` sem conflitos (cada frente ficou nos seus arquivos). Depois:
+
+- **Apagados:** `admin/org/stub.ts`; nenhuma rota responde 501.
+- **Contrato de erro:** `ApiError` ganhou `field` opcional (campo culpado, usado na criação de evento) e `ERROR_CODES.conflict` (409 de slug/domínio em uso, convite já aceito, anfitrião repetido, conta existente); 422 segue `invalid_request`. `errorBody(code, message, field?)`.
+- **QR dos convites:** lia `GET /settings` e quebrava para anfitrião sem `settings.read`; agora lê nomes, monograma e data de `GET /invitations/card` (`invitations.read`). Teste em `host-permissions.test.ts`.
+- **Menu do evento** pelas ações de leitura da frente C (`gifts.read`, `messages.read`, `reminders.read`, `content.read` para Site/Galeria/Aparência, `settings.read`); sem a escrita, a página abre e a API recusa a gravação (403). Botões de escrita ainda não somem dentro das páginas.
+- **Bug entre frentes:** criar evento (A) navegava para `#/e/<novo>`, mas o `/me` do painel (D) era carregado uma vez e o redirecionamento mandava para `#/eventos`. `useRefreshMe()` (`org.tsx`) recarrega o `/me` antes de navegar; mudar status também recarrega.
+- **Teste intermitente (causa real, reproduzida):** os arquivos da API rodam em paralelo no mesmo banco com eventos de ids vizinhos; o `DELETE ... WHERE event_id IN (...)` do `afterAll` (e as cascatas) travava intervalos do índice usados por outro arquivo e o InnoDB derrubava um com deadlock (1213) — o arquivo falhava inteiro sem teste vermelho. Reproduzido com três suítes simultâneas (`isolation-cruzado.test.ts`, deadlock em `gift_orders`); `createTestEvents().cleanup` agora repete a instrução em 1213/1205 (`retryOnDeadlock`). Os `vi.waitFor` de e-mail do RSVP ganharam 5 s (falhavam só sob a mesma carga).
+- **E2E:** `painel-fase3.spec.ts` completo: organização e dona próprias do teste (`ensureE2eOrg`/`cleanupE2eOrg` em `@casamento/db/testing`, para o evento novo não aparecer ao admin dos outros e2e), criar evento → negar "ver presentes" → convidar anfitrião → aceite em contexto anônimo com conta nova (o apoio troca o hash do convite por um token conhecido, já que o e-mail vai ao console da API) → anfitrião só vê o evento dele, sem Presentes (menu, aviso e 403 na API), e `#/o/:id`/outro evento voltam para o dele. Cada arquivo do painel manda o próprio `X-Forwarded-For` só no POST de login (`support/login-ip.ts`): com 5 arquivos o limite de 5 logins/min por IP derrubava a suíte.
+- **Banco de dev:** nada novo a aplicar (0009 já estava no `casamento`; sem migration nas frentes).
+- **Visual:** screenshots do painel da organização em 390×844 e 1440×900 em `.screenshots/saas-fase3/` (início, eventos, novo evento, equipe, convites, anfitriões, permissões, aceite, lista/seletor, menu do evento).
+- Frentes limpas: worktrees `casamento-wt/f3{a..d}`, branches `saas-f3*` e bancos `casamento_f3*` removidos.
