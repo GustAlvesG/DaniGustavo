@@ -24,7 +24,7 @@ export const CreateOrgEventInput = z.object({
 });
 export type CreateOrgEventInput = z.infer<typeof CreateOrgEventInput>;
 
-/** GET /api/admin/orgs/:orgId/events/slug?slug=… */
+/** GET /api/admin/orgs/:orgId/events/slug-check?slug=… */
 export interface SlugCheck {
   slug: string;
   available: boolean;
@@ -60,3 +60,9 @@ export interface OrgDashboard {
   events: OrgEventSummary[];
   totals: { events: number; guests: number; confirmed: number; giftsReceivedCents: number };
 }
+
+/** PATCH /api/admin/orgs/:orgId/events/:eventId (ativar, voltar a rascunho ou arquivar). */
+export const UpdateOrgEventInput = z.object({
+  status: z.enum(["draft", "active", "archived"], { error: "Situação do evento inválida." }),
+});
+export type UpdateOrgEventInput = z.infer<typeof UpdateOrgEventInput>;
