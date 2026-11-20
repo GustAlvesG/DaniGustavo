@@ -1,15 +1,17 @@
+import { and, byEvent, eventMedia, inArray } from "@casamento/db";
 import {
   defaultSections,
+  mediaIdsIn,
   SiteSections,
   vocabularyFor,
   VocabularyOverrides,
 } from "@casamento/shared";
 import { Hono } from "hono";
-import { apiError, ERROR_CODES } from "../errors.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv } from "../tenancy/types.ts";
 import type { AdminDeps } from "./context.ts";
-import { readSetting } from "./event-settings.ts";
+import { invalid, readJson } from "./context.ts";
+import { readSetting, writeSetting } from "./event-settings.ts";
 
 /*
  * Editor das seções do site (Fase 2, frente A): `GET/PUT /api/admin/events/:eventId/site`.
@@ -34,11 +36,27 @@ export function adminSiteEditorRoutes(deps: AdminDeps) {
     });
   });
 
-  // TODO(fase2-A): validar com SiteSections, conferir que cada mediaId é do evento, gravar e
-  // revalidar ["site"].
-  app.put("/", requirePermission("content.write"), (c) =>
-    apiError(c, 501, ERROR_CODES.invalidRequest, "Editor do site ainda não disponível."),
-  );
+  // Corpo: { sections }. Cada mediaId tem de ser foto do próprio evento.
+  app.put("/", requirePermission("content.write"), async (c) => {
+    const ev = c.get("event");
+    const body = await readJson(c);
+    const raw = body && typeof body === "object" ? (body as { sections?: unknown }).sections : null;
+    const parsed = SiteSections.safeParse(raw);
+    if (!parsed.success) return invalid(c, parsed.error.issues);
+    const ids = mediaIdsIn(parsed.data);
+    if (ids.length) {
+      const found = await db
+        .select({ id: eventMedia.id })
+        .from(eventMedia)
+        .where(and(byEvent(eventMedia, ev), inArray(eventMedia.id, ids)));
+      if (found.length !== ids.length) {
+        return invalid(c, [{ message: "Uma das fotos não existe neste evento. Escolha de novo." }]);
+      }
+    }
+    await writeSetting(ev, db, "site.sections", parsed.data, true);
+    await deps.revalidate(ev.id, ["site"]);
+    return c.json({ sections: parsed.data, isDefault: false });
+  });
 
   return app;
 }
