@@ -22,6 +22,10 @@ export default defineConfig({
   // Domínios desta porta e o evento 2 de teste (idempotente; veja e2e/support/multi-setup.ts).
   globalSetup: "./e2e/support/multi-setup.ts",
   fullyParallel: true,
+  // Local, o `next dev` (Turbopack, Windows) compilando as rotas para 6 workers ao mesmo tempo às
+  // vezes grava um JSON pela metade e a página falha a rodada toda (SyntaxError no JSON.parse).
+  // Com 2 workers a suíte passa estável; no CI vale o padrão do Playwright.
+  workers: process.env.CI ? undefined : 2,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
