@@ -12,6 +12,8 @@ const mailer: Mailer = { send: () => Promise.resolve() };
 const { app, db } = testApp({ mailer, revalidate: () => Promise.resolve() });
 
 const PREFIX = "/api/admin/events/:eventId";
+/** Fase 3: painel da organização. */
+const ORG_PREFIX = "/api/admin/orgs/:orgId";
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 interface RouteCase {
@@ -97,10 +99,15 @@ describe("enumeração das rotas", () => {
     expect(routes.length).toBeGreaterThan(30);
   });
 
-  it("não sobrou rota do painel fora de /events/:eventId (exceto /me)", () => {
+  it("não sobrou rota do painel fora de /events/:eventId e /orgs/:orgId (exceto /me)", () => {
     const outside = app.routes
       .filter((r) => METHODS.has(r.method) && r.path.startsWith("/api/admin/"))
-      .filter((r) => !r.path.startsWith(`${PREFIX}/`) && r.path !== "/api/admin/me")
+      .filter(
+        (r) =>
+          !r.path.startsWith(`${PREFIX}/`) &&
+          !r.path.startsWith(ORG_PREFIX) &&
+          r.path !== "/api/admin/me",
+      )
       .map((r) => `${r.method} ${r.path}`);
     expect(outside).toEqual([]);
   });
@@ -264,5 +271,126 @@ describe("dados de um evento não aparecem nem se alteram pelo outro", () => {
     expect((await call(ev.eventB.id, `/invitations/${inv.invitation.id}`, "stranger")).status).toBe(
       200,
     );
+  });
+});
+
+/* ------------------------------------------------------------------------ */
+/* Fase 3: rotas por organização (/api/admin/orgs/:orgId/*)                 */
+/* ------------------------------------------------------------------------ */
+
+/** Rotas da organização (inclui GET /orgs/:orgId), também tiradas de `app.routes`. */
+function enumerateOrgRoutes(): RouteCase[] {
+  const seen = new Map<string, RouteCase>();
+  for (const r of app.routes) {
+    if (!METHODS.has(r.method) || r.path.endsWith("*")) continue;
+    if (r.path !== ORG_PREFIX && !r.path.startsWith(`${ORG_PREFIX}/`)) continue;
+    seen.set(`${r.method} ${r.path}`, { method: r.method, pattern: r.path });
+  }
+  return [...seen.values()];
+}
+
+const orgRoutes = enumerateOrgRoutes();
+
+/** `:orgId` e `:eventId` (um evento da própria org, para passar de requireOrgEvent). */
+function fillOrg(pattern: string, orgId: number, eventId: number): string {
+  return pattern.replace(/:(\w+)(\{[^}]*\})?/g, (_m, name: string) => {
+    if (name === "orgId") return String(orgId);
+    if (name === "eventId") return String(eventId);
+    return SAMPLE[name] ?? "999999999";
+  });
+}
+
+async function probeOrg(
+  route: RouteCase,
+  orgId: number,
+  eventId: number,
+  cookie: string,
+): Promise<Probe> {
+  return probe({ ...route, pattern: fillOrg(route.pattern, orgId, eventId) }, 0, cookie);
+}
+
+const orgLabel = (r: RouteCase) => `${r.method} ${r.pattern.slice(ORG_PREFIX.length) || "/"}`;
+
+describe("organização: enumeração das rotas", () => {
+  it("cobre as áreas da fase 3", () => {
+    const paths = orgRoutes.map((r) => r.pattern.slice(ORG_PREFIX.length));
+    for (const p of [
+      "",
+      "/dashboard",
+      "/events",
+      "/members",
+      "/invites",
+      "/events/:eventId/hosts",
+      "/events/:eventId/host-permissions",
+    ]) {
+      expect(paths, p).toContain(p);
+    }
+  });
+});
+
+describe("organização: barreira de acesso", () => {
+  it("sem sessão → 401", async () => {
+    for (const r of orgRoutes) {
+      const p = await probeOrg(r, ev.orgA.id, ev.eventA.id, "");
+      expect(p.status, orgLabel(r)).toBe(401);
+    }
+  });
+
+  it("dono da org B, anfitrião do evento A e id inexistente → 404 de rota na org A", async () => {
+    for (const r of orgRoutes) {
+      for (const kind of ["stranger", "host"] as const) {
+        const p = await probeOrg(r, ev.orgA.id, ev.eventA.id, cookies[kind]);
+        expect(p, `${kind} ${orgLabel(r)}`).toEqual({ status: 404, routeNotFound: true });
+      }
+      const missing = await probeOrg(r, 999999999, ev.eventA.id, cookies.platformAdmin);
+      expect(missing, `inexistente ${orgLabel(r)}`).toEqual({ status: 404, routeNotFound: true });
+    }
+  });
+
+  it("dono, membro e platform admin passam da barreira (membro pode levar 403)", async () => {
+    for (const r of orgRoutes) {
+      for (const kind of ["owner", "member", "platformAdmin"] as const) {
+        const p = await probeOrg(r, ev.orgA.id, ev.eventA.id, cookies[kind]);
+        expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
+        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
+        if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
+      }
+    }
+  });
+
+  it("membro não mexe na equipe (403)", async () => {
+    const res = await app.request(`/api/admin/orgs/${ev.orgA.id}/invites`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie: cookies.member },
+      body: JSON.stringify({ email: "x@exemplo.com" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("evento de outra org pelo caminho da org A → 404 de rota", async () => {
+    for (const r of orgRoutes.filter((x) => x.pattern.includes(":eventId/"))) {
+      const p = await probeOrg(r, ev.orgA.id, ev.eventB.id, cookies.owner);
+      expect(p, orgLabel(r)).toEqual({ status: 404, routeNotFound: true });
+    }
+  });
+
+  it("/me lista as organizações com o papel", async () => {
+    const me = async (kind: TestUserKind) =>
+      (await (
+        await app.request("/api/admin/me", { headers: { cookie: cookies[kind] } })
+      ).json()) as {
+        organizations: { id: number; role: string }[];
+      };
+    expect((await me("owner")).organizations).toEqual([
+      expect.objectContaining({ id: ev.orgA.id, role: "org_owner" }),
+    ]);
+    expect((await me("member")).organizations).toEqual([
+      expect.objectContaining({ id: ev.orgA.id, role: "org_member" }),
+    ]);
+    expect((await me("host")).organizations).toEqual([]);
+    const admin = (await me("platformAdmin")).organizations.filter((o) =>
+      [ev.orgA.id, ev.orgB.id].includes(o.id),
+    );
+    expect(admin.map((o) => o.role)).toEqual(["platform_admin", "platform_admin"]);
   });
 });

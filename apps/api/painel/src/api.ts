@@ -1,4 +1,4 @@
-import { ea } from "./nav.ts";
+import { ea, oa } from "./nav.ts";
 
 /*
  * Cliente das rotas /api/admin. Mesma origem da API: o cookie de sessão do Better Auth vai
@@ -22,6 +22,16 @@ export const api = <T>(path: string, init: RequestInit = {}) => request<T>(ea(pa
 /** Rota fora de um evento (ex.: /api/admin/me). */
 export const apiRoot = <T>(path: string, init: RequestInit = {}) =>
   request<T>(`/api/admin${path}`, init);
+
+/** Rota da organização atual (Fase 3): orgApi("/members") → /api/admin/orgs/:orgId/members. */
+export const orgApi = <T>(path: string, init: RequestInit = {}) => request<T>(oa(path), init);
+
+export const orgSend = <T>(method: string, path: string, body?: unknown) =>
+  orgApi<T>(path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+
+/** Aceite de convite da equipe (Fase 3), sem sessão obrigatória: /api/team-invites/... */
+export const teamInviteApi = <T>(path: string, init: RequestInit = {}) =>
+  request<T>(`/api/team-invites${path}`, init);
 
 async function request<T>(url: string, init: RequestInit): Promise<T> {
   const isForm = init.body instanceof FormData;

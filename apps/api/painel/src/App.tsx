@@ -1,8 +1,26 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
-import { EventProvider, EventsPage, monogramOf, type MeEvent, type MeResponse } from "./event.tsx";
-import { eh, goAbsolute, lastEvent, rememberEvent, setCurrentEventId } from "./nav.ts";
+import {
+  EventProvider,
+  EventsPage,
+  monogramOf,
+  type MeEvent,
+  type MeOrganization,
+  type MeResponse,
+} from "./event.tsx";
+import {
+  eh,
+  goAbsolute,
+  lastEvent,
+  oh,
+  orgPath,
+  rememberEvent,
+  setCurrentEventId,
+  setCurrentOrgId,
+} from "./nav.ts";
+import { ORG_NAV, OrgPage, OrgProvider, parseOrgPath } from "./org.tsx";
+import { Aceitar } from "./pages/Aceitar.tsx";
 import { Aparencia } from "./pages/Aparencia.tsx";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
 import { Conta } from "./pages/Conta.tsx";
@@ -111,6 +129,20 @@ function Page({ path }: { path: string }) {
 /* ------------------------------------------------------------------------ */
 
 export function App() {
+  const path = useHashPath();
+  // Fase 3: aceite de convite abre com ou sem sessão (quem ainda não tem conta cria aqui).
+  const invite = /^\/aceitar\/([^/?]+)/.exec(path);
+  if (invite) {
+    return (
+      <ToastProvider>
+        <Aceitar token={decodeURIComponent(invite[1]!)} />
+      </ToastProvider>
+    );
+  }
+  return <Session />;
+}
+
+function Session() {
   const { data, isPending, refetch } = authClient.useSession();
   // O Better Auth refaz a busca da sessão após o login; o "Carregando…" só na primeira carga.
   const [loaded, setLoaded] = useState(false);
@@ -170,8 +202,19 @@ function resolveRedirect(
   path: string,
   events: { id: number }[],
   remembered: number | null,
+  orgs: { id: number }[] = [],
 ): string | null {
-  if (events.length === 0) return path === "/eventos" || path === "/conta" ? null : "/eventos";
+  // Fase 3: páginas da organização (#/o/:orgId/...).
+  const orgParsed = parseOrgPath(path);
+  if (orgParsed) {
+    if (orgs.some((o) => o.id === orgParsed.orgId)) return null;
+    return orgs.length > 0 ? `/o/${orgs[0]!.id}` : "/eventos";
+  }
+  if (events.length === 0) {
+    if (path === "/conta") return null;
+    if (orgs.length > 0) return `/o/${orgs[0]!.id}`;
+    return path === "/eventos" ? null : "/eventos";
+  }
   const only = events.length === 1 ? events[0] : undefined;
   const parsed = parseEventPath(path);
   if (parsed) {
@@ -185,11 +228,21 @@ function resolveRedirect(
 }
 
 function Routed({ me, path }: { me: MeResponse; path: string }) {
-  const redirectTo = resolveRedirect(path, me.events, lastEvent());
+  const redirectTo = resolveRedirect(path, me.events, lastEvent(), me.organizations);
   useEffect(() => {
     if (redirectTo) window.location.replace(`#${redirectTo}`);
   }, [redirectTo]);
   if (redirectTo) return null;
+
+  const orgParsed = parseOrgPath(path);
+  const org = orgParsed ? me.organizations.find((o) => o.id === orgParsed.orgId) : undefined;
+  if (orgParsed && org) {
+    return (
+      <Frame me={me} event={null} org={org} rest={orgParsed.rest}>
+        <OrgPage path={orgParsed.rest} />
+      </Frame>
+    );
+  }
 
   const parsed = parseEventPath(path);
   const event = parsed ? me.events.find((e) => e.id === parsed.eventId) : undefined;
@@ -237,11 +290,14 @@ function Brand({ event }: { event: MeEvent | null }) {
 function Frame({
   me,
   event,
+  org = null,
   rest,
   children,
 }: {
   me: MeResponse;
   event: MeEvent | null;
+  /** Fase 3: organização aberta (#/o/:orgId); exclusiva com `event`. */
+  org?: MeOrganization | null;
   /** Caminho da página dentro do evento ("/convites/12"). */
   rest: string;
   children: ReactNode;
@@ -250,10 +306,11 @@ function Frame({
   const section = `/${rest.split("?")[0]!.split("/")[1] ?? ""}`;
   // Antes de renderizar a página: as rotas e links dela usam o evento atual.
   if (event) setCurrentEventId(event.id);
+  if (org) setCurrentOrgId(org.id);
   useEffect(() => {
     if (event) rememberEvent(event.id);
-    document.title = event ? `Painel · ${event.name}` : "Painel";
-  }, [event]);
+    document.title = event ? `Painel · ${event.name}` : org ? `Painel · ${org.name}` : "Painel";
+  }, [event, org]);
   // No celular o menu rola de lado: mantém a seção atual à vista.
   useEffect(() => {
     document
@@ -269,6 +326,15 @@ function Frame({
       <header className="topbar">
         <Brand event={event} />
         <div className="topbar__user">
+          {/* Fase 3: entrada provisória do painel da organização; a frente D faz o seletor. */}
+          {me.organizations.length > 0 && !org && (
+            <a
+              className="button button--ghost button--small"
+              href={orgPath(me.organizations[0]!.id)}
+            >
+              Organização
+            </a>
+          )}
           {me.events.length > 1 && (
             <label className="topbar__event">
               <span className="sr-only">Evento</span>
@@ -302,6 +368,19 @@ function Frame({
           </button>
         </div>
       </header>
+      {org && (
+        <nav className="nav" aria-label="Seções da organização">
+          <ul>
+            {ORG_NAV.map((item) => (
+              <li key={item.href}>
+                <a href={oh(item.href)} aria-current={section === item.href ? "page" : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
       {event && (
         <nav className="nav" aria-label="Seções do painel">
           <ul>
@@ -321,6 +400,10 @@ function Frame({
           <EventProvider key={event.id} value={event}>
             {children}
           </EventProvider>
+        ) : org ? (
+          <OrgProvider key={org.id} value={org}>
+            {children}
+          </OrgProvider>
         ) : (
           children
         )}

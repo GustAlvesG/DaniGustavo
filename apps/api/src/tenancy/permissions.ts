@@ -1,25 +1,11 @@
+import { EVENT_ACTIONS, type EventAction } from "@casamento/shared";
 import type { MiddlewareHandler } from "hono";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import { EVENT_ACCESS_ROLES, type EventAccessRole, type EventAdminEnv } from "./types.ts";
 
-/** Ações do painel sujeitas a permissão. */
-export const ACTIONS = [
-  "dashboard.read",
-  "invitations.read",
-  "invitations.write",
-  "gifts.write",
-  "orders.read",
-  "orders.refund",
-  "orders.reconcile",
-  "messages.moderate",
-  "settings.write",
-  "reminders.write",
-  /** Fase 2: textos e fotos do site, galeria e aparência (tema). */
-  "content.write",
-  /** Fase 2: tipo do evento, módulos, lados dos convites e vocabulário. */
-  "event.configure",
-] as const;
-export type Action = (typeof ACTIONS)[number];
+/** Ações do painel sujeitas a permissão (lista em `@casamento/shared` › permissions). */
+export const ACTIONS = EVENT_ACTIONS;
+export type Action = EventAction;
 
 const ALL = EVENT_ACCESS_ROLES;
 

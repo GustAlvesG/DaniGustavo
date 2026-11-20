@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { adminDashboardRoutes, adminMessageRoutes, adminSettingsRoutes } from "./content.ts";
 import { requireSession, sameOrigin, type AdminDeps, type AdminEnv } from "./context.ts";
 import { adminAppearanceRoutes } from "./appearance.ts";
+import { adminEventAccessRoutes } from "./event-access.ts";
 import { adminEventConfigRoutes } from "./event-config.ts";
 import { adminGiftRoutes, adminUploadRoutes } from "./gifts.ts";
 import { adminGuestListRoutes, adminImportRoutes } from "./guest-routes.ts";
@@ -11,6 +12,8 @@ import { adminOrderRoutes } from "./orders.ts";
 import { adminReminderRoutes } from "./reminders.ts";
 import { adminSiteEditorRoutes } from "./site-editor.ts";
 import { listAccessibleEvents, requireEventAccess } from "../tenancy/access.ts";
+import { listAccessibleOrgs } from "../tenancy/org-access.ts";
+import { adminOrgRoutes } from "./org/index.ts";
 import { resolverFor } from "../tenancy/resolver.ts";
 import type { EventAdminEnv } from "../tenancy/types.ts";
 
@@ -30,11 +33,14 @@ export function adminRoutes(deps: AdminDeps) {
   app.use("*", requireSession(deps.auth));
   app.use("*", sameOrigin(origins));
 
-  // Quem está logado e quais eventos pode abrir (com o papel em cada um).
+  // Quem está logado, quais eventos e organizações pode abrir (com o papel em cada um): MeResponse.
   app.get("/me", async (c) => {
     const user = c.get("user");
-    const events = await listAccessibleEvents(deps.db, user);
-    return c.json({ user, events });
+    const [events, organizations] = await Promise.all([
+      listAccessibleEvents(deps.db, user),
+      listAccessibleOrgs(deps.db, user),
+    ]);
+    return c.json({ user, events, organizations });
   });
 
   const ev = new Hono<EventAdminEnv>();
@@ -54,6 +60,11 @@ export function adminRoutes(deps: AdminDeps) {
   ev.route("/media", adminMediaRoutes(deps));
   ev.route("/appearance", adminAppearanceRoutes(deps));
   ev.route("/config", adminEventConfigRoutes(deps));
+  // Fase 3 (docs/saas/fase-3.md), frente C: o que quem está logado pode fazer no evento.
+  ev.route("/access", adminEventAccessRoutes(deps));
   app.route("/events/:eventId", ev);
+
+  // Fase 3 (docs/saas/fase-3.md): painel da organização.
+  app.route("/orgs/:orgId", adminOrgRoutes(deps));
   return app;
 }

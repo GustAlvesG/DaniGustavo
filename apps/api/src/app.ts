@@ -10,6 +10,7 @@ import { createRateLimiter, type RateLimiter } from "./rate-limit.ts";
 import { hostRoutes } from "./routes/hosts.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
 import { messageRoutes } from "./routes/messages.ts";
+import { teamInviteRoutes } from "./routes/team-invites.ts";
 import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
 import type { Notifier } from "./orders/notify.ts";
 import type { OrderDeps } from "./orders/service.ts";
@@ -25,6 +26,7 @@ import type { PublicEventEnv } from "./tenancy/types.ts";
 import {
   adminRoutes,
   createWebRevalidator,
+  type AdminDeps,
   uploadFileRoutes,
   type Revalidate,
 } from "./admin/index.ts";
@@ -143,17 +145,17 @@ export function createApp({
   app.route("/api/webhooks", webhookRoutes(orderDeps));
 
   const storage = createLocalStorage(env.UPLOAD_DIR);
-  app.route(
-    "/api/admin",
-    adminRoutes({
-      ...orderDeps,
-      auth,
-      limiter: rateLimiter,
-      revalidate,
-      uploadDir: env.UPLOAD_DIR,
-      storage,
-    }),
-  );
+  const adminDeps: AdminDeps = {
+    ...orderDeps,
+    auth,
+    limiter: rateLimiter,
+    revalidate,
+    uploadDir: env.UPLOAD_DIR,
+    storage,
+  };
+  app.route("/api/admin", adminRoutes(adminDeps));
+  // Fase 3: aceite de convite da equipe/anfitrião (sem sessão obrigatória; ver o arquivo).
+  app.route("/api/team-invites", teamInviteRoutes(adminDeps));
   app.route("/", uploadFileRoutes(storage));
 
   app.route("/", painelRoutes(painelDist));

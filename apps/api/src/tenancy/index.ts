@@ -6,3 +6,13 @@ export { publicEvent } from "./public.ts";
 export { createEventResolver, resolverFor, type EventResolver } from "./resolver.ts";
 export * from "./types.ts";
 export { eventBaseUrl } from "./urls.ts";
+export {
+  canOrg,
+  listAccessibleOrgs,
+  ORG_PERMISSIONS,
+  requireOrgAccess,
+  requireOrgEvent,
+  requireOrgPermission,
+  resolveOrgRole,
+  type OrgEventEnv,
+} from "./org-access.ts";

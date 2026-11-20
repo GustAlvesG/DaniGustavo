@@ -3,7 +3,8 @@ import { currentQueryOrigin, trackQueryOrigins } from "@casamento/db/testing";
 import { isCrossEvent } from "../src/tenancy/cross-event.ts";
 
 // Auditor de escopo: SELECT/UPDATE/DELETE em tabela com event_id, sem `event_id` depois do FROM
-// (WHERE/ON) e fora de crossEvent(), falha na hora. Só AUDIT_STRICT=0 (manual) volta ao modo
+// (WHERE/ON) e fora de crossEvent(), falha na hora. Tabelas por organização (Fase 3) seguem a
+// mesma regra com `organization_id`. Só AUDIT_STRICT=0 (manual) volta ao modo
 // que apenas registra e resume no fim da suíte.
 
 export const SCOPED_TABLES = [
@@ -19,7 +20,14 @@ export const SCOPED_TABLES = [
   "event_media",
 ] as const;
 
-const SCOPED = new Set<string>(SCOPED_TABLES);
+/** Fase 3: dados da organização; a consulta precisa filtrar por `organization_id`. */
+export const ORG_SCOPED_TABLES = ["team_invites"] as const;
+
+/** Tabela → coluna de escopo exigida depois do FROM. */
+const SCOPE_COLUMN = new Map<string, string>([
+  ...SCOPED_TABLES.map((t) => [t, "event_id"] as const),
+  ...ORG_SCOPED_TABLES.map((t) => [t, "organization_id"] as const),
+]);
 export const AUDIT_STRICT = process.env.AUDIT_STRICT !== "0";
 
 export interface SqlAnalysis {
@@ -36,14 +44,15 @@ export function analyzeSql(sql: string): SqlAnalysis | null {
   if (!kind) return null;
   const tables = new Set<string>();
   for (const m of text.matchAll(/\b(?:from|join|update)\s+`(\w+)`/gi)) {
-    if (SCOPED.has(m[1]!)) tables.add(m[1]!);
+    if (SCOPE_COLUMN.has(m[1]!)) tables.add(m[1]!);
   }
   if (tables.size === 0) return null;
   // No SELECT, a lista de colunas costuma trazer `event_id`: só conta o que vem depois do FROM.
   // No UPDATE, o SET também pode citar a coluna: só conta depois do WHERE.
   const from = kind === "update" ? text.search(/\swhere\s/i) : text.search(/\sfrom\s/i);
   const rest = from === -1 ? "" : text.slice(from);
-  const scoped = /`event_id`\s*(=|in\b)/i.test(rest);
+  const columns = new Set([...tables].map((t) => SCOPE_COLUMN.get(t)!));
+  const scoped = [...columns].every((col) => new RegExp(`\`${col}\`\\s*(=|in\\b)`, "i").test(rest));
   return { kind, tables: [...tables], scoped };
 }
 

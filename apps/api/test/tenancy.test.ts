@@ -385,6 +385,26 @@ describe("auditor de SQL", () => {
     ).toBeNull();
   });
 
+  it("tabela por organização (Fase 3) exige organization_id; com evento junto, as duas colunas", () => {
+    expect(
+      analyzeSql("select `id` from `team_invites` where `team_invites`.`token_hash` = ?"),
+    ).toMatchObject({ tables: ["team_invites"], scoped: false });
+    expect(
+      analyzeSql(
+        "select `id` from `team_invites` where (`team_invites`.`organization_id` = ? and `team_invites`.`email` = ?)",
+      ),
+    ).toMatchObject({ scoped: true });
+    // event_id não substitui organization_id em team_invites.
+    expect(
+      analyzeSql("select `id` from `team_invites` where `team_invites`.`event_id` = ?"),
+    ).toMatchObject({ scoped: false });
+    expect(
+      analyzeSql(
+        "select `id` from `team_invites` inner join `invitations` on `invitations`.`event_id` = ? where `team_invites`.`organization_id` = ?",
+      ),
+    ).toMatchObject({ tables: ["team_invites", "invitations"], scoped: true });
+  });
+
   it("acha o módulo de origem na pilha", () => {
     const stack = [
       "Error",

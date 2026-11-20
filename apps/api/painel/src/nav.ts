@@ -48,3 +48,26 @@ export function lastEvent(): number | null {
 
 /** Hash da página inicial de um evento. */
 export const eventPath = (id: number) => `#/e/${id}`;
+
+/* Fase 3: painel da organização em `#/o/:orgId/...`, com os mesmos atalhos do evento. */
+
+let currentOrgId = 0;
+
+export const setCurrentOrgId = (id: number) => {
+  currentOrgId = id;
+};
+export const getCurrentOrgId = () => currentOrgId;
+
+/** Hash de uma página da organização atual: oh("/equipe") → "#/o/2/equipe". */
+export const oh = (path: string) => `#/o/${currentOrgId}${path === "/" ? "" : path}`;
+
+/** URL da API da organização atual: oa("/members") → "/api/admin/orgs/2/members". */
+export const oa = (path: string) => `/api/admin/orgs/${currentOrgId}${path}`;
+
+/** Navega para uma página da organização atual. */
+export const goOrg = (path: string) => {
+  window.location.hash = oh(path);
+};
+
+/** Hash da página inicial de uma organização. */
+export const orgPath = (id: number) => `#/o/${id}`;

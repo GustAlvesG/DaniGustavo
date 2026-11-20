@@ -1,3 +1,4 @@
+import type { MeOrganization } from "@casamento/shared";
 import { createContext, useContext } from "react";
 import { formatDate } from "./format.ts";
 import { eventPath } from "./nav.ts";
@@ -16,9 +17,13 @@ export interface MeEvent {
   role: "platform_admin" | "org_owner" | "org_member" | "event_host";
 }
 
+export type { MeOrganization };
+
 export interface MeResponse {
   user: { id: string; name: string; email: string };
   events: MeEvent[];
+  /** Fase 3: organizações em que o usuário é dono/membro (todas, para platform admin). */
+  organizations: MeOrganization[];
 }
 
 const EventContext = createContext<MeEvent | null>(null);
