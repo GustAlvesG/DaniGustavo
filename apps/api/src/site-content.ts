@@ -1,5 +1,18 @@
-import { and, byEvent, eq, eventSettings, type Database } from "@casamento/db";
-import { SiteContent, type Venue } from "@casamento/shared";
+import { and, asc, byEvent, eq, eventMedia, eventSettings, type Database } from "@casamento/db";
+import {
+  defaultSections,
+  modulesFor,
+  resolveSections,
+  resolveTheme,
+  SiteContent,
+  SiteSections,
+  vocabularyFor,
+  VocabularyOverrides,
+  type EventModulesInput,
+  type Photo,
+  type PhotoRef,
+  type Venue,
+} from "@casamento/shared";
 import type { EventCtx } from "./tenancy/types.ts";
 
 interface StoredVenue {
@@ -51,13 +64,71 @@ export async function readPublicSettings(
   return new Map(rows.map((r) => [r.key, r.value]));
 }
 
-/** Monta e valida o conteúdo de GET /api/site. Lança se faltar chave ou o formato estiver errado. */
-export function buildSiteContent(s: Map<string, unknown>): SiteContent {
+export type MediaRow = typeof eventMedia.$inferSelect;
+
+/** Fotos do evento, na ordem da galeria. */
+export async function readEventMedia(ev: EventCtx, db: Database): Promise<MediaRow[]> {
+  return db
+    .select()
+    .from(eventMedia)
+    .where(byEvent(eventMedia, ev))
+    .orderBy(asc(eventMedia.sort), asc(eventMedia.id));
+}
+
+const mediaUrl = (row: MediaRow, file: string) => `/uploads/${row.eventId}/${file}`;
+
+/** Linha de event_media → foto do site (alt/posição do uso prevalecem sobre os da foto). */
+export function mediaPhoto(row: MediaRow, ref?: Partial<PhotoRef>): Photo {
+  return {
+    src: mediaUrl(row, row.file),
+    thumbSrc: row.thumbFile ? mediaUrl(row, row.thumbFile) : null,
+    width: row.width,
+    height: row.height,
+    alt: ref?.alt || row.alt,
+    position: ref?.position || row.position || null,
+  };
+}
+
+/** Conteúdo público do evento: configurações públicas + fotos (GET /api/e/:slug/site). */
+export async function loadSiteContent(ev: EventCtx, db: Database): Promise<SiteContent> {
+  const [settings, media] = await Promise.all([readPublicSettings(ev, db), readEventMedia(ev, db)]);
+  return buildSiteContent(settings, { type: ev.type, media });
+}
+
+/**
+ * Monta e valida o conteúdo de GET /api/e/:slug/site. Lança se faltar chave ou o formato estiver
+ * errado. `opts.type` é o tipo do evento (vocabulário, módulos e tema padrão); `opts.media`, as
+ * fotos de `event_media` (resolvem as fotos das seções e formam a galeria).
+ */
+export function buildSiteContent(
+  s: Map<string, unknown>,
+  opts: { type: string; media?: MediaRow[] } = { type: "wedding" },
+): SiteContent {
   // Chave ausente vira valor neutro (evento criado pela CLI só tem o básico); inválida continua lançando.
   const get = (key: string, fallback?: unknown): unknown => (s.has(key) ? s.get(key) : fallback);
   const names = get("couple.names");
   const datetime = get("wedding.datetime");
+  const media = opts.media ?? [];
+  const byId = new Map(media.map((m) => [m.id, m]));
+  const vocabulary = vocabularyFor(
+    opts.type,
+    VocabularyOverrides.parse(get("event.vocabulary", {})),
+  );
+  const stored = get("site.sections");
+  const sections =
+    stored === undefined ? defaultSections(opts.type, vocabulary) : SiteSections.parse(stored);
+  const galleryMedia = media.filter((m) => m.inGallery);
   return SiteContent.parse({
+    event: {
+      type: opts.type,
+      modules: modulesFor(opts.type, get("event.modules", {}) as EventModulesInput),
+      vocabulary,
+    },
+    theme: resolveTheme(opts.type, get("site.theme")),
+    sections: resolveSections(sections, (ref) => {
+      const row = byId.get(ref.mediaId);
+      return row ? mediaPhoto(row, ref) : null;
+    }),
     couple: { names, monogram: get("couple.monogram") },
     wedding: { datetime, timezone: get("wedding.timezone") },
     ceremony: venue(get("ceremony.venue")),
@@ -72,7 +143,10 @@ export function buildSiteContent(s: Map<string, unknown>): SiteContent {
     story: get("story.items", []),
     godparents: get("godparents.manual", { dressCode: "", schedule: [], palette: [], notes: [] }),
     gallery: {
-      items: get("gallery.items", []),
+      // TODO(fase2-B): a chave antiga `gallery.items` sai depois da migração do casamento.
+      items: galleryMedia.length
+        ? galleryMedia.map((m) => ({ ...mediaPhoto(m), caption: m.caption, album: m.album }))
+        : get("gallery.items", []),
       officialPhotosSoon: get("gallery.official_soon", false),
     },
     contact: get("couple.contact", {

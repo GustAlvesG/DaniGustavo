@@ -1,11 +1,15 @@
 import { Hono } from "hono";
 import { adminDashboardRoutes, adminMessageRoutes, adminSettingsRoutes } from "./content.ts";
 import { requireSession, sameOrigin, type AdminDeps, type AdminEnv } from "./context.ts";
+import { adminAppearanceRoutes } from "./appearance.ts";
+import { adminEventConfigRoutes } from "./event-config.ts";
 import { adminGiftRoutes, adminUploadRoutes } from "./gifts.ts";
 import { adminGuestListRoutes, adminImportRoutes } from "./guest-routes.ts";
 import { adminInvitationRoutes } from "./invitations.ts";
+import { adminMediaRoutes } from "./media.ts";
 import { adminOrderRoutes } from "./orders.ts";
 import { adminReminderRoutes } from "./reminders.ts";
+import { adminSiteEditorRoutes } from "./site-editor.ts";
 import { listAccessibleEvents, requireEventAccess } from "../tenancy/access.ts";
 import { resolverFor } from "../tenancy/resolver.ts";
 import type { EventAdminEnv } from "../tenancy/types.ts";
@@ -45,6 +49,11 @@ export function adminRoutes(deps: AdminDeps) {
   ev.route("/messages", adminMessageRoutes(deps));
   ev.route("/settings", adminSettingsRoutes(deps));
   ev.route("/reminders", adminReminderRoutes(deps));
+  // Fase 2 (docs/saas/fase-2.md): A = /site e /media; C = /appearance; D = /config.
+  ev.route("/site", adminSiteEditorRoutes(deps));
+  ev.route("/media", adminMediaRoutes(deps));
+  ev.route("/appearance", adminAppearanceRoutes(deps));
+  ev.route("/config", adminEventConfigRoutes(deps));
   app.route("/events/:eventId", ev);
   return app;
 }

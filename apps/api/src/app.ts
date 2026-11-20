@@ -14,9 +14,11 @@ import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
 import type { Notifier } from "./orders/notify.ts";
 import type { OrderDeps } from "./orders/service.ts";
 import { createPaymentProvider, isSimulated, type PaymentProvider } from "./payments/index.ts";
-import { buildSiteContent, readPublicSettings } from "./site-content.ts";
+import { loadSiteContent } from "./site-content.ts";
+import { createLocalStorage } from "./storage/index.ts";
 import { webKey } from "./middleware/web-key.ts";
 import { painelRoutes } from "./painel.ts";
+import { requireModule } from "./tenancy/modules.ts";
 import { publicEvent } from "./tenancy/public.ts";
 import { createEventResolver, type EventResolver } from "./tenancy/resolver.ts";
 import type { PublicEventEnv } from "./tenancy/types.ts";
@@ -81,10 +83,15 @@ export function createApp({
   const pub = new Hono<PublicEventEnv>();
 
   pub.get("/site", async (c) => {
-    const content = buildSiteContent(await readPublicSettings(c.get("event"), db));
+    const content = await loadSiteContent(c.get("event"), db);
     c.header("Cache-Control", "public, max-age=60");
     return c.json(content);
   });
+  // Módulos desligados no evento (event.modules) → 404 nas rotas públicas do módulo.
+  pub.use("/invitations/*", requireModule(db, "rsvp"));
+  pub.use("/messages/*", requireModule(db, "messages"));
+  pub.use("/gifts/*", requireModule(db, "gifts"));
+  pub.on("POST", "/orders", requireModule(db, "gifts"));
   pub.route(
     "/invitations",
     invitationRoutes({ env, db, mailer, limiter: rateLimiter, now, eventResolver }),
@@ -134,6 +141,7 @@ export function createApp({
       limiter: rateLimiter,
       revalidate,
       uploadDir: env.UPLOAD_DIR,
+      storage: createLocalStorage(env.UPLOAD_DIR),
     }),
   );
   app.route("/", uploadFileRoutes(env.UPLOAD_DIR));

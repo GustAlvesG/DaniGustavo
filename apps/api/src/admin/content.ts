@@ -15,6 +15,7 @@ import {
 } from "@casamento/db";
 import {
   cardFeeCents,
+  DEDICATED_SETTINGS_KEYS,
   parseSettings,
   SETTINGS_KEYS,
   SettingsUpdate,
@@ -237,6 +238,12 @@ export function adminSettingsRoutes(deps: AdminDeps) {
     const ev = c.get("event");
     const body = SettingsUpdate.safeParse(await readJson(c));
     if (!body.success) return invalid(c, body.error.issues);
+    const dedicated = Object.keys(body.data.values).find((k) =>
+      (DEDICATED_SETTINGS_KEYS as readonly string[]).includes(k),
+    );
+    if (dedicated) {
+      return invalid(c, [{ message: `A configuração ${dedicated} se edita na página própria.` }]);
+    }
     const parsed = parseSettings(body.data.values);
     if (!parsed.ok) return invalid(c, [{ message: parsed.message }]);
 
@@ -246,7 +253,7 @@ export function adminSettingsRoutes(deps: AdminDeps) {
     for (const [k, v] of all) if (v.isPublic) merged.set(k, v.value);
     for (const [k, v] of Object.entries(parsed.data)) merged.set(k, v);
     try {
-      buildSiteContent(merged);
+      buildSiteContent(merged, { type: ev.type });
     } catch {
       return invalid(c, [
         {

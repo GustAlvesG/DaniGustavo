@@ -3,6 +3,7 @@ import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
 import { EventProvider, EventsPage, monogramOf, type MeEvent, type MeResponse } from "./event.tsx";
 import { eh, goAbsolute, lastEvent, rememberEvent, setCurrentEventId } from "./nav.ts";
+import { Aparencia } from "./pages/Aparencia.tsx";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
 import { Conta } from "./pages/Conta.tsx";
 import { ConviteDetalhe, ConviteForm, Convites } from "./pages/Convites.tsx";
@@ -10,10 +11,13 @@ import { ConvitesQr } from "./pages/ConvitesQr.tsx";
 import { Importar } from "./pages/Importar.tsx";
 import { Listas } from "./pages/Listas.tsx";
 import { Dashboard } from "./pages/Dashboard.tsx";
+import { Evento } from "./pages/Evento.tsx";
+import { Galeria } from "./pages/Galeria.tsx";
 import { Lembretes } from "./pages/Lembretes.tsx";
 import { Pedidos } from "./pages/Pedidos.tsx";
 import { Presentes } from "./pages/Presentes.tsx";
 import { Recados } from "./pages/Recados.tsx";
+import { Site } from "./pages/Site.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
@@ -41,6 +45,11 @@ const NAV = [
   { href: "/pedidos", label: "Pedidos" },
   { href: "/recados", label: "Recados" },
   { href: "/lembretes", label: "Lembretes" },
+  // Fase 2: A = Site e Galeria; C = Aparência; D = Evento.
+  { href: "/site", label: "Site" },
+  { href: "/galeria", label: "Galeria" },
+  { href: "/aparencia", label: "Aparência" },
+  { href: "/evento", label: "Evento" },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
@@ -75,6 +84,14 @@ function Page({ path }: { path: string }) {
       return <Recados />;
     case "lembretes":
       return <Lembretes />;
+    case "site":
+      return <Site />;
+    case "galeria":
+      return <Galeria />;
+    case "aparencia":
+      return <Aparencia />;
+    case "evento":
+      return <Evento />;
     case "configuracoes":
       return <Configuracoes />;
     case "conta":

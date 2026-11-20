@@ -14,6 +14,10 @@ export const ACTIONS = [
   "messages.moderate",
   "settings.write",
   "reminders.write",
+  /** Fase 2: textos e fotos do site, galeria e aparência (tema). */
+  "content.write",
+  /** Fase 2: tipo do evento, módulos, lados dos convites e vocabulário. */
+  "event.configure",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 
@@ -34,6 +38,8 @@ export const PERMISSIONS: Record<Action, readonly EventAccessRole[]> = {
   "messages.moderate": ALL,
   "settings.write": ALL,
   "reminders.write": ALL,
+  "content.write": ALL,
+  "event.configure": ALL,
 };
 
 export function can(role: EventAccessRole, action: Action): boolean {

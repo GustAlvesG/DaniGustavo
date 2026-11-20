@@ -5,6 +5,7 @@ import type { Env } from "../env.ts";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import type { OrderDeps } from "../orders/service.ts";
 import type { RateLimiter } from "../rate-limit.ts";
+import type { Storage } from "../storage/index.ts";
 import type { Revalidate } from "./revalidate.ts";
 
 /** Dependências das rotas do painel (/api/admin/*). */
@@ -14,8 +15,10 @@ export interface AdminDeps extends OrderDeps {
   auth: Auth;
   limiter: RateLimiter;
   revalidate: Revalidate;
-  /** Pasta onde ficam as imagens enviadas pelo painel. */
+  /** Pasta onde ficam as imagens enviadas pelo painel. TODO(fase2-D): some em favor de `storage`. */
   uploadDir: string;
+  /** Arquivos por evento (fotos da galeria e, depois da frente D, dos presentes). */
+  storage: Storage;
 }
 
 export interface AdminUser {

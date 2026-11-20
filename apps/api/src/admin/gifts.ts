@@ -113,7 +113,8 @@ export function sniffImage(bytes: Uint8Array): "jpg" | "png" | "webp" | null {
 }
 
 const BAD_IMAGE = "Imagem de outro evento: envie a foto de novo por este painel.";
-const UPLOAD_FILE = /^[0-9A-Z]{26}\.(jpg|png|webp)$/;
+// TODO(fase2-D): servir e gravar pelo Storage (src/storage) e usar STORAGE_FILE de lá.
+const UPLOAD_FILE = /^[0-9A-Z]{26}(?:-t)?\.(jpg|png|webp)$/;
 const MIME = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" } as const;
 
 /** Caminho gravado `/uploads/<eventId>/<arquivo>` → pasta e arquivo. */
