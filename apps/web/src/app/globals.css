@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./album.css";
+@import "../themes/themes.css";
 
 /*
  * Design "Álbum" (Proposta C): tinta marinho sobre papel, fotos em polaroid
@@ -7,7 +8,10 @@
  * identidade do casal continua: azul predominante, detalhes brancos e o
  * azul serenity como acento.
  *
- * ONDE MUDAR CORES E FONTES: aqui. As cores ficam em `@theme static` (viram
+ * ONDE MUDAR CORES E FONTES: aqui são os valores do tema Álbum (paleta marinho), que
+ * valem sem escolha. Cada evento escolhe tema, paleta e fontes no painel e o layout [host]
+ * sobrescreve estas variáveis no <html> (src/themes/vars.ts; registro em
+ * packages/shared/src/themes.ts). Desenho próprio de Festa e Moderno: src/themes/*. As cores ficam em `@theme static` (viram
  * utilitários do Tailwind como `bg-papel`, `text-tinta` e variáveis
  * `var(--color-papel)` para o CSS próprio). Mudou uma cor, mude também em
  * src/lib/palette.ts: o teste confere o contraste de cada par.
@@ -115,13 +119,13 @@
 }
 
 /*
- * Fontes: next/font (src/app/layout.tsx) define --font-cormorant, --font-jost
- * e --font-pinyon no <html>. `inline` faz os utilitários usarem a variável
- * resolvida no próprio elemento.
- *   font-serif   Cormorant Garamond: texto corrido e títulos
- *   font-display o mesmo Cormorant (nome mantido para os títulos)
- *   font-sans    Jost: rótulos, menu, botões (caixa alta espaçada)
- *   font-script  Pinyon Script: só os nomes do casal
+ * Fontes: next/font (src/themes/fonts.ts) define --font-<id> no <html> só para as fontes do
+ * tema do evento; o layout liga cada papel em --tema-texto/--tema-ui/--tema-script (aqui o
+ * padrão do Álbum). `inline` faz os utilitários usarem a variável resolvida no próprio elemento.
+ *   font-serif   texto corrido e títulos (Álbum: Cormorant Garamond)
+ *   font-display o mesmo (nome mantido para os títulos)
+ *   font-sans    rótulos, menu, botões (Álbum: Jost, caixa alta espaçada)
+ *   font-script  nomes no topo e no rodapé (Álbum: Pinyon Script)
  */
 @theme inline {
   /*
@@ -139,10 +143,10 @@
   --color-danger: var(--danger);
   --color-field: var(--field);
 
-  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
-  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
-  --font-sans: var(--font-jost), "Jost", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-  --font-script: var(--font-pinyon), "Pinyon Script", cursive;
+  --font-serif: var(--tema-texto);
+  --font-display: var(--tema-texto);
+  --font-sans: var(--tema-ui);
+  --font-script: var(--tema-script);
 }
 
 /*
@@ -161,7 +165,7 @@
     --on-ink: var(--color-branco);
     --accent: var(--color-enfase);
     --line: var(--color-suave); /* bordas funcionais (campos), 6,9:1 */
-    --line-soft: rgb(27 42 74 / 0.18); /* fios decorativos */
+    --line-soft: color-mix(in srgb, var(--color-tinta) 18%, transparent); /* fios decorativos */
     --danger: var(--color-erro);
     --focus: var(--color-enfase);
     --field: var(--color-branco);
@@ -197,6 +201,11 @@
 }
 
 :root {
+  /* Fontes do Álbum; o layout [host] troca conforme o tema do evento. */
+  --tema-texto: var(--font-cormorant-garamond), "Cormorant Garamond", Georgia, serif;
+  --tema-ui: var(--font-jost), "Jost", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --tema-script: var(--font-pinyon-script), "Pinyon Script", cursive;
+
   /* Durações. Em CSS próprio: var(--duration-ui, 320ms). */
   --duration-micro: 160ms;
   --duration-ui: 320ms;

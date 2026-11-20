@@ -2,21 +2,27 @@ import { ImageResponse } from "next/og";
 import { MONOGRAM_VIEWBOX, monogramMarkup } from "@/components/brand";
 
 /*
- * Ícones do app instalável (PWA): monograma DG (ou as iniciais do evento) branco no campo marinho, gerados pelo
+ * Ícones do app instalável (PWA): monograma DG (ou as iniciais do evento) na cor clara do tema sobre o campo escuro dele, gerados pelo
  * próprio Next (ImageResponse), sem arquivo de imagem no repositório.
  * `maskable` deixa o monograma dentro da zona segura (80% central), porque o Android
  * recorta o ícone em círculo/gota.
  */
-const MARINHO = "#14213D";
+/** Cores do tema do evento (o Álbum/marinho é o padrão). */
+export type IconColors = { marinho: string; branco: string };
+const ALBUM: IconColors = { marinho: "#14213D", branco: "#FFFFFF" };
 
 export function pwaIcon(
   size: number,
-  { maskable = false, iniciais = null }: { maskable?: boolean; iniciais?: string | null } = {},
+  {
+    maskable = false,
+    iniciais = null,
+    colors = ALBUM,
+  }: { maskable?: boolean; iniciais?: string | null; colors?: IconColors } = {},
 ) {
-  if (iniciais) return initialsIcon(size, iniciais, maskable);
+  if (iniciais) return initialsIcon(size, iniciais, maskable, colors);
   const uri = `data:image/svg+xml;base64,${Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MONOGRAM_VIEWBOX}">${monogramMarkup({
-      ink: "#FFFFFF",
+      ink: colors.branco,
       bold: 6,
     })}</svg>`,
   ).toString("base64")}`;
@@ -30,7 +36,7 @@ export function pwaIcon(
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: MARINHO,
+        background: colors.marinho,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- Satori só aceita <img> */}
@@ -41,7 +47,7 @@ export function pwaIcon(
 }
 
 /** Eventos sem a arte DG: as iniciais em branco no mesmo campo marinho. */
-function initialsIcon(size: number, iniciais: string, maskable: boolean) {
+function initialsIcon(size: number, iniciais: string, maskable: boolean, colors: IconColors) {
   return new ImageResponse(
     <div
       style={{
@@ -50,8 +56,8 @@ function initialsIcon(size: number, iniciais: string, maskable: boolean) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: MARINHO,
-        color: "#FFFFFF",
+        background: colors.marinho,
+        color: colors.branco,
         fontSize: Math.round(size * (maskable ? 0.3 : 0.4)),
         letterSpacing: Math.round(size * 0.02),
       }}

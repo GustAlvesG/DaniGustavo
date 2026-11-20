@@ -1,0 +1,120 @@
+/*
+ * Tema Moderno (corporativo, eventos sem tom afetivo): linhas retas, fios finos, nada
+ * inclinado nem colado. Tipografia sem serifa; o corpo e os títulos usam as fontes do tema
+ * (Inter e Outfit no padrão), com títulos mais firmes e rótulos discretos.
+ */
+html[data-theme="moderno"] {
+  --text-base: 1.0625rem;
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+  }
+
+  @media (width >= 64rem) {
+    --text-base: 1.125rem;
+  }
+
+  .titulo {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+  }
+  .titulo em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .lead {
+    font-size: 1.15rem;
+  }
+
+  /* Rótulo: um traço curto de destaque, texto pequeno e seco. */
+  .rotulo {
+    letter-spacing: 0.14em;
+    font-weight: 500;
+  }
+  .rotulo > i {
+    width: 18px;
+    height: 2px;
+    background: var(--color-enfase);
+    opacity: 1;
+  }
+
+  /* Fotos retas, só um fio; sem fita nem inclinação. */
+  .r1,
+  .r2,
+  .r3,
+  .r4,
+  .r5,
+  .r6 {
+    --r: 0deg;
+  }
+  .polaroid {
+    padding: 0 0 12px;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-tinta) 14%, transparent);
+    overflow: hidden;
+  }
+  .polaroid::before {
+    display: none;
+  }
+  .polaroid-foto,
+  .polaroid-foto > img {
+    border-radius: 0;
+  }
+  .legenda {
+    text-align: left;
+    padding: 12px 14px 0;
+  }
+  .legenda b {
+    letter-spacing: 0.12em;
+    color: var(--color-enfase);
+  }
+  .legenda span {
+    font-style: normal;
+    font-size: 1.05rem;
+  }
+
+  .moldura-papel {
+    padding: 0;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-tinta) 14%, transparent);
+  }
+  .moldura-papel figcaption {
+    font-style: normal;
+    padding: 12px 14px 14px;
+  }
+  .canto {
+    display: none;
+  }
+
+  .arco,
+  .arco-escuro {
+    border-radius: 6px;
+  }
+  .arco {
+    border-width: 0;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-tinta) 14%, transparent);
+  }
+
+  .cartao {
+    border-radius: 6px;
+    padding: 28px;
+    border-top: 3px solid var(--color-enfase);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-tinta) 14%, transparent);
+  }
+  .cartao-resp {
+    border-radius: 6px;
+    box-shadow: 0 30px 60px -30px color-mix(in srgb, #000 60%, transparent);
+  }
+
+  /* Botões retos, em caixa baixa. */
+  :is(a, button).uppercase.rounded-full {
+    border-radius: 6px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+}
