@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Invitation } from "@casamento/shared";
 import { ClosedSummary } from "@/components/rsvp/ClosedSummary";
@@ -96,8 +97,12 @@ async function InvitationView({ params }: { params: PageProps<"/[host]/c/[token]
           <RsvpForm token={token} invitation={invitation} />
         )}
         <p className="max-w-[56ch] border-t border-line-soft pt-6 text-sm text-ink-soft">
-          Privacidade: guardamos presença, contato e restrições alimentares só para organizar a
-          festa, e apagamos esses dados depois do casamento.
+          Privacidade: guardamos presença, contato e restrições alimentares só para organizar o
+          evento.{" "}
+          <Link href="/privacidade" className="underline underline-offset-4">
+            Veja o aviso de privacidade
+          </Link>
+          .
         </p>
       </FormCard>
     </div>

@@ -60,7 +60,7 @@ export async function getEvent(host: string): Promise<EventInfo> {
  * (`next/root-params`, sem passar props de layout em layout).
  */
 export async function currentEvent(): Promise<EventInfo> {
-  return getEvent(decodeHostParam(await hostParam()));
+  return getEvent(decodeHostParam((await hostParam()) ?? ""));
 }
 
 /**
@@ -89,6 +89,6 @@ export function eventPath(ev: Pick<EventInfo, "slug">, path: string): string {
 
 /** Como `currentEvent()`, mas null em vez de 404 (páginas de erro, metadados). */
 export async function findCurrentEvent(): Promise<EventInfo | null> {
-  const result = await lookup(decodeHostParam(await hostParam()));
+  const result = await lookup(decodeHostParam((await hostParam()) ?? ""));
   return result.ok ? result.data : null;
 }

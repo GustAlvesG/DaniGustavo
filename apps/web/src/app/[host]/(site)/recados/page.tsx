@@ -8,6 +8,7 @@ import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHeading } from "@/components/ui";
 import { getSiteWithModule } from "@/lib/api/site";
 import { getWall } from "@/lib/api/messages";
+import { getPrivacyNotice } from "@/lib/api/privacy";
 
 export const metadata: Metadata = {
   title: "Mural de recados",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
  */
 export default async function RecadosPage() {
   const site = await getSiteWithModule("messages");
-  const wall = await getWall();
+  const [wall, notice] = await Promise.all([getWall(), getPrivacyNotice()]);
   const t = site.sections.pages.messages;
   return (
     <PageTransition>
@@ -45,7 +46,7 @@ export default async function RecadosPage() {
           )}
 
           <div className="mt-16 sm:mt-20">
-            <RecadoForm t={t} />
+            <RecadoForm t={t} requireConsent={notice.requireConsent} />
           </div>
         </div>
       </main>

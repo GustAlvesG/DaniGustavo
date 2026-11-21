@@ -14,6 +14,10 @@ let n = 0;
 const ip = () => `10.7.${n++}.${run.length}`;
 const authors = [`Ana ${run}`, `Bot ${run}`, `Zé ${run}`, `Pendente ${run}`];
 
+/** Fase 6 (LGPD): o aceite do aviso vai junto, como o formulário do site manda. */
+const withConsent = (body: unknown) =>
+  body && typeof body === "object" && !Array.isArray(body) ? { consent: true, ...body } : body;
+
 const post = (body: unknown, clientIp = ip()) =>
   app.request("/api/e/dani-gustavo/messages", {
     method: "POST",
@@ -22,7 +26,7 @@ const post = (body: unknown, clientIp = ip()) =>
       "X-Web-Key": TEST_WEB_KEY,
       "X-Client-Ip": clientIp,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(withConsent(body)),
   });
 
 afterAll(async () => {

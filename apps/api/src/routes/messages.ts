@@ -1,7 +1,14 @@
 import { and, byEvent, desc, eq, messages, type Database } from "@casamento/db";
-import { CreateMessageRequest, ERROR_CODES, type WallResponse } from "@casamento/shared";
+import {
+  CONSENT_REQUIRED_MESSAGE,
+  CreateMessageRequest,
+  ERROR_CODES,
+  PRIVACY_NOTICE_VERSION,
+  type WallResponse,
+} from "@casamento/shared";
 import { Hono } from "hono";
 import { apiError } from "../errors.ts";
+import { loadPrivacySettings } from "../privacy/settings.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import type { PublicEventEnv } from "../tenancy/types.ts";
 import { clientIp } from "./invitations.ts";
@@ -94,7 +101,30 @@ export function messageRoutes({ db, limiter }: MessageDeps) {
     if (author.length < 2 || body.length < 2) {
       return apiError(c, 422, ERROR_CODES.invalidRequest, "Escreva o seu nome e o seu recado.");
     }
-    await db.insert(messages).values({ eventId: c.get("event").id, author, body, approved: false });
+    const ev = c.get("event");
+    // LGPD (Fase 6): com o aviso obrigatório, o recado só entra com o aceite.
+    const privacy = await loadPrivacySettings(ev, db);
+    if (privacy.requireConsent && parsed.data.consent !== true) {
+      return c.json(
+        {
+          error: {
+            code: ERROR_CODES.invalidRequest,
+            message: CONSENT_REQUIRED_MESSAGE,
+            field: "consent",
+          },
+        },
+        422,
+      );
+    }
+    const consented = parsed.data.consent === true;
+    await db.insert(messages).values({
+      eventId: ev.id,
+      author,
+      body,
+      approved: false,
+      consentAt: consented ? new Date() : null,
+      consentVersion: consented ? PRIVACY_NOTICE_VERSION : null,
+    });
     return c.json({ ok: true }, 201);
   });
 

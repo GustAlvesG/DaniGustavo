@@ -73,11 +73,15 @@ const getInvitation = async (token: string) => {
   return { res, body: res.status === 200 ? Invitation.parse(await res.json()) : null };
 };
 
+/** Fase 6 (LGPD): o aceite do aviso vai junto, como o formulário do site manda. */
+const withConsent = (body: unknown) =>
+  body && typeof body === "object" && !Array.isArray(body) ? { consent: true, ...body } : body;
+
 const put = (token: string, body: unknown, headers: Record<string, string> = writeHeaders()) =>
   app.request(`/api/e/dani-gustavo/invitations/${token}/rsvp`, {
     method: "PUT",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(withConsent(body)),
   });
 
 let quintanilha: string;

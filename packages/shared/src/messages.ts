@@ -34,6 +34,8 @@ export const CreateMessageRequest = z.object({
     .trim()
     .min(2, { error: "Escreva o seu recado." })
     .max(MESSAGE_MAX_CHARS, { error: `Recado: use até ${MESSAGE_MAX_CHARS} caracteres.` }),
+  /** Fase 6 (LGPD): aceite do aviso de privacidade (obrigatório com `requireConsent`). */
+  consent: z.boolean().optional(),
   /** Honeypot: campo escondido que só robô preenche. */
   website: z.string().optional(),
 });

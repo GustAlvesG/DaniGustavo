@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Invitation } from "@casamento/shared";
+import { CONSENT_REQUIRED_MESSAGE, type Invitation } from "@casamento/shared";
 import {
   attendingCount,
+  consentNeeded,
   hasAnswered,
   initialValues,
   plusOneAvailable,
   toRsvpRequest,
   validateAnswer,
+  validateConsent,
   validateEmail,
   validatePhone,
   validatePlusOneName,
@@ -53,6 +55,7 @@ describe("initialValues", () => {
       plusOneName: "Cris Dias",
       email: "ana@exemplo.com",
       phone: "11 90000-0000",
+      consent: false,
       website: "",
     });
   });
@@ -87,6 +90,7 @@ describe("toRsvpRequest", () => {
         plusOneName: "  ",
         email: " ana@exemplo.com ",
         phone: "",
+        consent: false,
         website: "",
       },
       invitation(),
@@ -112,6 +116,7 @@ describe("toRsvpRequest", () => {
         plusOneName: "Cris Dias",
         email: "",
         phone: "",
+        consent: false,
         website: "",
       },
       invitation(),
@@ -130,6 +135,7 @@ describe("toRsvpRequest", () => {
         plusOneName: "Cris Dias",
         email: "",
         phone: "",
+        consent: false,
         website: "",
       },
       invitation(),
@@ -156,5 +162,19 @@ describe("validações com os schemas do contrato", () => {
   it("resposta obrigatória", () => {
     expect(validateAnswer("", "Ana")).toMatch(/Diga se Ana vai ou não/);
     expect(validateAnswer("no", "Ana")).toBe(true);
+  });
+});
+
+describe("aceite do aviso de privacidade (Fase 6)", () => {
+  it("vem marcado se o convite já aceitou a versão atual e só vai no corpo quando marcado", () => {
+    const inv = invitation({ consent: { required: true, given: true } });
+    expect(initialValues(inv).consent).toBe(true);
+    expect(consentNeeded(inv)).toBe(true);
+    expect(consentNeeded(invitation())).toBe(false);
+    const base = { ...initialValues(invitation()), guests: [] };
+    expect(toRsvpRequest({ ...base, consent: true }, invitation()).consent).toBe(true);
+    expect("consent" in toRsvpRequest({ ...base, consent: false }, invitation())).toBe(false);
+    expect(validateConsent(false)).toBe(CONSENT_REQUIRED_MESSAGE);
+    expect(validateConsent(true)).toBe(true);
   });
 });

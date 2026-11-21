@@ -136,6 +136,7 @@ test.describe("RSVP em /c/[token]", () => {
     await expect(page.getByLabel(/Restrição alimentar de Ana/)).toHaveValue("Sem glúten");
     await next(page, "Revisão");
 
+    await page.getByTestId("rsvp-consent").check(); // Fase 6: aceite do aviso de privacidade
     await page.getByRole("button", { name: "Confirmar presença" }).click();
     const done = page.getByTestId("rsvp-done");
     await expect(done.getByRole("heading", { name: "Presença confirmada" })).toBeFocused();
@@ -169,6 +170,7 @@ test.describe("RSVP em /c/[token]", () => {
     await pick(page, "Beto Altera", "Não vai");
     await next(page, "Detalhes");
     await next(page, "Revisão");
+    await page.getByTestId("rsvp-consent").check(); // Fase 6: aceite do aviso de privacidade
     await page.getByRole("button", { name: "Confirmar presença" }).click();
     await expect(page.getByRole("heading", { name: "Presença confirmada" })).toBeVisible();
 
@@ -191,6 +193,7 @@ test.describe("RSVP em /c/[token]", () => {
     await next(page, "Detalhes");
     await page.getByLabel(/Restrição alimentar de Beto/).fill("Vegetariano");
     await next(page, "Revisão");
+    await page.getByTestId("rsvp-consent").check(); // Fase 6: aceite do aviso de privacidade
     await page.getByRole("button", { name: "Confirmar presença" }).click();
     const done = page.getByTestId("rsvp-done");
     await expect(done.getByRole("list", { name: "Quem vai" }).getByRole("listitem")).toHaveText([
@@ -220,6 +223,7 @@ test.describe("RSVP em /c/[token]", () => {
     await next(page, "Detalhes");
     await expect(page.getByLabel(/Restrição alimentar/)).toHaveCount(0);
     await next(page, "Revisão");
+    await page.getByTestId("rsvp-consent").check();
     await page.getByRole("button", { name: "Enviar resposta" }).click();
 
     const done = page.getByTestId("rsvp-done");
@@ -250,6 +254,8 @@ test.describe("RSVP em /c/[token]", () => {
     await page.getByRole("button", { name: "Continuar" }).focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { level: 2, name: "Revisão" })).toBeFocused();
+    await page.getByTestId("rsvp-consent").focus();
+    await page.keyboard.press("Space");
     await page.getByRole("button", { name: "Confirmar presença" }).focus();
     await page.keyboard.press("Enter");
 
