@@ -72,6 +72,10 @@ export interface TaskRow {
 export interface TaskList {
   tasks: TaskRow[];
   counts: { open: number; overdue: number; upcoming: number; done: number };
+  /** Hoje no fuso do evento ("AAAA-MM-DD"), base de atrasadas e próximas. */
+  today: string;
+  /** Data do evento no fuso dele; null = evento sem data (prazos relativos ficam sem data). */
+  eventDate: string | null;
 }
 
 /* ------------------------------------------------------------------------ */
