@@ -1,0 +1,57 @@
+{
+  "object": "list",
+  "hasMore": false,
+  "totalCount": 3,
+  "limit": 100,
+  "offset": 0,
+  "data": [
+    {
+      "object": "payment",
+      "id": "pay_000000000301",
+      "dateCreated": "2026-09-21",
+      "customer": "cus_000000000101",
+      "subscription": "sub_000000000201",
+      "value": 49.9,
+      "netValue": 47.91,
+      "billingType": "PIX",
+      "status": "RECEIVED",
+      "dueDate": "2026-09-21",
+      "paymentDate": "2026-09-20",
+      "clientPaymentDate": "2026-09-20",
+      "invoiceUrl": "https://sandbox.asaas.com/i/000000000301",
+      "deleted": false
+    },
+    {
+      "object": "payment",
+      "id": "pay_000000000302",
+      "dateCreated": "2026-10-21",
+      "customer": "cus_000000000101",
+      "subscription": "sub_000000000201",
+      "value": 49.9,
+      "netValue": 47.91,
+      "billingType": "UNDEFINED",
+      "status": "OVERDUE",
+      "dueDate": "2026-10-21",
+      "paymentDate": null,
+      "clientPaymentDate": null,
+      "invoiceUrl": "https://sandbox.asaas.com/i/000000000302",
+      "deleted": false
+    },
+    {
+      "object": "payment",
+      "id": "pay_000000000303",
+      "dateCreated": "2026-11-21",
+      "customer": "cus_000000000101",
+      "subscription": "sub_000000000201",
+      "value": 49.9,
+      "netValue": 47.91,
+      "billingType": "UNDEFINED",
+      "status": "PENDING",
+      "dueDate": "2026-11-21",
+      "paymentDate": null,
+      "clientPaymentDate": null,
+      "invoiceUrl": "https://sandbox.asaas.com/i/000000000303",
+      "deleted": false
+    }
+  ]
+}

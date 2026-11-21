@@ -30,6 +30,7 @@ import type { Mailer } from "../mailer.ts";
 import { buildTeamInviteEmail, teamInviteLink } from "../team-invite-email.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
 import { hashInviteToken, isInviteTokenShape, maskEmail, newInviteToken } from "./token.ts";
+import { assertPlanLimit } from "../plans/limits.ts";
 
 /*
  * Convites da equipe da organização e de anfitrião de evento (Fase 3, docs/saas/fase-3.md).
@@ -248,6 +249,10 @@ export async function createInvite(deps: InviteDeps, target: InviteTarget): Prom
     )
     .orderBy(desc(teamInvites.id))
     .limit(1);
+  // Fase 6: vaga na equipe do plano (convite de anfitrião não conta; reenviar não soma).
+  if (!target.event && !open) {
+    await assertPlanLimit(db, target.org.id, { kind: "members", adding: 1 }, now);
+  }
   let id: number;
   if (open) {
     id = open.id;
@@ -425,6 +430,29 @@ export async function acceptInvite(
     userId = ulid();
     created = true;
     passwordHash = await hashPassword(input.password);
+  }
+
+  // Fase 6: entrar na equipe ocupa uma vaga do plano (quem já é da equipe não soma).
+  if (invite.role !== "host") {
+    const [already] = existingId
+      ? await db
+          .select({ role: organizationMembers.role })
+          .from(organizationMembers)
+          .where(
+            and(
+              eq(organizationMembers.organizationId, invite.organizationId),
+              eq(organizationMembers.userId, existingId),
+            ),
+          )
+      : [];
+    if (!already) {
+      await assertPlanLimit(
+        db,
+        invite.organizationId,
+        { kind: "members", adding: 1, includePending: false },
+        now,
+      );
+    }
   }
 
   try {

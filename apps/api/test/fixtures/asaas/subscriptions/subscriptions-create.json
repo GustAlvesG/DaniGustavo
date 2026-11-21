@@ -1,0 +1,17 @@
+{
+  "object": "subscription",
+  "id": "sub_000000000201",
+  "dateCreated": "2026-11-21",
+  "customer": "cus_000000000101",
+  "paymentLink": null,
+  "billingType": "UNDEFINED",
+  "cycle": "MONTHLY",
+  "value": 49.9,
+  "nextDueDate": "2026-11-21",
+  "endDate": null,
+  "description": "Plano Teste",
+  "status": "ACTIVE",
+  "deleted": false,
+  "maxPayments": null,
+  "externalReference": "org:42"
+}

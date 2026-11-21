@@ -1,0 +1,19 @@
+{
+  "id": "evt_000000000000000000000000401",
+  "event": "PAYMENT_OVERDUE",
+  "dateCreated": "2026-10-22 00:05:12",
+  "payment": {
+    "object": "payment",
+    "id": "pay_000000000302",
+    "dateCreated": "2026-10-21",
+    "customer": "cus_000000000101",
+    "subscription": "sub_000000000201",
+    "value": 49.9,
+    "billingType": "UNDEFINED",
+    "status": "OVERDUE",
+    "dueDate": "2026-10-21",
+    "invoiceUrl": "https://sandbox.asaas.com/i/000000000302",
+    "externalReference": null,
+    "deleted": false
+  }
+}

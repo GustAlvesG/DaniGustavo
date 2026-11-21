@@ -1,0 +1,14 @@
+{
+  "object": "customer",
+  "id": "cus_000000000101",
+  "dateCreated": "2026-11-21",
+  "name": "Organização de Teste",
+  "email": "dono@exemplo.com",
+  "phone": null,
+  "mobilePhone": null,
+  "cpfCnpj": null,
+  "personType": null,
+  "deleted": false,
+  "notificationDisabled": false,
+  "externalReference": "org:42"
+}

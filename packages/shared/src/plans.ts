@@ -100,6 +100,19 @@ export interface PlanView {
   limits: PlanLimits;
 }
 
+/** Plano no painel da plataforma (GET /api/admin/platform/plans): inclui inativos e internos. */
+export interface PlanAdminView extends PlanView {
+  active: boolean;
+  sort: number;
+}
+
+/** GET /api/admin/platform/orgs/:orgId (e resposta do PATCH). */
+export interface PlatformOrgDetail {
+  organization: PlatformOrgRow;
+  /** null = organização sem assinatura (legado). */
+  subscription: SubscriptionView | null;
+}
+
 /** GET /api/plans (público, página de preços): só planos `public` e `active`. */
 export interface PublicPlansResponse {
   plans: PlanView[];
@@ -132,6 +145,8 @@ export interface SubscriptionView {
   usage: UsageView;
   /** Últimas cobranças da assinatura. */
   payments: SubscriptionPaymentView[];
+  /** Provedor simulado fora de produção: o painel mostra "Simular pagamento" (dev e e2e). */
+  canSimulate?: boolean;
 }
 
 export interface SubscriptionPaymentView {
@@ -175,9 +190,10 @@ export interface PlatformOrgRow {
   slug: string;
   name: string;
   status: "active" | "suspended";
-  planCode: string;
-  planName: string;
-  subscriptionStatus: SubscriptionStatus;
+  /** null = organização sem assinatura (legado: sem limites, taxa do .env). */
+  planCode: string | null;
+  planName: string | null;
+  subscriptionStatus: SubscriptionStatus | null;
   usage: UsageView;
   createdAt: string;
 }

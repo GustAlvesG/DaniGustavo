@@ -28,6 +28,7 @@ import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import type { AdminDeps } from "./context.ts";
 import { eventSides } from "./event-config.ts";
+import { checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 import { readSetting } from "./event-settings.ts";
 
 type InvitationRow = typeof invitations.$inferSelect;
@@ -266,6 +267,13 @@ export function adminInvitationRoutes(deps: AdminDeps) {
     if (!sides.some((s) => s.key === input.side)) {
       return invalid(c, [{ message: "Esse lado não existe neste evento. Escolha um da lista." }]);
     }
+    // Fase 6: limite de convidados por evento do plano da organização.
+    const limit = await checkPlanLimit(db, ev.orgId, {
+      kind: "guestsPerEvent",
+      eventId: ev.id,
+      adding: input.guests.length,
+    });
+    if (!limit.ok) return planLimitResponse(c, limit);
     const moment = now();
     const id = await db.transaction(async (tx) => {
       const [res] = await tx.insert(invitations).values({
@@ -318,6 +326,13 @@ export function adminInvitationRoutes(deps: AdminDeps) {
         { message: "Um dos convidados não pertence a este convite. Recarregue." },
       ]);
     }
+    // Fase 6: só o que cresce conta no limite de convidados (editar sem acrescentar passa).
+    const limit = await checkPlanLimit(db, ev.orgId, {
+      kind: "guestsPerEvent",
+      eventId: ev.id,
+      adding: input.guests.length - current.guests.length,
+    });
+    if (!limit.ok) return planLimitResponse(c, limit);
     const moment = now();
     await db.transaction(async (tx) => {
       await tx

@@ -1,7 +1,8 @@
 import type { Database } from "@casamento/db";
-import { feePercentToBps, type EventPaymentState } from "@casamento/shared";
+import type { EventPaymentState } from "@casamento/shared";
 import type { SecretBox } from "../crypto/secret-box.ts";
 import type { Env } from "../env.ts";
+import { organizationFeeBps } from "../plans/fees.ts";
 import {
   platformWalletId,
   PaymentProviderError,
@@ -60,11 +61,16 @@ function sameProvider(account: PaymentAccountRow, provider: PaymentProvider): bo
  */
 export async function eventPaymentState(
   ev: EventCtx,
-  deps: Pick<ReceiverDeps, "db" | "provider">,
+  deps: Pick<ReceiverDeps, "db" | "provider"> & { env?: Env },
 ): Promise<EventPaymentState> {
   const loaded = await loadEventReceiverAccount(deps.db, ev);
   const state = receiverState(loaded);
   if (state === "ready" && !sameProvider(loaded.account!, deps.provider)) return "no_account";
+  // Fase 6: taxa do plano > 0 sem carteira da plataforma para o split → sem presentes em
+  // dinheiro (só quando quem chama passa o env; a criação do pedido sempre confere).
+  if (state === "ready" && deps.env && !platformWalletId(deps.env, deps.provider)) {
+    if ((await organizationFeeBps(deps.db, deps.env, ev.orgId)) > 0) return "no_account";
+  }
   return state;
 }
 
@@ -105,12 +111,18 @@ export async function resolveEventReceiver(
     );
     return { ok: false, state: "no_account" };
   }
+  // Fase 6: taxa do plano da organização (override negociado, plano ou, sem assinatura, o .env).
+  const planFeeBps = await organizationFeeBps(deps.db, deps.env, ev.orgId);
+  if (planFeeBps > 0 && !platformWalletId(deps.env, deps.provider)) {
+    console.warn(
+      `[recebimentos] Taxa de ${planFeeBps / 100}% no evento ${ev.id}, mas sem ASAAS_PLATFORM_WALLET_ID: presentes indisponíveis.`,
+    );
+    return { ok: false, state: "no_account" };
+  }
   const creds = accountCredentials(deps.secrets, account);
   // Nunca repassar para a carteira da própria conta que cobra (o Asaas recusa).
-  const split = platformSplit(deps, feePercentToBps(deps.env.PLATFORM_FEE_PERCENT)).filter(
-    (s) => s.walletId !== creds.walletId,
-  );
-  const feeBps = split.length ? feePercentToBps(deps.env.PLATFORM_FEE_PERCENT) : 0;
+  const split = platformSplit(deps, planFeeBps).filter((s) => s.walletId !== creds.walletId);
+  const feeBps = split.length ? planFeeBps : 0;
   return {
     ok: true,
     state,

@@ -11,7 +11,9 @@ import {
   isUniqueViolation,
   normalizeEventHost,
 } from "./event-service.ts";
+import { DEFAULT_SIGNUP_PLAN_CODE, ensureOrgSubscription, ensurePlans } from "./plan-catalog.ts";
 import { gifts } from "./schema/app.ts";
+import { COURTESY_PLAN_CODE, organizationSubscriptions, plans } from "./schema/platform.ts";
 import { account, user } from "./schema/auth.ts";
 import {
   eventDomains,
@@ -43,19 +45,81 @@ export async function resolveEvent(db: Database, ref: string) {
   return row;
 }
 
-export async function createOrganization(db: Database, input: { slug: string; name: string }) {
+/**
+ * Cria a organização já com assinatura (Fase 6): `plan` = código do plano (padrão "essencial",
+ * em teste; "cortesia" = interno, sem limites nem cobrança). A CLI expõe como `--plan`.
+ */
+export async function createOrganization(
+  db: Database,
+  input: { slug: string; name: string; plan?: string },
+) {
   const slug = assertEventSlug(input.slug);
   const name = input.name.trim();
   if (!name) throw new Error("Informe o nome da organização.");
+  const planCode = (input.plan ?? DEFAULT_SIGNUP_PLAN_CODE).trim().toLowerCase();
+  await ensurePlans(db);
+  const [plan] = await db.select({ id: plans.id }).from(plans).where(eq(plans.code, planCode));
+  if (!plan) throw new Error(`Plano não encontrado: "${planCode}".`);
   try {
     const [res] = await db.insert(organizations).values({ slug, name });
-    return { id: res.insertId, slug, name };
+    await ensureOrgSubscription(db, res.insertId, planCode);
+    return { id: res.insertId, slug, name, plan: planCode };
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new Error(`Já existe uma organização com o slug "${slug}".`);
     }
     throw error;
   }
+}
+
+/**
+ * Troca o plano de uma organização pela CLI (`org:plan`), sem cobrança: plano interno →
+ * `internal`; saindo do interno → teste do plano (ou ativo sem teste); entre planos pagos, só o
+ * plano muda (a cobrança no provedor é ajustada pelo painel do dono ou da plataforma).
+ */
+export async function setOrganizationPlan(db: Database, orgRef: string, planRef: string) {
+  const org = await resolveOrganization(db, orgRef);
+  const code = planRef.trim().toLowerCase();
+  await ensurePlans(db);
+  const [plan] = await db.select().from(plans).where(eq(plans.code, code));
+  if (!plan) throw new Error(`Plano não encontrado: "${code}".`);
+  const internal = plan.code === COURTESY_PLAN_CODE || !plan.public;
+  const [current] = await db
+    .select()
+    .from(organizationSubscriptions)
+    .where(eq(organizationSubscriptions.organizationId, org.id));
+  if (!current) {
+    await ensureOrgSubscription(db, org.id, code);
+    return { organization: org.slug, plan: code, status: internal ? "internal" : "nova" };
+  }
+  const now = new Date();
+  const trialEndsAt =
+    plan.trialDays > 0 ? new Date(now.getTime() + plan.trialDays * 86_400_000) : null;
+  const values = internal
+    ? {
+        planId: plan.id,
+        status: "internal" as const,
+        billingCycle: null,
+        trialEndsAt: null,
+        pastDueSince: null,
+        canceledAt: null,
+      }
+    : current.status === "internal" || current.status === "canceled"
+      ? {
+          planId: plan.id,
+          status: trialEndsAt ? ("trialing" as const) : ("active" as const),
+          billingCycle: current.billingCycle ?? ("monthly" as const),
+          trialEndsAt,
+          pastDueSince: null,
+          canceledAt: null,
+        }
+      : { planId: plan.id };
+  await db
+    .update(organizationSubscriptions)
+    .set({ ...values, updatedAt: now })
+    .where(eq(organizationSubscriptions.organizationId, org.id));
+  const status = "status" in values ? values.status : current.status;
+  return { organization: org.slug, plan: code, status };
 }
 
 export interface CreateEventInput {

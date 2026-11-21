@@ -21,6 +21,7 @@ import {
   type GiftCategory,
 } from "@casamento/shared";
 import { Hono, type Context } from "hono";
+import { addStorageUsage, checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 import { bodyLimit } from "hono/body-limit";
 import { apiError } from "../errors.ts";
 import { invalid, notFound, readJson, sensitiveLimit } from "./context.ts";
@@ -328,7 +329,14 @@ export function adminUploadRoutes(deps: AdminDeps) {
       }
       const name = `${newPublicId()}.${ext}`;
       const ev = c.get("event");
+      // Fase 6: espaço em disco do plano da organização.
+      const allowed = await checkPlanLimit(deps.db, ev.orgId, {
+        kind: "storageMb",
+        addingBytes: bytes.byteLength,
+      });
+      if (!allowed.ok) return planLimitResponse(c, allowed);
       await deps.storage.put(ev.id, name, bytes);
+      await addStorageUsage(deps.db, ev.orgId, bytes.byteLength);
       return c.json({ path: `/uploads/${ev.id}/${name}` }, 201);
     },
   );
