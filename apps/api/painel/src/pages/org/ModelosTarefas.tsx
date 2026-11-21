@@ -2,6 +2,7 @@ import {
   EVENT_TYPES,
   TASK_CATEGORIES,
   TASK_CATEGORY_LABELS,
+  type PlatformTaskTemplateView,
   type TaskTemplateInput,
   type TaskTemplateSummary,
   type TaskTemplateView,
@@ -40,9 +41,29 @@ function ModeloLista() {
     () => orgApi<{ templates: TaskTemplateSummary[] }>("/task-templates"),
     [],
   );
+  const platform = useLoad(
+    () => orgApi<{ templates: PlatformTaskTemplateView[] }>("/platform-task-templates"),
+    [],
+  );
   const [removing, setRemoving] = useState<TaskTemplateSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [copying, setCopying] = useState<number | null>(null);
+
+  async function copyPlatform(t: PlatformTaskTemplateView) {
+    setCopying(t.id);
+    try {
+      const r = await orgSend<{ template: TaskTemplateView }>(
+        "POST",
+        `/platform-task-templates/${t.id}/copy`,
+      );
+      toast(`“${t.name}” foi copiado para os modelos da organização.`);
+      window.location.hash = oh(`/modelos/${r.template.id}`);
+    } catch (err) {
+      toast(errorMessage(err), "error");
+      setCopying(null);
+    }
+  }
 
   async function create() {
     setCreating(true);
@@ -117,6 +138,40 @@ function ModeloLista() {
             </li>
           ))}
         </ul>
+      )}
+      {platform.data && platform.data.templates.length > 0 && (
+        <section className="stack" aria-labelledby="mod-plataforma">
+          <div>
+            <h2 id="mod-plataforma">Modelos prontos da plataforma</h2>
+            <p className="muted small">
+              Copie um para os modelos da organização e ajuste do seu jeito. Também dá para aplicar
+              direto num evento, na página de tarefas dele.
+            </p>
+          </div>
+          <ul className="rows">
+            {platform.data.templates.map((t) => (
+              <li key={t.id} className="row" data-testid="modelo-plataforma">
+                <div className="row__main">
+                  <span className="row__title">{t.name}</span>
+                  <span className="row__meta">
+                    {typeLabel(t.eventType)} · {t.items.length}{" "}
+                    {t.items.length === 1 ? "tarefa" : "tarefas"}
+                    {t.description ? ` · ${t.description}` : ""}
+                  </span>
+                </div>
+                <div className="row__side">
+                  <button
+                    className="button button--small button--ghost"
+                    disabled={copying !== null}
+                    onClick={() => void copyPlatform(t)}
+                  >
+                    {copying === t.id ? "Copiando…" : "Copiar para a organização"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       <Confirm
         open={removing !== null}

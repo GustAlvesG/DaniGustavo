@@ -1,9 +1,15 @@
-import { parseSettings, type SettingsKey } from "@casamento/shared";
+import { ReadOnlyScope, useCan } from "../event.tsx";
+import { MONOGRAM_ARTS, parseSettings, type SettingsKey } from "@casamento/shared";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { api, errorMessage, send } from "../api.ts";
 import { isoToLocalInput, localInputToIso } from "../format.ts";
 import { ErrorBox, Field, FormError, Loading, PageHeader, useLoad, useToast } from "../ui.tsx";
 import { eh } from "../nav.ts";
+
+/** Nome de cada arte de monograma na lista de escolha. */
+const MONOGRAM_ART_LABELS: Record<(typeof MONOGRAM_ARTS)[number], string> = {
+  dg: "Ligadura D & G",
+};
 
 type Values = Record<string, unknown>;
 type Item = Record<string, unknown>;
@@ -303,10 +309,20 @@ const SECTIONS = [
   ["cfg-hospedagem", "Hospedagem"],
   ["cfg-faq", "Dúvidas"],
   ["cfg-seo", "Compartilhamento"],
+  ["cfg-identidade", "Monograma e agenda"],
   ["cfg-avancado", "Avançado"],
 ] as const;
 
 export function Configuracoes() {
+  const canWrite = useCan("settings.write");
+  return (
+    <ReadOnlyScope readOnly={!canWrite}>
+      <ConfiguracoesPage />
+    </ReadOnlyScope>
+  );
+}
+
+function ConfiguracoesPage() {
   const { data, setData, error, loading, reload } = useLoad(
     () => api<{ values: Values; siteUrl: string }>("/settings"),
     [],
@@ -323,6 +339,8 @@ export function Configuracoes() {
   const contact = obj("couple.contact");
   const dress = obj("dresscode");
   const seo = obj("seo");
+  // O código da agenda não aceita vazio (a API exige texto): só vai junto quando preenchido.
+  const uidFilled = String(v["calendar.uid"] ?? "").trim() !== "";
 
   return (
     <div className="stack stack--lg">
@@ -570,6 +588,43 @@ export function Configuracoes() {
               />
             </Field>
           ))}
+        </div>
+      </Section>
+
+      <Section
+        id="cfg-identidade"
+        title="Monograma e agenda"
+        description="Detalhes de identidade do evento: a arte do monograma e o código fixo do evento na agenda de quem salvou a data."
+        keys={uidFilled ? ["couple.monogram_art", "calendar.uid"] : ["couple.monogram_art"]}
+        {...sectionProps}
+      >
+        <div className="form-grid">
+          <Field
+            label="Arte do monograma"
+            hint="Sem arte, o site mostra as iniciais em texto (campo Monograma)."
+          >
+            <select
+              value={String(v["couple.monogram_art"] ?? "")}
+              onChange={(e) => set("couple.monogram_art", e.target.value || null)}
+            >
+              <option value="">Só as iniciais, em texto</option>
+              {MONOGRAM_ARTS.map((a) => (
+                <option key={a} value={a}>
+                  {MONOGRAM_ART_LABELS[a]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            label="Código do evento na agenda"
+            hint="Quem salvou a data no calendário não ganha um evento duplicado se o código ficar igual. Vazio: o site usa o padrão evento-data@endereço, e ele não precisa ser mudado."
+          >
+            <input
+              value={String(v["calendar.uid"] ?? "")}
+              maxLength={191}
+              onChange={(e) => set("calendar.uid", e.target.value)}
+            />
+          </Field>
         </div>
       </Section>
 

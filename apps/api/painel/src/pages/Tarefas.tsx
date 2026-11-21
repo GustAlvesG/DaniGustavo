@@ -10,6 +10,9 @@ import {
   type TaskList,
   type TaskRow,
   type TaskStatus,
+  type PlatformTaskTemplateView,
+  type TaskRemindersUpdate,
+  type TaskRemindersView,
   type TaskTemplateSummary,
   type TaskView,
 } from "@casamento/shared";
@@ -225,6 +228,8 @@ export function Tarefas() {
         </section>
       )}
 
+      <ResumoSemanal canWrite={canWrite} />
+
       <Modal
         title={editing === "new" ? "Nova tarefa" : "Editar tarefa"}
         open={editing !== null}
@@ -427,6 +432,108 @@ function TaskFields({
 
 /* ------------------------------------------------------------------------ */
 
+const WEEKDAY_NAMES = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+
+/** Resumo semanal por e-mail: liga/desliga do evento (quem edita tarefas) e a preferência pessoal. */
+function ResumoSemanal({ canWrite }: { canWrite: boolean }) {
+  const toast = useToast();
+  const { data, setData, error, loading, reload } = useLoad(
+    () => api<TaskRemindersView>("/tasks/reminders"),
+    [],
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function save(body: TaskRemindersUpdate) {
+    setBusy(true);
+    try {
+      setData(await send<TaskRemindersView>("PUT", "/tasks/reminders", body));
+      toast("Preferência salva.");
+    } catch (err) {
+      toast(errorMessage(err), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading && !data) return null;
+  if (error || !data) return <ErrorBox message={error ?? "Sem dados."} onRetry={reload} />;
+  const { settings, mine } = data;
+  return (
+    <section className="card stack" aria-labelledby="resumo-semanal">
+      <div>
+        <h2 id="resumo-semanal">Resumo semanal por e-mail</h2>
+        <p className="muted small">
+          Toda {WEEKDAY_NAMES[settings.weekday]}, quem é responsável por tarefas atrasadas ou dos
+          próximos {settings.lookaheadDays} dias recebe um e-mail com a lista.
+          {settings.enabled ? "" : " O resumo está desligado neste evento."}
+        </p>
+      </div>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={mine.enabled}
+          disabled={busy}
+          onChange={(e) => void save({ mine: { enabled: e.target.checked } })}
+        />
+        Quero receber este resumo
+      </label>
+      {canWrite && (
+        <>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              disabled={busy}
+              onChange={(e) => void save({ settings: { ...settings, enabled: e.target.checked } })}
+            />
+            Enviar o resumo neste evento
+          </label>
+          <div className="form-grid">
+            <Field label="Dia do envio">
+              <select
+                value={settings.weekday}
+                disabled={busy}
+                onChange={(e) =>
+                  void save({ settings: { ...settings, weekday: Number(e.target.value) } })
+                }
+              >
+                {WEEKDAY_NAMES.map((name, i) => (
+                  <option key={name} value={i}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tarefas dos próximos (dias)">
+              <select
+                value={settings.lookaheadDays}
+                disabled={busy}
+                onChange={(e) =>
+                  void save({ settings: { ...settings, lookaheadDays: Number(e.target.value) } })
+                }
+              >
+                {[7, 14, 21, 30].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function ApplyTemplate({
   open,
   onClose,
@@ -444,16 +551,25 @@ function ApplyTemplate({
         : Promise.resolve({ templates: [] as TaskTemplateSummary[] }),
     [open],
   );
+  const platform = useLoad(
+    () =>
+      open
+        ? api<{ templates: PlatformTaskTemplateView[] }>("/tasks/platform-templates")
+        : Promise.resolve({ templates: [] as PlatformTaskTemplateView[] }),
+    [open],
+  );
   const [busy, setBusy] = useState<number | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
-  async function apply(t: TaskTemplateSummary) {
-    setBusy(t.id);
+  async function apply(t: { id: number; name: string }, fromPlatform = false) {
+    setBusy(fromPlatform ? -t.id : t.id);
     setFailure(null);
     try {
-      const r = await send<ApplyTaskTemplateResult>("POST", "/tasks/apply-template", {
-        templateId: t.id,
-      });
+      const r = await send<ApplyTaskTemplateResult>(
+        "POST",
+        fromPlatform ? "/tasks/apply-platform-template" : "/tasks/apply-template",
+        { templateId: t.id },
+      );
       toast(
         `${r.created} ${r.created === 1 ? "tarefa criada" : "tarefas criadas"} a partir de "${t.name}".`,
       );
@@ -502,6 +618,33 @@ function ApplyTemplate({
             </li>
           ))}
         </ul>
+        {platform.data && platform.data.templates.length > 0 && (
+          <>
+            <h3>Modelos prontos da plataforma</h3>
+            <ul className="rows">
+              {platform.data.templates.map((t) => (
+                <li key={t.id} className="row" data-testid="modelo-plataforma-aplicar">
+                  <div className="row__main">
+                    <span className="row__title">{t.name}</span>
+                    <span className="row__meta">
+                      {t.items.length} {t.items.length === 1 ? "tarefa" : "tarefas"}
+                      {t.description ? ` · ${t.description}` : ""}
+                    </span>
+                  </div>
+                  <div className="row__side">
+                    <button
+                      className="button button--small"
+                      disabled={busy !== null || t.items.length === 0}
+                      onClick={() => void apply(t, true)}
+                    >
+                      {busy === -t.id ? "Aplicando…" : "Aplicar"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <FormError message={failure} />
       </div>
     </Modal>

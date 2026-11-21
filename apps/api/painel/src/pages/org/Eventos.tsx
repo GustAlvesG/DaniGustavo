@@ -1,9 +1,20 @@
 import { eventTypeOf, EVENT_TYPE_LABELS, type OrgEventSummary } from "@casamento/shared";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { errorMessage, orgApi, orgSend } from "../../api.ts";
 import { formatBRL, formatDate, plural } from "../../format.ts";
 import { eventPath, oh } from "../../nav.ts";
-import { Badge, Confirm, ErrorBox, Loading, PageHeader, useLoad, useToast } from "../../ui.tsx";
+import {
+  Badge,
+  Confirm,
+  ErrorBox,
+  Field,
+  FormError,
+  Loading,
+  Modal,
+  PageHeader,
+  useLoad,
+  useToast,
+} from "../../ui.tsx";
 import { useRefreshMe } from "../../org.tsx";
 
 export const EVENT_STATUS_LABEL: Record<OrgEventSummary["status"], string> = {
@@ -39,6 +50,89 @@ export function EventNumbers({ e }: { e: OrgEventSummary }) {
   );
 }
 
+/** Data ("AAAA-MM-DD") e hora ("HH:MM") de um instante no fuso do evento. */
+function localParts(iso: string | null, timeZone: string): { date: string; time: string } {
+  if (!iso) return { date: "", time: "16:00" };
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(new Date(iso))
+      .map((p) => [p.type, p.value]),
+  );
+  return {
+    date: `${parts["year"]}-${parts["month"]}-${parts["day"]}`,
+    time: `${parts["hour"]}:${parts["minute"]}`,
+  };
+}
+
+/** Data, hora e fuso do evento (mesmo efeito de mudar a data em Configurações do evento). */
+function ScheduleForm({
+  event,
+  onCancel,
+  onSaved,
+}: {
+  event: OrgEventSummary;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const initial = localParts(event.startsAt, event.timezone);
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [timezone, setTimezone] = useState(event.timezone);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await orgSend("PATCH", `/events/${event.id}/schedule`, { date, time, timezone });
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="stack" onSubmit={(e) => void submit(e)} noValidate>
+      <p className="muted small">
+        Os prazos das tarefas contados a partir da data do evento são recalculados, e o site mostra
+        a data nova na hora.
+      </p>
+      <div className="form-grid">
+        <Field label="Data">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+        </Field>
+        <Field label="Hora de início">
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+        </Field>
+        <Field label="Fuso horário" hint="Ex.: America/Sao_Paulo.">
+          <input value={timezone} onChange={(e) => setTimezone(e.target.value)} required />
+        </Field>
+      </div>
+      <FormError message={error} />
+      <div className="actions actions--end">
+        <button type="button" className="button button--ghost" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button className="button" type="submit" disabled={saving}>
+          {saving ? "Salvando…" : "Salvar data"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function OrgEventos() {
   const toast = useToast();
   const refreshMe = useRefreshMe();
@@ -46,6 +140,7 @@ export function OrgEventos() {
     () => orgApi<{ events: OrgEventSummary[] }>("/events"),
     [],
   );
+  const [scheduling, setScheduling] = useState<OrgEventSummary | null>(null);
   const [pending, setPending] = useState<{
     event: OrgEventSummary;
     status: OrgEventSummary["status"];
@@ -95,6 +190,27 @@ export function OrgEventos() {
               </a>
               <div className="row__side">
                 <EventStatusBadge status={e.status} />
+                <button
+                  className="button button--small button--ghost"
+                  onClick={() => setScheduling(e)}
+                  aria-label={`Data e fuso de ${e.name}`}
+                >
+                  Data
+                </button>
+                <a
+                  className="button button--small button--ghost"
+                  href={oh(`/eventos/${e.id}/dominios`)}
+                >
+                  Domínios
+                </a>
+                {e.status === "archived" && (
+                  <a
+                    className="button button--small button--danger-ghost"
+                    href={oh(`/eventos/${e.id}/apagar`)}
+                  >
+                    Apagar…
+                  </a>
+                )}
                 {e.status !== "active" && (
                   <button className="button button--small" onClick={() => void change(e, "active")}>
                     Ativar
@@ -121,6 +237,25 @@ export function OrgEventos() {
           ))}
         </ul>
       )}
+      <Modal
+        title={scheduling ? `Data de ${scheduling.name}` : "Data do evento"}
+        open={scheduling !== null}
+        onClose={() => setScheduling(null)}
+      >
+        {scheduling && (
+          <ScheduleForm
+            key={scheduling.id}
+            event={scheduling}
+            onCancel={() => setScheduling(null)}
+            onSaved={() => {
+              toast(`Data de ${scheduling.name} atualizada.`, "ok");
+              setScheduling(null);
+              reload();
+              void refreshMe().catch(() => undefined);
+            }}
+          />
+        )}
+      </Modal>
       <Confirm
         open={pending !== null}
         title="Arquivar evento?"

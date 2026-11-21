@@ -1,4 +1,3 @@
-import { VENDOR_CATEGORIES, VENDOR_CATEGORY_LABELS } from "@casamento/shared";
 import type { VendorRow } from "@casamento/shared";
 import { useState } from "react";
 import { errorMessage, orgApi, orgSend } from "../../api.ts";
@@ -21,6 +20,7 @@ import {
   RatingStars,
   VendorForm,
 } from "../fornecedores/VendorForm.tsx";
+import { useCategories } from "../fornecedores/categorias.ts";
 
 /* Fase 4, frente B: catálogo de fornecedores da organização (#/o/:orgId/fornecedores[/:id]). */
 
@@ -35,6 +35,7 @@ export function OrgFornecedores({ id }: { id?: number }) {
 
 function Catalogo() {
   const toast = useToast();
+  const categories = useCategories("org");
   const [category, setCategory] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -61,9 +62,9 @@ function Catalogo() {
           <span className="field__label">Categoria</span>
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">Todas</option>
-            {VENDOR_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {VENDOR_CATEGORY_LABELS[c]}
+            {categories.options.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -95,7 +96,7 @@ function Catalogo() {
                   {v.name}
                 </a>
                 <span className="row__meta">
-                  {VENDOR_CATEGORY_LABELS[v.category]}
+                  {categories.label(v.category)}
                   {v.phone ? ` · ${v.phone}` : ""}
                   {v.eventCount ? ` · em ${v.eventCount} evento${v.eventCount > 1 ? "s" : ""}` : ""}
                 </span>
@@ -110,6 +111,7 @@ function Catalogo() {
       ) : null}
       <Modal title="Novo fornecedor" open={creating} onClose={() => setCreating(false)} wide>
         <VendorForm
+          scope="org"
           initial={emptyDraft()}
           submitLabel="Cadastrar"
           onCancel={() => setCreating(false)}
@@ -131,6 +133,7 @@ function Catalogo() {
 
 function Detalhe({ id }: { id: number }) {
   const toast = useToast();
+  const categories = useCategories("org");
   const { data, error, loading, reload } = useLoad(
     () => orgApi<VendorDetail>(`/vendors/${id}`),
     [id],
@@ -176,7 +179,7 @@ function Detalhe({ id }: { id: number }) {
         <>
           <PageHeader
             title={data.vendor.name}
-            subtitle={VENDOR_CATEGORY_LABELS[data.vendor.category]}
+            subtitle={categories.label(data.vendor.category)}
             actions={
               <>
                 <button
@@ -199,6 +202,7 @@ function Detalhe({ id }: { id: number }) {
           <section className="card stack" aria-labelledby="forn-dados">
             <h2 id="forn-dados">Dados</h2>
             <VendorForm
+              scope="org"
               key={`${data.vendor.id}-${data.vendor.name}-${data.vendor.rating}`}
               initial={draftOf(data.vendor)}
               submitLabel="Salvar"

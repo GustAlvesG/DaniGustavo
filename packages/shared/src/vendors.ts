@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Email, LocalDate } from "./org.ts";
-import { EventVendorStatus, optionalText, VendorCategory } from "./planning.ts";
+import { EventVendorStatus, optionalText, VendorCategoryKey } from "./planning.ts";
 
 /*
  * Fase 4, frente B: catálogo de fornecedores da organização, fornecedores do evento e
@@ -16,7 +16,7 @@ export type ContractMime = (typeof CONTRACT_MIME)[number];
 /** POST /vendors (catálogo). */
 export const VendorInput = z.object({
   name: z.string().trim().min(1, { error: "Informe o nome do fornecedor." }).max(191),
-  category: VendorCategory,
+  category: VendorCategoryKey,
   contactName: optionalText(191),
   email: Email.nullish().transform((v) => v ?? null),
   phone: optionalText(32),
@@ -39,7 +39,7 @@ export type VendorUpdate = z.infer<typeof VendorUpdate>;
 export interface VendorRow {
   id: number;
   name: string;
-  category: VendorCategory;
+  category: VendorCategoryKey;
   contactName: string | null;
   email: string | null;
   phone: string | null;
@@ -61,7 +61,7 @@ export const EventVendorInput = z
     vendorId: z.number().int().positive().optional(),
     vendor: VendorInput.optional(),
     /** Padrão: a categoria do catálogo. */
-    category: VendorCategory.optional(),
+    category: VendorCategoryKey.optional(),
     status: EventVendorStatus.default("prospect"),
     notes: optionalText(5000),
   })
@@ -72,7 +72,7 @@ export type EventVendorInput = z.infer<typeof EventVendorInput>;
 
 /** PATCH /api/admin/events/:eventId/vendors/:eventVendorId */
 export const EventVendorUpdate = z.object({
-  category: VendorCategory.optional(),
+  category: VendorCategoryKey.optional(),
   status: EventVendorStatus.optional(),
   notes: optionalText(5000).optional(),
 });
@@ -84,7 +84,7 @@ export interface EventVendorRow {
     VendorRow,
     "id" | "name" | "category" | "contactName" | "email" | "phone" | "website" | "rating"
   >;
-  category: VendorCategory;
+  category: VendorCategoryKey;
   status: EventVendorStatus;
   notes: string | null;
   contractCount: number;

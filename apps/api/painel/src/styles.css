@@ -1135,3 +1135,11 @@ input[readonly] {
 .row__title--done {
   text-decoration: line-through;
 }
+
+/* Edição aberta por quem só pode ler (ReadOnlyScope em event.tsx). */
+.readonly-scope {
+  display: contents;
+}
+.readonly-scope button:not([role="tab"]) {
+  display: none;
+}

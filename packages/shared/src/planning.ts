@@ -38,6 +38,22 @@ export const VENDOR_CATEGORIES = [
 export const VendorCategory = z.enum(VENDOR_CATEGORIES, { error: "Categoria inválida." });
 export type VendorCategory = z.infer<typeof VendorCategory>;
 
+/**
+ * Categoria aceita nas entradas: uma das 18 fixas ou uma própria da organização (`c-<slug>`,
+ * Fase 6). Que a própria exista na organização é conferido pela API.
+ */
+export const VendorCategoryKey = z.union(
+  [
+    VendorCategory,
+    z
+      .string()
+      .max(32)
+      .regex(/^c-[a-z0-9]+(-[a-z0-9]+)*$/),
+  ],
+  { error: "Categoria inválida." },
+);
+export type VendorCategoryKey = string;
+
 export const VENDOR_CATEGORY_LABELS: Record<VendorCategory, string> = {
   local: "Local",
   buffet: "Buffet",
@@ -168,4 +184,12 @@ export interface PlanningPerson {
   email: string;
   /** "org_owner" | "org_member" | "event_host" */
   role: "org_owner" | "org_member" | "event_host";
+}
+
+/** Rótulo de uma categoria (fixa ou própria); a chave desconhecida volta como está. */
+export function vendorCategoryLabel(
+  key: string,
+  custom: Readonly<Record<string, string>> = {},
+): string {
+  return (VENDOR_CATEGORY_LABELS as Record<string, string>)[key] ?? custom[key] ?? key;
 }

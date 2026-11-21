@@ -2,12 +2,9 @@ import {
   CONTRACT_MAX_BYTES,
   EVENT_VENDOR_STATUS_LABELS,
   EVENT_VENDOR_STATUSES,
-  VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABELS,
   type ContractRow,
   type EventVendorRow,
   type EventVendorStatus,
-  type VendorCategory,
   type VendorRow,
 } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
@@ -34,6 +31,7 @@ import {
   VendorForm,
   type VendorDraft,
 } from "./fornecedores/VendorForm.tsx";
+import { useCategories } from "./fornecedores/categorias.ts";
 
 /* Fase 4, frente B: fornecedores do evento e contratos (#/fornecedores, #/fornecedores/:id). */
 
@@ -50,6 +48,7 @@ export function Fornecedores({ id }: { id?: number }) {
 function Lista() {
   const toast = useToast();
   const canWrite = useCan("vendors.write");
+  const categories = useCategories("event");
   const [status, setStatus] = useState("");
   const [adding, setAdding] = useState(false);
   const { data, error, loading, reload } = useLoad(
@@ -96,7 +95,7 @@ function Lista() {
                   {v.vendor.name}
                 </a>
                 <span className="row__meta">
-                  {VENDOR_CATEGORY_LABELS[v.category]}
+                  {categories.label(v.category)}
                   {v.vendor.phone ? ` · ${v.vendor.phone}` : ""}
                   {v.contractCount ? ` · ${plural(v.contractCount, "contrato", "contratos")}` : ""}
                 </span>
@@ -131,6 +130,8 @@ function AddVendor({
   onClose: () => void;
   onAdded: (name: string) => void;
 }) {
+  const canCatalog = useCan("vendors.catalog");
+  const categories = useCategories("event");
   const [mode, setMode] = useState<"catalog" | "new">("catalog");
   const [vendorId, setVendorId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -175,22 +176,24 @@ function AddVendor({
         >
           Do catálogo
         </button>
-        <button
-          type="button"
-          className={`button button--small${mode === "new" ? "" : " button--ghost"}`}
-          onClick={() => setMode("new")}
-        >
-          Cadastrar novo
-        </button>
+        {canCatalog && (
+          <button
+            type="button"
+            className={`button button--small${mode === "new" ? "" : " button--ghost"}`}
+            onClick={() => setMode("new")}
+          >
+            Cadastrar novo
+          </button>
+        )}
       </div>
-      {mode === "catalog" ? (
+      {mode === "catalog" || !canCatalog ? (
         <form className="stack" onSubmit={link}>
           <Field label="Fornecedor" hint="Só os não arquivados do catálogo da organização.">
             <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} required>
               <option value="">Escolha…</option>
               {catalog.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} · {VENDOR_CATEGORY_LABELS[v.category]}
+                  {v.name} · {categories.label(v.category)}
                 </option>
               ))}
             </select>
@@ -207,6 +210,7 @@ function AddVendor({
         </form>
       ) : (
         <VendorForm
+          scope="event"
           initial={emptyDraft()}
           submitLabel="Cadastrar e adicionar"
           onCancel={onClose}
@@ -220,6 +224,7 @@ function AddVendor({
 function Detalhe({ id }: { id: number }) {
   const toast = useToast();
   const canWrite = useCan("vendors.write");
+  const categories = useCategories("event");
   const { data, error, loading, reload } = useLoad(
     () => api<{ vendors: EventVendorRow[] }>("/vendors"),
     [id],
@@ -230,7 +235,7 @@ function Detalhe({ id }: { id: number }) {
 
   async function patch(body: {
     status?: EventVendorStatus;
-    category?: VendorCategory;
+    category?: string;
     notes?: string | null;
   }) {
     setBusy(true);
@@ -273,8 +278,7 @@ function Detalhe({ id }: { id: number }) {
             title={row.vendor.name}
             subtitle={
               <>
-                {VENDOR_CATEGORY_LABELS[row.vendor.category]} ·{" "}
-                <RatingStars rating={row.vendor.rating} />
+                {categories.label(row.vendor.category)} · <RatingStars rating={row.vendor.rating} />
               </>
             }
             actions={
@@ -325,13 +329,16 @@ function Detalhe({ id }: { id: number }) {
                 <select
                   value={row.category}
                   disabled={!canWrite || busy}
-                  onChange={(e) => void patch({ category: e.target.value as VendorCategory })}
+                  onChange={(e) => void patch({ category: e.target.value })}
                 >
-                  {VENDOR_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {VENDOR_CATEGORY_LABELS[c]}
+                  {categories.options.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
                     </option>
                   ))}
+                  {!categories.options.some((c) => c.key === row.category) && (
+                    <option value={row.category}>{categories.label(row.category)}</option>
+                  )}
                 </select>
               </Field>
             </div>

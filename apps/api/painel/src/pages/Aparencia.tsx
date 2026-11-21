@@ -1,3 +1,4 @@
+import { ReadOnlyScope, useCan } from "../event.tsx";
 import {
   FONTS,
   NO_SCRIPT,
@@ -87,6 +88,15 @@ function Mini({ colors, name }: { colors: PaletteColors; name: string }) {
 
 /** Aparência do site: tema, paleta e fontes entre as opções prontas (contraste já conferido). */
 export function Aparencia() {
+  const canWrite = useCan("content.write");
+  return (
+    <ReadOnlyScope readOnly={!canWrite}>
+      <AparenciaPage />
+    </ReadOnlyScope>
+  );
+}
+
+function AparenciaPage() {
   const toast = useToast();
   const { data, setData, error, loading, reload } = useLoad(
     () => api<AppearanceData>("/appearance"),

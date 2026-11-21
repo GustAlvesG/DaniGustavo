@@ -280,6 +280,22 @@ export async function applyTemplate(
       ),
     )
     .orderBy(asc(taskTemplateItems.sort), asc(taskTemplateItems.id));
+  return applyItems(db, ev, items, true);
+}
+
+/** Cria tarefas (prazo relativo à data do evento) a partir de itens de modelo. */
+export async function applyItems(
+  db: Database,
+  ev: EventCtx,
+  items: {
+    id?: number;
+    title: string;
+    description: string | null;
+    category: string;
+    offsetDays: number;
+  }[],
+  withProvenance = false,
+): Promise<number> {
   if (items.length === 0) return 0;
   const eventDate = eventLocalDate(ev);
   const first = await nextSort(db, ev);
@@ -291,7 +307,7 @@ export async function applyTemplate(
       category: it.category,
       status: "todo" as const,
       ...dueColumns({ kind: "offset", days: it.offsetDays }, eventDate),
-      templateItemId: it.id,
+      templateItemId: withProvenance ? (it.id ?? null) : null,
       sort: first + i,
     })),
   );

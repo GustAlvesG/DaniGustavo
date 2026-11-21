@@ -1,3 +1,4 @@
+import { ReadOnlyScope, useCan } from "../event.tsx";
 import {
   HOME_SECTION_LABELS,
   SiteSections,
@@ -34,6 +35,15 @@ async function load(): Promise<Loaded> {
 }
 
 export function Site() {
+  const canWrite = useCan("content.write");
+  return (
+    <ReadOnlyScope readOnly={!canWrite}>
+      <SitePage />
+    </ReadOnlyScope>
+  );
+}
+
+function SitePage() {
   const { data, error, loading, reload } = useLoad(load, []);
   if (loading && !data) return <Loading />;
   if (error || !data) return <ErrorBox message={error ?? "Sem dados."} onRetry={reload} />;
