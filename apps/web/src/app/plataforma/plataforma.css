@@ -1,0 +1,107 @@
+/*
+ * Fase 6, frente B: peças do site da plataforma (landing, preços, cadastro e textos legais).
+ * Mesmos tokens do Álbum (globals.css): papel, tinta, marinho, serenity. Sem cor fixa.
+ */
+.plataforma-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-papel);
+  color: var(--color-tinta);
+}
+
+.plataforma-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--color-papel) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-tinta) 12%, transparent);
+}
+
+.plataforma-wrap {
+  width: 100%;
+  max-width: var(--container-page);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 768px) {
+  .plataforma-wrap {
+    padding-inline: 2rem;
+  }
+}
+
+.plataforma-card {
+  position: relative;
+  background: var(--color-branco);
+  border-radius: 0.25rem;
+  padding: 1.5rem;
+  /* Fio duplo do Álbum. */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-tinta) 14%, transparent),
+    0 0 0 5px var(--color-branco),
+    0 0 0 6px color-mix(in srgb, var(--color-tinta) 10%, transparent),
+    0 14px 30px -18px color-mix(in srgb, var(--color-marinho) 45%, transparent);
+}
+
+@media (min-width: 768px) {
+  .plataforma-card {
+    padding: 2rem;
+  }
+}
+
+.plataforma-card--destaque {
+  outline: 2px solid var(--color-serenity);
+  outline-offset: 8px;
+}
+
+.plataforma-faixa {
+  background: var(--color-marinho);
+  color: var(--color-branco);
+}
+
+.plataforma-faixa a {
+  color: var(--color-claro);
+}
+
+.plataforma-lista {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.plataforma-lista li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.plataforma-lista li::before {
+  content: "";
+  flex: none;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--color-serenity);
+  transform: translateY(-0.1em);
+}
+
+.plataforma-texto h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.plataforma-texto p,
+.plataforma-texto li {
+  margin-top: 0.75rem;
+}
+
+.plataforma-texto ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}

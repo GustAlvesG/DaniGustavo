@@ -89,7 +89,7 @@ export function createApp({
 
   app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-  app.route("/api/hosts", hostRoutes(eventResolver, db));
+  app.route("/api/hosts", hostRoutes(eventResolver, db, env));
   // Fase 6, frente A: planos da página de preços (público).
   app.route("/api/plans", publicPlanRoutes(db));
 
