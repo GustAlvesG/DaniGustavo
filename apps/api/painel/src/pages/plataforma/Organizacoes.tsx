@@ -7,7 +7,7 @@ import type {
 import { SUBSCRIPTION_STATUS_LABELS, SUBSCRIPTION_STATUSES } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
 import { apiRoot, errorMessage } from "../../api.ts";
-import { formatDate } from "../../format.ts";
+import { formatDate, plural } from "../../format.ts";
 import {
   Badge,
   Confirm,
@@ -93,7 +93,8 @@ export function OrganizacoesPlataforma() {
               <a className="row__main" href={ph(`/organizacoes/${o.id}`)}>
                 <span className="row__title">{o.name}</span>
                 <span className="row__meta">
-                  {o.planName ?? "Sem assinatura"} · {o.usage.activeEvents} evento(s) ativo(s) ·{" "}
+                  {o.planName ?? "Sem assinatura"} ·{" "}
+                  {plural(o.usage.activeEvents, "evento ativo", "eventos ativos")} ·{" "}
                   {o.usage.members} na equipe · desde {formatDate(o.createdAt)}
                 </span>
               </a>

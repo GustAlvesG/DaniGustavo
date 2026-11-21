@@ -63,7 +63,10 @@ export function UsoDoPlano({ usage, limits }: { usage: UsageView; limits: PlanLi
           : modules.length === 0
             ? "nenhum"
             : modules.map((m) => MODULE_LABELS[m]).join(", ")}
-        . Espaço medido em {formatDateTime(usage.storageComputedAt)}.
+        .{" "}
+        {usage.storageComputedAt
+          ? `Espaço medido em ${formatDateTime(usage.storageComputedAt)}.`
+          : "O espaço em disco é medido de hora em hora."}
       </p>
     </div>
   );

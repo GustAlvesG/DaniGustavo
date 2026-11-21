@@ -25,9 +25,12 @@ import {
   messages,
   newPublicId,
   organizationMembers,
+  organizations,
+  organizationSubscriptions,
   paymentAccounts,
   payments,
   scheduleItems,
+  signupRequests,
   sql,
   taskTemplates,
   teamInvites,
@@ -38,7 +41,12 @@ import {
 import { createHash, randomBytes } from "node:crypto";
 import { rm, rmdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { cleanupE2eOrg, ensureE2eHost, ensureE2eOrg } from "@casamento/db/testing";
+import {
+  cleanupE2eOrg,
+  ensureE2eHost,
+  ensureE2eOrg,
+  ensureE2ePlatformAdmin,
+} from "@casamento/db/testing";
 
 /** Fase 5: nomes do e2e de recebimentos (org, dona, evento, host) a partir do `run`. */
 const f5 = (run: string) => ({
@@ -65,6 +73,33 @@ async function cleanupFase5(run: string) {
     await db.delete(paymentAccounts).where(eq(paymentAccounts.organizationId, ev.orgId));
   }
   await cleanupE2eOrg(db, org, [email]);
+}
+
+/** Fase 6: e-mails do e2e (a dona entra pelo cadastro self-service; o admin é da plataforma). */
+const f6 = (run: string) => ({
+  owner: `dona-f6-${run}@exemplo.com`,
+  admin: `admin-f6-${run}@exemplo.com`,
+});
+
+/** Organizações em que o usuário deste e-mail é dono. */
+async function ownedOrgs(email: string): Promise<number[]> {
+  const rows = await db
+    .select({ orgId: organizationMembers.organizationId })
+    .from(organizationMembers)
+    .innerJoin(user, eq(user.id, organizationMembers.userId))
+    .where(and(eq(user.email, email), eq(organizationMembers.role, "owner")));
+  return rows.map((r) => r.orgId);
+}
+
+/** Fase 6: apaga as organizações da dona (eventos juntos), os pedidos de cadastro e as contas. */
+async function cleanupFase6(run: string) {
+  const { owner, admin } = f6(run);
+  for (const orgId of await ownedOrgs(owner)) {
+    await db.delete(events).where(eq(events.organizationId, orgId));
+    await db.delete(organizations).where(eq(organizations.id, orgId));
+  }
+  await db.delete(signupRequests).where(inArray(signupRequests.email, [owner, admin]));
+  await db.delete(user).where(inArray(user.email, [owner, admin]));
 }
 
 type NewInvitation = {
@@ -427,6 +462,79 @@ async function main(): Promise<unknown> {
     }
     case "fase5-cleanup": {
       await cleanupFase5(String(arg));
+      return { ok: true };
+    }
+    case "fase6-signup-token": {
+      // O banco só guarda o hash do token e o e-mail vai para o console da API: troca o hash do
+      // cadastro pendente deste e-mail por um token conhecido (o "link do e-mail").
+      const email = String(arg).toLowerCase();
+      const token = randomBytes(32).toString("base64url");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      const pending = await db
+        .select({ id: signupRequests.id, confirmedAt: signupRequests.confirmedAt })
+        .from(signupRequests)
+        .where(eq(signupRequests.email, email));
+      const open = pending.filter((p) => p.confirmedAt === null);
+      if (open.length !== 1) throw new Error(`Esperava 1 cadastro pendente para ${email}.`);
+      await db.update(signupRequests).set({ tokenHash }).where(eq(signupRequests.id, open[0]!.id));
+      return { token };
+    }
+    case "fase6-invitation": {
+      // Convite de um convidado no evento da Fase 6 (o RSVP com aceite do aviso).
+      const input = JSON.parse(arg ?? "{}") as { slug: string; label: string; guest: string };
+      const [ev] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(eq(events.slug, input.slug));
+      if (!ev) throw new Error(`Evento ${input.slug} não existe.`);
+      const token = newPublicId();
+      await db.insert(invitations).values({
+        eventId: ev.id,
+        token,
+        label: input.label,
+        side: "noivos",
+        maxGuests: 1,
+      });
+      const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+      await db
+        .insert(guests)
+        .values({ eventId: ev.id, invitationId: inv!.id, name: input.guest, isChild: false });
+      return { token };
+    }
+    case "fase6-past-due": {
+      // Inadimplência além da carência: pagamento em atraso há `days` dias.
+      const input = JSON.parse(arg ?? "{}") as { orgId: number; days: number };
+      await db
+        .update(organizationSubscriptions)
+        .set({
+          status: "past_due",
+          pastDueSince: new Date(Date.now() - input.days * 86_400_000),
+        })
+        .where(eq(organizationSubscriptions.organizationId, input.orgId));
+      return { ok: true };
+    }
+    case "fase6-restore": {
+      // Volta ao teste grátis (fim daqui a 10 dias), sem atraso.
+      const orgId = Number(arg);
+      await db
+        .update(organizationSubscriptions)
+        .set({
+          status: "trialing",
+          pastDueSince: null,
+          trialEndsAt: new Date(Date.now() + 10 * 86_400_000),
+        })
+        .where(eq(organizationSubscriptions.organizationId, orgId));
+      return { ok: true };
+    }
+    case "fase6-admin": {
+      // Platform admin só do e2e (telas do painel da plataforma), com senha dada.
+      const input = JSON.parse(arg ?? "{}") as { run: string; password: string };
+      const email = f6(input.run).admin;
+      await ensureE2ePlatformAdmin(db, { email, password: input.password });
+      return { email };
+    }
+    case "fase6-cleanup": {
+      await cleanupFase6(String(arg));
       return { ok: true };
     }
     default:

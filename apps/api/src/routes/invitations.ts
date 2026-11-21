@@ -60,14 +60,28 @@ export function clientIp(c: Context): string {
   }
 }
 
-async function getSetting(ev: EventCtx, db: Database, key: string): Promise<unknown> {
+async function findSetting(ev: EventCtx, db: Database, key: string) {
   const [row] = await db
     .select()
     .from(eventSettings)
     .where(and(byEvent(eventSettings, ev), eq(eventSettings.key, key)));
+  return row;
+}
+
+async function getSetting(ev: EventCtx, db: Database, key: string): Promise<unknown> {
+  const row = await findSetting(ev, db, key);
   if (!row)
     throw new Error(`Configuração "${key}" não existe na tabela event_settings. Rode db:seed.`);
   return row.value;
+}
+
+/**
+ * Prazo do RSVP. Evento criado pelo painel/CLI nasce sem `rsvp.deadline` (só nome e data):
+ * até o anfitrião definir o prazo, vale a data do evento, como no site (`site-content.ts`).
+ */
+async function rsvpDeadline(ev: EventCtx, db: Database): Promise<string> {
+  const row = await findSetting(ev, db, "rsvp.deadline");
+  return String(row ? row.value : await getSetting(ev, db, "wedding.datetime"));
 }
 
 /** Convite do evento pelo token; token de outro evento → null (404). */
@@ -82,7 +96,7 @@ async function loadInvitation(ev: EventCtx, db: Database, token: string, now: Da
     .from(guests)
     .where(and(eq(guests.invitationId, inv.id), byEvent(guests, ev)))
     .orderBy(asc(guests.isPlusOne), asc(guests.id));
-  const deadline = String(await getSetting(ev, db, "rsvp.deadline"));
+  const deadline = await rsvpDeadline(ev, db);
   const privacy = await loadPrivacySettings(ev, db);
   const dto: Invitation = Invitation.parse({
     label: inv.label,
@@ -233,7 +247,8 @@ export function invitationRoutes(deps: InvitationDeps) {
     }
 
     if (dto.isClosed) {
-      const contact = (await getSetting(ev, db, "couple.contact")) as {
+      // Evento novo pode não ter contato gravado ainda.
+      const contact = ((await findSetting(ev, db, "couple.contact"))?.value ?? {}) as {
         whatsapp?: string;
         email?: string;
       };

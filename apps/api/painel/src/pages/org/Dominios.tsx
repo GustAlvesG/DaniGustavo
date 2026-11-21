@@ -101,7 +101,7 @@ export function Dominios({ eventId }: { eventId: number }) {
           ) : (
             <ul className="rows">
               {data.domains.map((d) => (
-                <li key={d.id} className="row" data-testid="dominio">
+                <li key={d.id} className="row row--wrap" data-testid="dominio">
                   <div className="row__main">
                     <span className="row__title">
                       {d.host} {d.isPrimary ? <Badge tone="info">Principal</Badge> : null}{" "}

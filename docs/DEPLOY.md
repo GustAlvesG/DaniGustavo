@@ -146,7 +146,12 @@ Preencha:
 - `PAYMENT_SECRETS_KEY` (plataforma, Fase 5): mais um valor do `openssl rand -hex 32`,
   **obrigatório em produção** (a API não sobe sem ele). Cifra as chaves de API das subcontas
   Asaas; trocá-lo depois invalida as chaves gravadas. `PLATFORM_FEE_PERCENT` (taxa da plataforma,
-  padrão 0) e `ASAAS_PLATFORM_WALLET_ID` ficam para o passo 10.
+  padrão 0) e `ASAAS_PLATFORM_WALLET_ID` ficam para o passo 10;
+- Fase 6 (todas opcionais; ver "Plataforma multi-evento" abaixo): `BILLING_PROVIDER`
+  (`simulado` padrão ou `asaas`), `SIGNUP_ENABLED` (`0` padrão), `PLATFORM_HOST`,
+  `PLATFORM_BASE_DOMAIN`, `PLATFORM_ALERT_EMAIL` (recebe falhas de rotina e erros 5xx, com
+  intervalo mínimo entre avisos; vazio = só log) e `LOG_FORMAT` (`json` padrão em produção, ou
+  `texto`). Os avisos de pedido e RSVP saem só por e-mail (o Telegram foi removido).
 
 `SITE_URL`, `BETTER_AUTH_URL`, `API_URL`, `DATABASE_URL` e `NEXT_PUBLIC_SITE_URL` **não** vão no
 `.env`: o `docker-compose.prod.yml` monta a partir de `DOMAIN`, `API_DOMAIN` e `MYSQL_*`. A linha
@@ -206,6 +211,7 @@ docker logs edge-caddy-1 2>&1 | grep -i "certificate obtained"
 docker compose logs -f api           # "Pagamentos: provedor ..." e nenhum erro de configuração
 curl -I https://danigustavo.artzan.tech
 curl https://painel-danigustavo.artzan.tech/api/health
+curl 'https://painel-danigustavo.artzan.tech/api/health?db=1'   # também confere o banco (503 se falhar)
 ```
 
 Depois:
@@ -278,7 +284,7 @@ cron do root (por padrão às 3h; `BACKUP_CRON` muda). O script faz `cd` para a 
 roda de qualquer pasta.
 
 O script faz `mysqldump --single-transaction` (foto consistente sem travar o site), guarda as fotos
-dos presentes e apaga backups com mais de 14 dias (`RETENTION_DAYS`). **Configure a cópia para
+dos presentes e os contratos (o volume de uploads inteiro, inclusive `<evento>/private/`, em `uploads-*.tar.gz`) e apaga backups com mais de 14 dias (`RETENTION_DAYS`). **Configure a cópia para
 fora da VPS** no fim do script (`gsutil` ou `rclone`): backup só na VPS não vale como backup. Os
 comandos de restauração estão no topo do script; teste uma restauração antes do grande dia.
 
@@ -387,7 +393,61 @@ do `main`). Nada de infraestrutura nova: mesmo compose, mesmas imagens, mesmo `s
   (`event:list`, `org:create`, `event:create`, `domain:add`, `user:add`; sem argumentos lista as
   opções). Um evento novo num subdomínio de `artzan.tech` também precisa do DNS (§3) e de um
   bloco no `site.caddy` apontando para `casamento-web:3000`.
-- **Próxima etapa (não implementada): domínios próprios.** Com `PLATFORM_BASE_DOMAIN` (ainda não
-  usado pelo código) e domínios dos clientes, o edge usaria on-demand TLS do Caddy com `ask`
-  consultando a API (`GET /api/hosts/:host`, 200 só para hosts cadastrados) antes de emitir o
-  certificado. Exige mudança no edge da VPS, fora deste repositório.
+- **Planos, cadastro, domínios e LGPD (Fase 6)**: sem migration nova além da 0012 (aplicada pelo
+  `migrate`; ela põe as organizações existentes no plano interno Cortesia e marca os domínios
+  existentes como verificados: só domínio verificado resolve). `docs/PERSONALIZAR.md` §9 a §11
+  descrevem o uso.
+- **Logs e saúde**: em produção cada requisição e erro sai como uma linha JSON no `docker compose
+logs api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o processo (é o do
+  healthcheck e do `HEALTH_URLS`); `?db=1` também faz `SELECT 1` e dá 503 se o banco falhar
+  (use-o em monitor externo).
+- **Backup**: `scripts/backup-db.sh` guarda também os uploads (fotos e contratos privados).
+
+### Site da plataforma e subdomínios automáticos
+
+- `PLATFORM_HOST` (ex.: `plataforma.artzan.tech`): host da landing, dos preços e do cadastro. Crie
+  o registro A (passo 3) e um bloco no `site.caddy` encaminhando para `casamento-web:3000`, como o
+  de `${DOMAIN}`. `SIGNUP_ENABLED=1` abre o cadastro; fechado por padrão.
+- `PLATFORM_BASE_DOMAIN` (ex.: `eventos.artzan.tech`): cada evento ganha `<slug>.<base>` sozinho.
+  Exige um registro curinga `*.eventos.artzan.tech` e um certificado que o cubra (curinga via DNS
+  challenge no edge, ou on-demand TLS abaixo). **Atenção:** o SSL da Cloudflare cobre só
+  `*.artzan.tech` (um nível), então um curinga de dois níveis precisa da nuvem **cinza** (DNS only)
+  e de certificado emitido pelo próprio edge; ou use uma base de um nível.
+
+### Domínios próprios (on-demand TLS no edge)
+
+O cliente aponta o domínio dele (registro A para o IP da VPS) e prova a posse com o registro TXT
+`_plataforma-verificacao.<domínio>` (painel da organização → evento → **Domínios**). Para o edge
+emitir o certificado só de quem está cadastrado, o Caddy pergunta à API antes de cada emissão. Isto
+muda o edge (`/srv/edge`), fora deste repositório, e **não** entra no `deploy/site.caddy`
+(o contrato proíbe bloco global ali). Exemplo:
+
+```caddy
+# Bloco global do Caddyfile do edge
+{
+	on_demand_tls {
+		# 200 só para host verificado de evento ativo, subdomínio da base e PLATFORM_HOST; o resto 404
+		ask http://casamento-api:3333/api/hosts/ask
+	}
+}
+
+# Bloco de domínios próprios (edge): qualquer host que o ask aprovar vai para o site
+https:// {
+	tls {
+		on_demand
+	}
+	import seguranca
+	reverse_proxy casamento-web:3000 {
+		import ip_real
+		flush_interval -1
+	}
+}
+```
+
+- `GET /api/hosts/ask?domain=<host>` responde só na rede interna (`casamento-api:3333`); o host da
+  API (`site.caddy`) não o expõe.
+- O `/api/revalidar` precisa continuar fechado também no bloco dos domínios próprios (`respond 404`
+  para esse caminho, como no `site.caddy`).
+- Se o domínio estiver na Cloudflare, mantenha a nuvem cinza até o certificado sair.
+- Sem esse bloco no edge, domínios próprios cadastrados no painel não ganham HTTPS (o subdomínio
+  `<slug>.<base>` e o `PLATFORM_HOST` continuam dependendo do DNS e do certificado acima).

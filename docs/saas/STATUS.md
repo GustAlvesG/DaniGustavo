@@ -2,7 +2,8 @@
 
 ## Feito (branch `saas`)
 
-- Fase 6 (comercial, LGPD e endurecimento): **fundação feita** (`fase-6.md`; §6 com os desvios). Migration 0012 aplicada no `casamento` (dump antes em scratchpad `casamento-antes-0012.sql`): planos (org 1 e as demais já existentes no plano interno "Cortesia"; `essencial`/`profissional` com preços `TODO(conteudo)`), assinaturas, uso, cadastro, aceite dos termos, domínios verificados (só verificado resolve), LGPD (consentimento, pedidos dos titulares, anonimização, resumo de evento apagado), categorias de fornecedor por organização, lembrete de tarefas e modelos de tarefas da plataforma. Contratos por frente em `packages/shared` (`plans`, `signup`, `privacy`, `ops`, `adjustments`), ações novas (`privacy.*`, `vendors.catalog`, `billing.manage`, `domains.manage`, `events.delete`, `categories.manage`, `platform.*`), rotas reservadas (501), painel da plataforma restrito ao platform admin (404 para os outros), rotinas ligadas no `server.ts`, variáveis novas nos exemplos/compose, Telegram fora dos exemplos e do compose, `gsap` removido. Decisões do usuário de 21/11/2026 registradas em `AGENTES.md` e nos §5 das fases 1–5.
+- Fase 6 (comercial, LGPD e endurecimento): **concluída, aguardando revisão** — fundação, frentes A–E e integração (`fase-6.md` §6 e §7). Planos (Cortesia na org 1, `essencial`/`profissional` com preços `TODO(conteudo)`), limites 409 `plan_limit`, assinatura (simulado/Asaas), inadimplência com painel só leitura (exceto reembolso, conciliação e privacidade) e painel da plataforma; cadastro self-service e site da plataforma; domínios (subdomínio automático, domínio próprio por TXT, `ask` do on-demand TLS); LGPD (consentimento, pedidos do titular, anonimização, retenção, apagar evento, exportar/apagar conta); CSP sem nonce, `X-Forwarded-Host` restrito, logs JSON, alertas por e-mail, `/api/health?db=1`, backup com uploads, CI com MySQL 8; Telegram removido; ajustes das Fases 2–5. Nenhuma migration nova (a próxima é a 0013). Screenshots em `.screenshots/saas-fase6/`, e2e em `painel-fase6.spec.ts`.
+  - **Retenção do casamento:** o padrão de 365 dias anonimizaria o evento de 10/04/2027 a partir de **09/04/2028**; o usuário decide se muda `retentionDays` ou aceita.
 
 - Fase 5 (recebimentos: subcontas Asaas e split): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-5.md` §6). Conta de recebimento da organização (só o dono cadastra) e, opt-in, do anfitrião; recebedor por evento; cobrança pela subconta com split da taxa (`PLATFORM_FEE_PERCENT`); situação cadastral por webhook da subconta, botão e rotina de 6 h; sem conta aprovada, "Disponível em breve" no site. Casamento e eventos anteriores seguem em `platform`. Nada novo a aplicar no `casamento` (0011 já estava). Screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Falta validar no sandbox do Asaas e pedir a liberação de subcontas/split.
 
@@ -20,17 +21,17 @@
 5. ~~**Fase 4**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 6. ~~**Fase 5**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 7. ~~Pausa de 21/11/2026~~ — retomado no mesmo dia com as decisões do usuário (`AGENTES.md`).
-8. **Fase 6:** fundação **feita**. **Próximo: frentes A–E em paralelo** (`fase-6.md` §4; worktrees à mão em `C:\dev\casamento-wt\f6a` … `f6e`, branches `saas-f6a` … `saas-f6e`), depois a integração. Escopo original:
-   - Planos e assinaturas: planos em banco (preços `TODO(conteudo)`), limites por plano, taxa da plataforma por plano; assinatura via Asaas `/v3/subscriptions` (com simulado); teste e inadimplência sem derrubar o site de convidados; org 1 num plano interno "Cortesia" sem limites.
-   - Cadastro self-service: landing e preços no host da plataforma; cadastro próprio com verificação de e-mail; termos e privacidade.
-   - Domínios: `PLATFORM_BASE_DOMAIN` → `slug.<base>`; domínio próprio verificado por DNS; Caddy on-demand TLS via `/api/hosts/:host`.
-   - LGPD: exportação, exclusão/anonimização, consentimento no RSVP e recados, retenção, privacidade por evento.
-   - Endurecimento: CSP no site e painel, cabeçalhos; **restringir o `X-Forwarded-Host` aceito pelo `proxy.ts`** (desde a Fase 5; com Cloudflare em `trusted_proxies` um cliente pode forjá-lo); logs e alertas; backup incluindo uploads privados; CI com MySQL 8.
-   - Painel do platform admin.
-   - Migration 0012: **aplicada** pela fundação. A próxima é a 0013.
-9. **Depois: Fase 7** (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, app do organizador).
+8. ~~**Fase 6**~~ — **feito** (fundação, frentes A–E, integração; frentes limpas).
+9. **Próximo: Fase 7** (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, app do organizador).
 10. ~~Limpeza do banco órfão `casamento_mig_…`~~ — feito pelo usuário.
 
 ## Decisões ainda abertas com o usuário
 
-As das Fases 1–5 foram respondidas em 21/11/2026 (`AGENTES.md`, "Decisões do usuário"; §5 de cada fase). Ficam para depois: preços e limites finais dos planos e textos legais (`TODO(conteudo)`), `PLATFORM_BASE_DOMAIN`/`PLATFORM_HOST` de produção, a chave sandbox do Asaas (validar pagamentos, subcontas, split e assinaturas) e a liberação de split/subcontas na conta principal.
+As das Fases 1–5 foram respondidas em 21/11/2026 (`AGENTES.md`, "Decisões do usuário"; §5 de cada fase). Em aberto:
+
+- Preços e limites finais dos planos, `PLATFORM_FEE_PERCENT` e textos legais (termos, política, aviso de privacidade): `TODO(conteudo)`.
+- `PLATFORM_HOST`, `PLATFORM_BASE_DOMAIN` de produção e o `ask` do on-demand TLS no edge (`DEPLOY.md`).
+- Chave sandbox do Asaas (pagamentos, subcontas, split, assinaturas) e liberação de split/subcontas na conta principal.
+- Retenção do casamento (acima).
+- Acompanhante criado pelo RSVP público deve ou não contar no limite de convidados (hoje não conta).
+- CSP do site sem nonce (hoje `'unsafe-inline'`): manter ou reverter.

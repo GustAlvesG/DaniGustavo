@@ -16,6 +16,10 @@ const port = Number(process.env.E2E_PORT ?? 3100);
 // site e os testes passam a apontar para ela (API_URL), sem tocar nos servidores abertos.
 const apiPort = Number(process.env.E2E_API_PORT ?? 3333);
 if (process.env.E2E_API_PORT) process.env.API_URL = `http://localhost:${apiPort}`;
+// Fase 6: site da plataforma (landing, preços e cadastro) e base dos endereços automáticos dos
+// eventos (`<slug>.f6.localhost:<porta>`), só nos servidores dos e2e.
+const PLATFORM_HOST = `plataforma.localhost:${port}`;
+const PLATFORM_BASE_DOMAIN = `f6.localhost:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -44,6 +48,7 @@ export default defineConfig({
     {
       // Painel dos noivos (na API, /painel), no tamanho do celular: mexe em dados próprios.
       name: "painel",
+      // Inclui painel-fase6.spec.ts (cadastro no site da plataforma → painel da organização).
       testMatch: /painel(-.+)?.spec.ts/,
       fullyParallel: false,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
@@ -73,6 +78,16 @@ export default defineConfig({
       // (POST /api/revalidar) vai para o site deste e2e, não para o da porta 3000.
       env: {
         PAYMENT_PROVIDER: "simulado",
+        // Fase 6: assinaturas também no simulado; nada de Asaas nem SMTP reais nos e2e (sem
+        // MAIL_HOST os e-mails só vão para o console da API).
+        BILLING_PROVIDER: "simulado",
+        ASAAS_API_KEY: "",
+        ASAAS_WEBHOOK_TOKEN: "",
+        ASAAS_PLATFORM_WALLET_ID: "",
+        MAIL_HOST: "",
+        SIGNUP_ENABLED: "1",
+        PLATFORM_HOST,
+        PLATFORM_BASE_DOMAIN,
         // Fase 5: taxa da plataforma no split (o e2e de recebimentos confere o valor no pedido).
         PLATFORM_FEE_PERCENT: process.env.PLATFORM_FEE_PERCENT ?? "2.5",
         PORT: String(apiPort),
@@ -91,6 +106,7 @@ export default defineConfig({
     },
     {
       command: `pnpm exec next dev --turbopack -p ${port}`,
+      env: { PLATFORM_HOST },
       // O site responde por Host (e o setup global cria os domínios depois que os servidores
       // sobem): a prontidão olha um estático fora do proxy.
       url: `http://localhost:${port}/sw.js`,

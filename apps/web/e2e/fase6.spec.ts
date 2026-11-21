@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { approveMessage, deleteMessages } from "./support/db";
+import { acceptConsent } from "./support/rsvp";
 
 /*
  * Fase 6: mural de recados (só aprovados; formulário entra como pendente) e PWA
@@ -24,7 +25,7 @@ test("mural: recado novo fica pendente e só aparece depois de aprovado", async 
 
   await page.getByLabel("Seu nome").fill(author);
   await page.getByLabel("Seu recado").fill(`Felicidades aos dois, com muito carinho. ${run}`);
-  await page.getByTestId("recado-consent").check(); // Fase 6: aceite do aviso de privacidade
+  await acceptConsent(page, "recado-consent"); // Fase 6: aceite do aviso de privacidade
   await page.getByRole("button", { name: "Enviar recado" }).click();
   await expect(page.getByTestId("recado-enviado")).toBeVisible();
 

@@ -67,6 +67,30 @@ export async function ensureE2eOrg(
   return { orgId, userId };
 }
 
+/**
+ * Platform admin só de um e2e (Fase 6: telas do painel da plataforma), com a senha dada. Se o
+ * e-mail já existe, a conta é recriada. Só para bancos de dev/teste.
+ */
+export async function ensureE2ePlatformAdmin(
+  db: Database,
+  input: { email: string; password: string },
+): Promise<{ userId: string }> {
+  const email = input.email.toLowerCase();
+  await db.delete(user).where(eq(user.email, email));
+  const userId = ulid();
+  await db
+    .insert(user)
+    .values({ id: userId, name: "Admin E2E", email, emailVerified: true, platformRole: "admin" });
+  await db.insert(account).values({
+    id: ulid(),
+    accountId: userId,
+    providerId: "credential",
+    userId,
+    password: await hashPassword(input.password),
+  });
+  return { userId };
+}
+
 /** Apaga a organização do e2e, os eventos dela e as contas indicadas. */
 export async function cleanupE2eOrg(db: Database, slug: string, emails: string[]): Promise<void> {
   const [org] = await db

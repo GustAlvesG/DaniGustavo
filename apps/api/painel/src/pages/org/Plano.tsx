@@ -9,7 +9,7 @@ import type {
 import { BILLING_CYCLE_LABELS, BILLING_CYCLES } from "@casamento/shared";
 import { useState } from "react";
 import { ApiFailure, errorMessage, orgApi, orgSend } from "../../api.ts";
-import { formatBRL, formatDate } from "../../format.ts";
+import { formatBRL, formatDate, plural } from "../../format.ts";
 import { useOrg } from "../../org.tsx";
 import { Confirm, ErrorBox, FormError, Loading, PageHeader, useLoad, useToast } from "../../ui.tsx";
 import { CobrancasAssinatura } from "../plano/Cobrancas.tsx";
@@ -54,7 +54,9 @@ function price(plan: PlanView, cycle: BillingCycle): string {
 function limitsText(plan: PlanView): string {
   const l = plan.limits;
   const parts = [
-    l.activeEvents === null ? "eventos ilimitados" : `${l.activeEvents} evento(s) ativo(s)`,
+    l.activeEvents === null
+      ? "eventos ilimitados"
+      : plural(l.activeEvents, "evento ativo", "eventos ativos"),
     l.guestsPerEvent === null ? "convidados ilimitados" : `até ${l.guestsPerEvent} convidados`,
     l.members === null ? "equipe ilimitada" : `até ${l.members} pessoas na equipe`,
     l.storageMb === null ? "espaço ilimitado" : `${l.storageMb} MB de fotos e arquivos`,

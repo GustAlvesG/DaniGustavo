@@ -117,3 +117,33 @@ export function fase5Setup(
 export function fase5Cleanup(runId: string): void {
   run("fase5-cleanup", runId);
 }
+
+/** Fase 6: token conhecido para o cadastro pendente deste e-mail (o banco só tem o hash). */
+export function fase6SignupToken(email: string): string {
+  return run<{ token: string }>("fase6-signup-token", email).token;
+}
+
+/** Fase 6: convite de um convidado só no evento dado; devolve o token do link. */
+export function fase6Invitation(slug: string, label: string, guest: string): string {
+  return run<{ token: string }>("fase6-invitation", JSON.stringify({ slug, label, guest })).token;
+}
+
+/** Fase 6: assinatura da org com pagamento em atraso há `days` dias. */
+export function fase6PastDue(orgId: number, days: number): void {
+  run("fase6-past-due", JSON.stringify({ orgId, days }));
+}
+
+/** Fase 6: assinatura da org de volta ao teste grátis, sem atraso. */
+export function fase6Restore(orgId: number): void {
+  run("fase6-restore", String(orgId));
+}
+
+/** Fase 6: platform admin do e2e (`admin-f6-<run>@exemplo.com`) com a senha dada. */
+export function fase6Admin(runId: string, password: string): { email: string } {
+  return run("fase6-admin", JSON.stringify({ run: runId, password }));
+}
+
+/** Fase 6: apaga a org da dona do cadastro (eventos juntos), os cadastros e as contas. */
+export function fase6Cleanup(runId: string): void {
+  run("fase6-cleanup", runId);
+}

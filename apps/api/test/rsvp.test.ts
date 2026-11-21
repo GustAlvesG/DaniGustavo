@@ -1,10 +1,13 @@
 import {
+  createEventRecord,
   eq,
+  events,
   guests,
   inArray,
   invitations,
   LEGACY_EVENT_ID,
   newPublicId,
+  organizations,
   rsvpLogs,
   type Database,
 } from "@casamento/db";
@@ -348,5 +351,67 @@ describe("POST /api/invitations/lookup", () => {
     // Outro IP não é afetado.
     const other = await lookup({ firstName: "Odete", lastName: "Valadares" });
     expect(other.status).toBe(200);
+  });
+});
+
+describe("evento novo, sem prazo nem contato gravados", () => {
+  // Evento criado pelo painel/CLI (createEventRecord) só grava nome e data: o RSVP usa a data do
+  // evento como prazo em vez de responder 500.
+  const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const startsAt = "2031-06-20T18:00:00-03:00";
+  let orgId = 0;
+  let eventId = 0;
+  let slug = "";
+  let token = "";
+
+  beforeAll(async () => {
+    const [org] = await db.insert(organizations).values({ slug: `t-rsvp-${run}`, name: run });
+    orgId = org.insertId;
+    const ev = await createEventRecord(db, {
+      organizationId: orgId,
+      slug: `t-rsvp-${run}`,
+      name: `Festa ${run}`,
+      type: "birthday",
+      startsAt,
+      status: "active",
+      platformBaseDomain: null,
+    });
+    eventId = ev.id;
+    slug = ev.slug;
+    token = newPublicId();
+    const [inv] = await db
+      .insert(invitations)
+      .values({ eventId, token, label: `Convite ${run}`, side: "todos", maxGuests: 1 });
+    await db
+      .insert(guests)
+      .values({ eventId, invitationId: inv.insertId, name: `Convidada ${run}`, isChild: false });
+  });
+
+  afterAll(async () => {
+    if (eventId) await db.delete(events).where(eq(events.id, eventId));
+    if (orgId) await db.delete(organizations).where(eq(organizations.id, orgId));
+  });
+
+  it("abre o convite com a data do evento como prazo e responde 409 depois dela", async () => {
+    const res = await app.request(`/api/e/${slug}/invitations/${token}`);
+    expect(res.status).toBe(200);
+    const view = Invitation.parse(await res.json());
+    expect(new Date(view.deadline).getTime()).toBe(new Date(startsAt).getTime());
+    expect(view.isClosed).toBe(false);
+
+    const late = testApp({ mailer, now: () => new Date("2031-07-01T12:00:00-03:00") });
+    try {
+      const closed = await late.app.request(`/api/e/${slug}/invitations/${token}/rsvp`, {
+        method: "PUT",
+        headers: writeHeaders(),
+        body: JSON.stringify(
+          withConsent({ guests: [{ id: view.guests[0]!.id, attending: true }] }),
+        ),
+      });
+      expect(closed.status).toBe(409);
+      expect(ApiError.parse(await closed.json()).error.code).toBe("rsvp_closed");
+    } finally {
+      await late.db.$client.end();
+    }
   });
 });

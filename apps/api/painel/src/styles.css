@@ -152,6 +152,7 @@ a {
   min-width: 0;
 }
 .topbar__name {
+  min-width: 0;
   color: var(--claro);
   text-decoration: none;
   font-size: 0.9rem;
@@ -189,6 +190,13 @@ a {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--claro);
+}
+/* Celular: com o seletor de organização/evento (e o botão "Plataforma") no topo, o nome ao lado
+   do monograma empurrava "Sair" para fora da tela; o seletor já diz onde se está. */
+@media (max-width: 599px) {
+  .brand__label {
+    display: none;
+  }
 }
 
 .nav {
@@ -526,6 +534,20 @@ a.row__main:hover .row__title {
 }
 .row--gift {
   flex-wrap: wrap;
+}
+/* Linha com conteúdo longo (domínios com instruções de DNS): no celular os botões descem. */
+@media (max-width: 599px) {
+  .row--wrap {
+    flex-wrap: wrap;
+  }
+  .row--wrap .row__main {
+    flex-basis: 100%;
+  }
+  .row--wrap .row__side {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
 }
 @media (max-width: 699px) {
   .row--gift .row__side {

@@ -29,7 +29,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - `pnpm dev` sobe web e api em paralelo; `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format` / `format:check`.
 - E2E: `pnpm --filter @casamento/web test:e2e`.
 - Banco: `pnpm db:generate`, `db:migrate`, `db:seed`, `db:reset`; `db:setup` = primeira carga em produção (evento 1, configurações, admins + vínculos, host de `SITE_URL` como domínio do evento 1 se não houver nenhum; sem dados fictícios; idempotente).
-- CLI de plataforma (de qualquer lugar: `pnpm --filter @casamento/db exec node src/cli.ts <comando>`): `org:create`, `event:create`, `domain:add`, `user:add`, `event:list`, `uploads:migrate`, `content:import-legacy` (leva o casamento de `packages/db/src/legacy` + fotos de `packages/db/legacy/dani-gustavo/fotos` para o banco; idempotente, roda no seed/setup); sem argumentos lista as opções. Passo a passo em `docs/PERSONALIZAR.md`.
+- CLI de plataforma (de qualquer lugar: `pnpm --filter @casamento/db exec node src/cli.ts <comando>`): `org:create` (`--plan essencial|profissional|cortesia`), `org:plan <org> <plano>` (troca sem cobrança), `event:create`, `domain:add`, `user:add`, `event:list`, `uploads:migrate`, `content:import-legacy` (leva o casamento de `packages/db/src/legacy` + fotos de `packages/db/legacy/dani-gustavo/fotos` para o banco; idempotente, roda no seed/setup); sem argumentos lista as opções. Passo a passo em `docs/PERSONALIZAR.md`.
 - Testes da API usam o banco `casamento_api_test` (ou `TEST_DATABASE_URL`), recriado, migrado e semeado no global-setup; nunca o banco de dev. O auditor de SQL (consulta sem `event_id` fora de `crossEvent` falha) vem ligado; `AUDIT_STRICT=0` desliga.
 - E2E multi-evento: `pnpm --filter @casamento/web exec playwright test --project=multi` (o setup global cria `ana-bruno`, os domínios da porta de teste e o anfitrião `anfitriao-e2e@exemplo.com` só dele, com senha nova a cada rodada).
 - E2E ao lado dos servidores do usuário: `E2E_PORT=3100 E2E_API_PORT=3343 NEXT_DIST_DIR=.next-e2e PAYMENT_PROVIDER=simulado pnpm --filter @casamento/web exec playwright test` (a API dos e2e monta o painel antes e revalida o site do e2e por `WEB_INTERNAL_URL`; local roda com 2 workers: com 6, o `next dev` às vezes corrompe um JSON ao compilar rotas em paralelo). Projetos: `mobile`, `desktop`, `painel` (inclui `painel-fase2.spec.ts`), `multi`, `prazo`.
@@ -83,7 +83,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Next: o Host vira o root param `host` (`proxy.ts` → rewrite para `/<host>/...`; Host inválido 400, `.invalid` recusado), que entra na chave dos `"use cache"`. `generateStaticParams` usa `/api/hosts`; com a API fora do ar (build), host reserva `build.invalid`. Host desconhecido → 404.
 - Uploads em `UPLOAD_DIR/<eventId>/`, servidos em `/uploads/:eventId/:file` (`uploads:migrate` move os antigos para `1/`).
 - Links de e-mail/WhatsApp/QR usam `eventBaseUrl(event)` (host primário de `event_domains`; sem domínio, cai em `SITE_URL`).
-- Avisos de pedido/RSVP vão para os hosts (`event_members`) e, com `notify.org_owners` nas configurações privadas, também para os owners da org (sem hosts, os owners entram). `ADMIN_EMAIL_*` só servem ao seed. Telegram é canal da plataforma (um bot só), com o nome do evento como prefixo da mensagem.
+- Avisos de pedido/RSVP vão para os hosts (`event_members`) e, com `notify.org_owners` nas configurações privadas, também para os owners da org (sem hosts, os owners entram). `ADMIN_EMAIL_*` só servem ao seed. Avisos só por e-mail (o Telegram foi removido na Fase 6).
 - Configurações por evento em `event_settings` (PK `event_id, key`), não mais `settings` global. Lembretes de RSVP iteram os eventos ativos, cada um com a sua configuração.
 - Sem conteúdo de evento no código e nenhum `slug === "dani-gustavo"`: o que era especial do casamento virou dado (`couple.monogram_art: "dg"` = ligadura DG; `calendar.uid` = UID fixo da agenda), gravado pelo `content:import-legacy`.
 
@@ -125,6 +125,18 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Site: o `proxy.ts` lê o `X-Forwarded-Host` antes do `Host` (o `redirect()` de Server Action do Next busca a página nova em `localhost:<porta>`; só pelo Host, o pedido de outro evento abria o evento padrão).
 - Testes: `createTestEvents(db, { paymentReceiver: "platform" })` para os testes de pedido anteriores à Fase 5; o cleanup apaga `payment_accounts` das orgs. E2E em `painel-fase5.spec.ts` (org própria, host `f5-<run>.localhost`); a API dos e2e sobe com `PLATFORM_FEE_PERCENT=2.5`.
 
+## Decisões da Fase 6 da plataforma (ver `docs/saas/fase-6.md`)
+
+- Planos em `plans` (catálogo em `packages/db/src/plan-catalog.ts`: Cortesia interna da org 1, `essencial`, `profissional`; preços `TODO(conteudo)`), assinatura em `organization_subscriptions`. Limites (eventos ativos, convidados, equipe, espaço, módulos) → 409 `plan_limit`; módulo fora do plano nasce desligado em evento novo; o acompanhante criado pelo RSVP público não conta no limite. Sem assinatura = sem limite.
+- Taxa: `fee_bps_override` da assinatura > `plans.fee_bps` > `PLATFORM_FEE_PERCENT` (só sem assinatura). `BILLING_PROVIDER=simulado|asaas` (`/v3/customers` + `/v3/subscriptions` na conta principal), webhook `POST /api/webhooks/subscriptions`.
+- Inadimplência: após `PAST_DUE_GRACE_DAYS` (15) as escritas do painel dão 402 `subscription_inactive` (`plans/gate.ts`); passam `/subscription`, `/usage`, platform admin e, por decisão da integração, reembolso, conciliação e `/privacy` do evento (`GUEST_PROTECTION_PATH`). O site dos convidados nunca é bloqueado.
+- Painel da plataforma em `#/plataforma` (só platform admin; outros veem 404); plano da org em `#/o/:id/plano`; `GET /api/plans` público.
+- Cadastro: `POST /api/signup` + `#/cadastro/<token>` (`SIGNUP_ENABLED`, 0 padrão); site da plataforma em `apps/web/src/app/plataforma` (`PLATFORM_HOST`, nome provisório "Plataforma de eventos"). `PLATFORM_BASE_DOMAIN` dá `slug.<base>` automático; domínio próprio só resolve após TXT `_plataforma-verificacao.<host>`; `GET /api/hosts/ask?domain=` é o `ask` do on-demand TLS.
+- LGPD: consentimento no RSVP e no mural (`privacy.settings.requireConsent`, padrão true; o casamento importado fica `false`), aviso sem checkbox no presente, `/privacidade` por evento, pedidos do titular, exportar, anonimizar, retenção diária (365 dias após o evento), apagar evento arquivado (janela de 180 dias de pedidos), exportar/apagar a conta (`DELETE /me`).
+- CSP do site: `script-src 'self' 'unsafe-inline'` sem nonce (nonce deixaria as páginas dinâmicas e quebraria o cache do `cacheComponents`); painel e API com CSP própria. `X-Forwarded-Host` só vale se `/api/hosts/:host` confirmar ou for o `PLATFORM_HOST`.
+- Operação: logs JSON (`LOG_FORMAT`), alertas por e-mail (`PLATFORM_ALERT_EMAIL`, com cooldown), `/api/health?db=1`, rotinas por `startIntervalJob` (`firstRunDelayMs` evita rodar a cada reinício em dev), backup com uploads (inclusive `private/`), Telegram removido.
+- Ajustes: categorias de fornecedor por org, anfitrião não cadastra no catálogo (`vendors.catalog`), resumo semanal de tarefas, modelos de tarefas da plataforma, reabrir orçamento, data/fuso pela lista da org, botões de gravar escondidos sem permissão (`useCan`/`ReadOnlyScope`), monograma/agenda em Configurações.
+
 ## Fases
 
 - Fases 0 a 3: concluídas. Fase 4 (presentes e pagamento): concluída; Asaas implementado e testado com respostas gravadas, falta teste real no sandbox.
@@ -134,23 +146,22 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`).
 - Plataforma — Fase 3 (painel da organização: eventos, equipe, convites, anfitriões e permissões): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase3/`. Status em `docs/saas/STATUS.md`.
 - Plataforma — Fase 4 (tarefas e modelos, fornecedores e contratos, orçamentos/parcelas/financeiro, cronograma): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase4/`, e2e em `painel-fase4.spec.ts`.
-- Plataforma — Fase 5 (recebimentos: subcontas Asaas, split, situação cadastral): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Próxima: Fase 6.
-- Plataforma — Fase 6 (comercial, LGPD, endurecimento e ajustes das decisões de 21/11/2026): fundação feita (migration 0012, contratos por frente, rotas reservadas); frentes A–E em `docs/saas/fase-6.md` §4.
-- Fases seguintes do produto: F2 conteúdo/temas/vocabulário por tipo de evento; F3 painel da organização (criar evento pela UI); F4 tarefas/fornecedores/orçamentos; F5 subcontas Asaas; F6 comercial/planos/LGPD; F7 extras.
+- Plataforma — Fase 5 (recebimentos: subcontas Asaas, split, situação cadastral): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`.
+- Plataforma — Fase 6 (planos e assinaturas, cadastro self-service e domínios, LGPD, endurecimento, ajustes das Fases 2–5): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase6/`, e2e em `painel-fase6.spec.ts`; migration 0012 (a próxima é a 0013). Próxima: Fase 7 (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, app do organizador).
 
 ## Pendências
 
 - O CI nunca rodou no GitHub (ainda sem remote).
-- Fase 6: remover `gsap` e `@gsap/react` (sem uso depois do design "Álbum"), autorizado pelo usuário.
-- Asaas real sem teste em sandbox (a chave no `.env` é de produção): com uma chave `$aact_hmlg_`, validar Pix, fatura do cartão e webhook antes de publicar.
-- Conciliação diária e reembolso pelo painel: prontos sobre a interface (`getCharge`/`refund`); validar com o Asaas no sandbox.
-- Fase 5: validar no sandbox subcontas (criação, link de documentos, aprovação, webhook da subconta) e split em Pix/fatura; pedir ao Asaas a liberação de subcontas e split na conta principal (conta nova vem com split desabilitado); `PAYMENT_SECRETS_KEY` obrigatória em produção (trocar invalida as chaves gravadas; rotação fica para depois); a Asaas recomenda esperar ~15 s após criar a subconta antes de consultar documentos.
+- Asaas real sem teste em sandbox (a chave no `.env` é de produção): com uma chave `$aact_hmlg_`, validar Pix, fatura do cartão, webhook, conciliação, reembolso, subcontas (criação, documentos, aprovação, webhook), split e assinaturas; pedir ao Asaas a liberação de subcontas e split na conta principal (a Asaas recomenda esperar ~15 s após criar a subconta). `PAYMENT_SECRETS_KEY` obrigatória em produção (trocar invalida as chaves gravadas; rotação fica para depois).
+- `TODO(conteudo)`: preços e limites dos planos, `PLATFORM_FEE_PERCENT`, textos dos termos, da política e do aviso de privacidade.
+- `PLATFORM_HOST`, `PLATFORM_BASE_DOMAIN` e o `ask` do on-demand TLS no edge ainda não existem em produção (`docs/DEPLOY.md`).
+- Retenção do casamento: com o padrão de 365 dias, o evento de 10/04/2027 seria anonimizado a partir de 09/04/2028; o usuário decide (ajustar `retentionDays` em Privacidade ou aceitar).
+- Acompanhante criado pelo RSVP público fora do limite de convidados do plano: decisão do usuário.
+- CSP do site mantém `'unsafe-inline'` em scripts (sem nonce); o usuário pode reverter.
 - Login no painel: 5 tentativas/min por IP; e2e + screenshots seguidos podem esbarrar no limite (reinicie a API de teste).
-- CSP (PROMPT §9): Fase 6, frente D (`docs/saas/fase-6.md`). Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
 - E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
-- Decisões das Fases 1–5 resolvidas em 21/11/2026; ver `docs/saas/AGENTES.md`. Liberação de split/subcontas e validação no sandbox do Asaas seguem pendentes (o usuário manda a chave sandbox).
-- `couple.monogram_art` e `calendar.uid` não têm tela no painel (só banco/CLI): a tela vem na Fase 6.
-- `.env` de dev já está em `PAYMENT_PROVIDER=simulado`; mantenha assim em testes (a chave Asaas dele é de produção).
+- Decisões das Fases 1–5 respondidas em 21/11/2026 (`docs/saas/AGENTES.md`); papéis de Dani/Gustavo seguem `TODO(fase1-papeis)`.
+- `.env` de dev tem Asaas de produção: em testes use `PAYMENT_PROVIDER=simulado` e `BILLING_PROVIDER=simulado`.
 - O evento `ana-bruno` existe no banco de dev (criado pelo setup do e2e `multi`).
 
 ## Deploy: contrato da VPS ArtZan (siga ao criar ou alterar o deploy)

@@ -121,8 +121,7 @@ mostrar/ocultar. A tabela abaixo é a referência das colunas (para o Drizzle St
 - Pedido em aberto segura as cotas por **30 minutos**; depois disso a API expira o pedido
   sozinha (rotina a cada 5 minutos) e devolve as cotas.
 - Quando um presente é pago, a API manda o comprovante ao convidado e avisa os noivos por e-mail
-  (`ADMIN_EMAIL_1` e `ADMIN_EMAIL_2`) e, se configurado, no Telegram (`TELEGRAM_BOT_TOKEN` e
-  `TELEGRAM_CHAT_ID`). O recado, se a pessoa autorizar, entra em `messages` aguardando
+  (`ADMIN_EMAIL_1` e `ADMIN_EMAIL_2`); não há mais aviso por Telegram. O recado, se a pessoa autorizar, entra em `messages` aguardando
   aprovação no painel (**Recados**).
 
 ## 6. Pagamentos: modo simulado e Asaas
@@ -479,3 +478,60 @@ O painel e a CLI usam o mesmo serviço de criação (`createEventRecord`).
 - O evento só aparece no site com `--status active` (`draft` responde 404).
 - O evento novo abre com o site neutro do tipo (palavras, tema padrão, módulos do tipo, sem
   fotos); o anfitrião edita tudo no painel (seções 1 a 4).
+
+## 9. Planos e assinatura (plataforma, Fase 6)
+
+Cada organização tem um plano (`plans`, catálogo em `packages/db/src/plan-catalog.ts`): **Cortesia**
+(interno: sem limites, sem cobrança, taxa 0; é o da organização do casamento), **essencial** e
+**profissional**. Os preços são provisórios (`TODO(conteudo)`) e os limites são eventos ativos,
+convidados por evento, pessoas na equipe, espaço em disco e módulos. Passar do limite devolve o
+erro "limite do plano" (409) com a mensagem do que ajustar; nada que já existe é apagado.
+
+- **Dono da organização**: `#/o/<id>/plano` mostra plano, uso, cobranças e faturas; troca ou
+  cancela o plano. Trocar para um plano menor que o uso atual é recusado até ajustar. Novas
+  organizações começam em teste grátis (`trial_days`).
+- **Cobrança**: `BILLING_PROVIDER=simulado` (padrão, sem cobrar de verdade) ou `asaas` (assinatura
+  na conta principal; a organização escolhe Pix, boleto ou cartão na fatura). Webhook em
+  `/api/webhooks/subscriptions`, com o mesmo `ASAAS_WEBHOOK_TOKEN`.
+- **Atraso**: depois de 15 dias (`PAST_DUE_GRACE_DAYS`) o painel fica só para consulta (escritas
+  dão 402), menos o plano, o reembolso, a conciliação e a privacidade. O site dos convidados
+  nunca sai do ar.
+- **Taxa da plataforma**: negociada da organização > do plano (padrão 0,5%) >
+  `PLATFORM_FEE_PERCENT` (só para organização sem assinatura).
+- **Plataforma (platform admin)**: `#/plataforma` mostra organizações (plano, uso, suspender, taxa
+  negociada), planos (criar e editar) e modelos de tarefas.
+- **CLI**: `org:create --slug <s> --name "<n>" --plan essencial|profissional|cortesia` e
+  `org:plan <org> <plano>` (troca sem cobrança).
+
+## 10. Cadastro e domínios (plataforma, Fase 6)
+
+- **Cadastro self-service**: `SIGNUP_ENABLED=1` abre o cadastro no site da plataforma
+  (`PLATFORM_HOST`: landing, preços e formulário). A pessoa recebe um e-mail, confirma em
+  `#/cadastro/<token>`, define a senha e ganha a conta, a organização (como dona) e a assinatura em
+  teste; o aceite dos termos e da política fica gravado com a versão. Fechado por padrão. Os textos
+  legais são provisórios (`TODO(conteudo)`).
+- **Endereço automático**: com `PLATFORM_BASE_DOMAIN`, todo evento ganha `<slug>.<base>`, já
+  verificado.
+- **Domínio próprio** (painel da organização → evento → **Domínios**): o domínio entra como não
+  verificado e só passa a responder depois de um registro **TXT** em
+  `_plataforma-verificacao.<domínio>` com o valor mostrado na tela (botão **Verificar agora**); depois
+  se define o principal. O HTTPS do domínio próprio depende do on-demand TLS do edge
+  (`docs/DEPLOY.md`, "Plataforma multi-evento").
+
+## 11. Privacidade e LGPD (plataforma, Fase 6)
+
+- **Consentimento**: com `privacy.settings.requireConsent` (padrão nos eventos novos), RSVP e mural
+  exigem o aceite do aviso de privacidade; a versão do aviso fica gravada. O casamento importado
+  tem a exigência desligada. O formulário de presente mostra o aviso sem caixa de aceite.
+- **Página `/privacidade`** de cada evento, com o pedido do titular (acesso, correção, exclusão); a
+  equipe recebe por e-mail.
+- **Painel → Privacidade** (`#/e/<id>/privacidade`): pedidos (responder, concluir, recusar),
+  localizar uma pessoa e anonimizar, exportar os dados do evento (JSON/CSV) e a **retenção**:
+  uma rotina diária anonimiza convites, compradores e recados não aprovados **365 dias depois da
+  data do evento** (`retentionDays`; vazio = nunca). Pedidos e valores ficam (contabilidade).
+  Confira a retenção do casamento (10/04/2027) antes de abril de 2028.
+- **Apagar evento**: só o dono, só evento arquivado, digitando o slug; recusado se houver pedido
+  pendente ou pago/reembolsado nos últimos 180 dias.
+- **Conta**: cada pessoa exporta os próprios dados e apaga a conta (`DELETE /me`, confirmando o
+  e-mail); recusado se for a única dona de organização com evento.
+- **Avisos**: só por e-mail (sem `MAIL_HOST`, saem no console da API).

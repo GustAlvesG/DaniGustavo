@@ -6,7 +6,7 @@ import {
   setDeadline,
   type TestInvitation,
 } from "./support/db";
-import { apiInvitation, next, prepare } from "./support/rsvp";
+import { acceptConsent, apiInvitation, next, prepare } from "./support/rsvp";
 
 /*
  * Prazo do RSVP. O prazo é uma configuração global (`event_settings` do evento 1, chave `rsvp.deadline`),
@@ -55,7 +55,7 @@ test("depois do prazo: resumo somente leitura e contato dos noivos", async ({ pa
 
   // O prazo vence enquanto a pessoa estava na revisão: a API responde 409.
   await setDeadline(PAST);
-  await page.getByTestId("rsvp-consent").check();
+  await acceptConsent(page, "rsvp-consent");
   await page.getByRole("button", { name: "Confirmar presença" }).click();
   const error = page.getByTestId("rsvp-error");
   await expect(error).toContainText("O prazo para confirmar presença terminou");

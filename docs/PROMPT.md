@@ -72,7 +72,7 @@ casamento/
 | Filas e rotinas | Fila `database`; Scheduler para expiração de pedidos, lembretes e conciliação |
 | Pagamento | SDK oficial `mercadopago/dx-php` |
 | E-mail | Mailpit em dev; serviço transacional em produção |
-| Avisos aos noivos | Bot do Telegram via Bot API (token e chat_id no `.env`) |
+| Avisos aos noivos | E-mail (o Telegram foi removido na Fase 6 da plataforma) |
 | Testes | Pest |
 
 ### Comunicação web ↔ api
@@ -250,7 +250,7 @@ Hero no celular:
 - Valores sempre em **centavos** (inteiros).
 - Pedido pendente reserva as cotas por 30 min (o Pix expira junto). Job a cada 5 min expira pendentes e devolve as cotas. Use transação + `lockForUpdate` para nunca vender além de `quota_total`.
 - Webhook: responder 200 rápido e processar em job; idempotente por `webhook_events.event_id` e `payments.gateway_id`.
-- Pagamento aprovado: pedido `paid`, baixa de cota, e-mail de agradecimento ao convidado, aviso no Telegram aos noivos.
+- Pagamento aprovado: pedido `paid`, baixa de cota, e-mail de agradecimento ao convidado, aviso por e-mail aos noivos.
 - Conciliação diária: consultar no Mercado Pago os pedidos pendentes e recentes e corrigir divergências.
 - RSVP: só altera até o prazo em `settings`; depois disso, a API recusa e o front mostra o contato dos noivos.
 
@@ -311,7 +311,7 @@ Ao terminar cada fase: rode lint, typecheck, testes e build; revise os screensho
 - **Aceite:** e2e de confirmar, alterar e recusar; busca por nome mostra só o próprio grupo; prazo respeitado.
 
 ### Fase 4 — Presentes e pagamento
-- `/presentes`, fluxo de pedido, Pix e cartão em sandbox, webhook, expiração, avisos por e-mail e Telegram.
+- `/presentes`, fluxo de pedido, Pix e cartão em sandbox, webhook, expiração, avisos por e-mail.
 - **Aceite:** e2e Pix e cartão aprovados em sandbox; webhook com assinatura inválida recebe 401; duas compras simultâneas da última cota → só uma passa.
 
 ### Fase 5 — Painel

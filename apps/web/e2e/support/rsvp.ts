@@ -47,3 +47,23 @@ export async function waitForHydration(page: Page, selector: string) {
     return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
   }, selector);
 }
+
+/**
+ * Fase 6: marca o aceite do aviso de privacidade, se o evento pedir. O padrão é pedir, mas é
+ * configuração do evento (Privacidade no painel): com `requireConsent` desligado no evento 1, os
+ * fluxos de RSVP e do mural seguem valendo. A exigência em si é coberta em painel-fase6.spec.ts.
+ */
+export async function acceptConsent(
+  page: Page,
+  testId: "rsvp-consent" | "recado-consent",
+  how: "click" | "keyboard" = "click",
+) {
+  const box = page.getByTestId(testId);
+  if ((await box.count()) === 0) return;
+  if (how === "keyboard") {
+    await box.focus();
+    await page.keyboard.press("Space");
+  } else {
+    await box.check();
+  }
+}
