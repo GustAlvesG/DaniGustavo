@@ -2,6 +2,7 @@ import { eq, events } from "@casamento/db";
 import type { ReminderSendResult } from "@casamento/shared";
 import { expirePendingOrders, type OrderDeps } from "./orders/service.ts";
 import { reconcileOrders } from "./orders/reconcile.ts";
+import { refreshPendingAccounts, type AccountStatusDeps } from "./payment-accounts/status.ts";
 import { runAutoReminders, type ReminderDeps } from "./reminders.ts";
 import { crossEvent } from "./tenancy/cross-event.ts";
 import { resolverFor } from "./tenancy/resolver.ts";
@@ -123,6 +124,36 @@ export function startReminderJob(
     }
   };
   void tick();
+  const timer = setInterval(() => void tick(), intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
+/** A cada 6 horas (docs/saas/fase-5.md): subcontas ainda não aprovadas. */
+export const ACCOUNT_STATUS_INTERVAL_MS = 6 * 60 * 60_000;
+
+/**
+ * Consulta a situação cadastral das subcontas pendentes, em análise ou recusadas (as aprovadas
+ * e desativadas não são tocadas). A primeira rodada é depois de um intervalo; o webhook da
+ * conta e o botão "Atualizar situação" cobrem o resto.
+ */
+export function startAccountStatusJob(
+  deps: AccountStatusDeps,
+  intervalMs = ACCOUNT_STATUS_INTERVAL_MS,
+): () => void {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const n = await refreshPendingAccounts(deps);
+      if (n > 0) console.log(`[contas] ${n} conta(s) com situação consultada.`);
+    } catch (err) {
+      console.error("[contas] Falha na rotina de situação cadastral:", err);
+    } finally {
+      running = false;
+    }
+  };
   const timer = setInterval(() => void tick(), intervalMs);
   timer.unref();
   return () => clearInterval(timer);
