@@ -104,6 +104,12 @@ export async function createOrderAction(
       updateTag(CACHE_TAGS.gifts(ev.id));
       return { status: "error", message: error.message, soldOut: true };
     }
+    if (error.code === ERROR_CODES.conflict) {
+      // O evento ficou sem conta para receber (lista em cache desatualizada): renova a lista,
+      // que passa a mostrar o aviso no lugar do botão.
+      updateTag(CACHE_TAGS.gifts(ev.id));
+      return { status: "error", message: error.message };
+    }
     if (status === 422) {
       const field = /CPF/.test(error.message) ? ("buyerCpf" as const) : undefined;
       return { status: "error", message: error.message, field };

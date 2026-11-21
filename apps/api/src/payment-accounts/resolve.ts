@@ -1,13 +1,25 @@
 import type { Database } from "@casamento/db";
-import type { EventPaymentState } from "@casamento/shared";
+import { feePercentToBps, type EventPaymentState } from "@casamento/shared";
 import type { SecretBox } from "../crypto/secret-box.ts";
 import type { Env } from "../env.ts";
-import { notImplemented, type PaymentProvider, type SplitRule } from "../payments/index.ts";
+import {
+  platformWalletId,
+  PaymentProviderError,
+  type PaymentProvider,
+  type SplitRule,
+} from "../payments/index.ts";
 import type { EventCtx } from "../tenancy/types.ts";
+import {
+  accountCredentials,
+  getOrgPaymentAccount,
+  loadEventReceiverAccount,
+  receiverState,
+  type PaymentAccountRow,
+} from "./store.ts";
 
 /*
  * Fase 5, frente B (docs/saas/fase-5.md): para qual conta vai a cobrança de um evento e por
- * qual conta se fala com o provedor sobre um pedido. Reservado pela fundação.
+ * qual conta se fala com o provedor sobre um pedido.
  */
 
 export interface ReceiverDeps {
@@ -35,31 +47,105 @@ export type ReceiverResolution =
   | { ok: false; state: Extract<EventPaymentState, "no_account" | "not_approved"> };
 
 /**
+ * A subconta é do provedor em uso? (Ex.: criada no simulado em dev e a API agora com Asaas: não
+ * dá para cobrar nela, conta como "sem conta" e o painel pede outra.)
+ */
+function sameProvider(account: PaymentAccountRow, provider: PaymentProvider): boolean {
+  return account.provider === provider.name && typeof provider.forAccount === "function";
+}
+
+/**
+ * Situação de recebimento do evento sem decifrar nada (lista de presentes do site): o mesmo
+ * cálculo de `receiverState`, mais a conferência do provedor.
+ */
+export async function eventPaymentState(
+  ev: EventCtx,
+  deps: Pick<ReceiverDeps, "db" | "provider">,
+): Promise<EventPaymentState> {
+  const loaded = await loadEventReceiverAccount(deps.db, ev);
+  const state = receiverState(loaded);
+  if (state === "ready" && !sameProvider(loaded.account!, deps.provider)) return "no_account";
+  return state;
+}
+
+/** Split da plataforma para uma taxa (vazio sem taxa ou sem carteira de destino). */
+export function platformSplit(
+  deps: Pick<ReceiverDeps, "env" | "provider">,
+  feeBps: number,
+): SplitRule[] {
+  const walletId = platformWalletId(deps.env, deps.provider);
+  if (!(feeBps > 0) || !walletId) return [];
+  return [{ walletId, percent: feeBps / 100 }];
+}
+
+/**
  * `events.payment_receiver` → conta. `organization`: a conta ativa da organização;
  * `host`: `events.receiving_account_id`; `platform`: a conta principal, sem split. Conta
  * ausente/desativada → `no_account`; não aprovada → `not_approved` (o site esconde o
  * pagamento e `POST /orders` responde 409).
  */
-export function resolveEventReceiver(
+export async function resolveEventReceiver(
   ev: EventCtx,
   deps: ReceiverDeps,
 ): Promise<ReceiverResolution> {
-  void ev;
-  void deps;
-  return Promise.reject(notImplemented("Conta recebedora do evento"));
+  const loaded = await loadEventReceiverAccount(deps.db, ev);
+  const state = receiverState(loaded);
+  if (state === "platform") {
+    return {
+      ok: true,
+      state,
+      charge: { provider: deps.provider, accountId: null, split: [], feeBps: 0 },
+    };
+  }
+  if (state !== "ready") return { ok: false, state };
+  const account = loaded.account!;
+  if (!sameProvider(account, deps.provider)) {
+    console.warn(
+      `[recebimentos] A conta ${account.id} é do provedor ${account.provider}, mas a API usa ${deps.provider.name}: presentes indisponíveis no evento ${ev.id}.`,
+    );
+    return { ok: false, state: "no_account" };
+  }
+  const creds = accountCredentials(deps.secrets, account);
+  // Nunca repassar para a carteira da própria conta que cobra (o Asaas recusa).
+  const split = platformSplit(deps, feePercentToBps(deps.env.PLATFORM_FEE_PERCENT)).filter(
+    (s) => s.walletId !== creds.walletId,
+  );
+  const feeBps = split.length ? feePercentToBps(deps.env.PLATFORM_FEE_PERCENT) : 0;
+  return {
+    ok: true,
+    state,
+    charge: { provider: deps.provider.forAccount!(creds), accountId: account.id, split, feeBps },
+  };
 }
 
 /**
  * Provedor para falar de um pedido já criado (consulta, reembolso, cancelamento, conciliação):
  * `gift_orders.payment_account_id` nulo = conta principal; senão, `forAccount` da subconta
- * (mesmo desativada: o pedido antigo continua nela).
+ * (mesmo desativada: o pedido antigo continua nela). A conta é buscada na organização do evento.
  */
-export function providerForOrder(
+export async function providerForOrder(
   ev: EventCtx,
   deps: ReceiverDeps,
   order: { paymentAccountId: number | null },
 ): Promise<PaymentProvider> {
-  if (order.paymentAccountId === null) return Promise.resolve(deps.provider);
-  void ev;
-  return Promise.reject(notImplemented("Pedido de subconta"));
+  if (order.paymentAccountId === null) return deps.provider;
+  const account = await getOrgPaymentAccount(deps.db, ev.orgId, order.paymentAccountId);
+  if (!account) {
+    throw new Error(`Subconta ${order.paymentAccountId} do pedido não existe no evento ${ev.id}.`);
+  }
+  return providerForAccount(deps, account);
+}
+
+/** A instância do provedor que age pela subconta (lança se o provedor não for o dela). */
+export function providerForAccount(
+  deps: Pick<ReceiverDeps, "provider" | "secrets">,
+  account: PaymentAccountRow,
+): PaymentProvider {
+  if (!sameProvider(account, deps.provider)) {
+    throw new PaymentProviderError(
+      `A subconta ${account.id} é do provedor ${account.provider}; a API usa ${deps.provider.name}.`,
+      409,
+    );
+  }
+  return deps.provider.forAccount!(accountCredentials(deps.secrets, account));
 }

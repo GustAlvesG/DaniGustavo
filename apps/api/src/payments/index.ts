@@ -1,7 +1,11 @@
 import type { Env } from "../env.ts";
 import { createAsaasProvider } from "./asaas.ts";
 import type { PaymentProvider } from "./provider.ts";
-import { createSimulatedProvider, type SimulatedProvider } from "./simulado.ts";
+import {
+  createSimulatedProvider,
+  SIMULATED_PLATFORM_WALLET,
+  type SimulatedProvider,
+} from "./simulado.ts";
 
 export * from "./provider.ts";
 export {
@@ -13,7 +17,19 @@ export {
   type AsaasEnvironment,
   type AsaasPayment,
 } from "./asaas.ts";
-export { createSimulatedProvider, SIMULATED_CARDS, type SimulatedProvider } from "./simulado.ts";
+export {
+  computeSimulatedSplit,
+  createSimulatedProvider,
+  scenarioFromEmail,
+  SIMULATED_ACCOUNT_SCENARIOS,
+  SIMULATED_CARDS,
+  SIMULATED_ONBOARDING_URL,
+  SIMULATED_PLATFORM_WALLET,
+  simulatedAccountStatus,
+  type SimulatedAccountScenario,
+  type SimulatedOperation,
+  type SimulatedProvider,
+} from "./simulado.ts";
 
 /** Escolhe o provedor pelo .env (PAYMENT_PROVIDER; padrão: simulado). */
 export function createPaymentProvider(env: Env): PaymentProvider {
@@ -38,6 +54,15 @@ export function createPaymentProvider(env: Env): PaymentProvider {
   }
   // O webhook simulado leva um token derivado da WEB_KEY (só a API o conhece).
   return createSimulatedProvider({ webhookSecret: `simulado:${env.WEB_KEY}` });
+}
+
+/**
+ * Carteira da plataforma, destino do split. Asaas: `ASAAS_PLATFORM_WALLET_ID` (obrigatória com
+ * taxa, ver env.ts); simulado: a do env ou uma fictícia. null = sem para onde repassar.
+ */
+export function platformWalletId(env: Env, provider: PaymentProvider): string | null {
+  if (env.ASAAS_PLATFORM_WALLET_ID) return env.ASAAS_PLATFORM_WALLET_ID;
+  return provider.name === "simulado" ? SIMULATED_PLATFORM_WALLET : null;
 }
 
 export function isSimulated(provider: PaymentProvider): provider is SimulatedProvider {

@@ -1,9 +1,19 @@
 import { and, byEvent, eq, giftOrders, gt, isNotNull, messages, or } from "@casamento/db";
 import type { ReconcileResult } from "@casamento/shared";
-import { PaymentProviderError, type ChargeSnapshot } from "../payments/index.ts";
+import {
+  PaymentProviderError,
+  type ChargeSnapshot,
+  type PaymentProvider,
+} from "../payments/index.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
 import type { EventCtx } from "../tenancy/types.ts";
-import { applyCharge, eventOfOrder, type OrderDeps, type OrderRow } from "./service.ts";
+import {
+  applyCharge,
+  eventOfOrder,
+  orderProvider,
+  type OrderDeps,
+  type OrderRow,
+} from "./service.ts";
 
 /** Quantos dias para trás a conciliação revisa pedidos já resolvidos. */
 export const RECONCILE_DAYS = 3;
@@ -15,6 +25,9 @@ export const RECONCILE_DAYS = 3;
  *
  * Com `ev`, só os pedidos daquele evento (botão do painel); sem, todos os eventos (rotina
  * diária, numa busca em crossEvent; cada pedido segue no seu evento).
+ *
+ * Fase 5: cada pedido é consultado na conta em que foi cobrado (principal ou subconta); o
+ * provedor de cada conta é montado uma vez por rodada.
  */
 export async function reconcileOrders(
   ev: EventCtx | null,
@@ -34,10 +47,18 @@ export async function reconcileOrders(
         deps.db.select().from(giftOrders).where(filter).execute(),
       );
   const result: ReconcileResult = { checked: 0, changed: [], errors: 0 };
+  const byAccount = new Map<number, PaymentProvider>();
   for (const order of rows) {
+    const orderEv = ev ?? (await eventOfOrder(deps, order));
     let charge: ChargeSnapshot;
     try {
-      charge = await deps.provider.getCharge(order.providerOrderId!);
+      let provider = deps.provider;
+      if (order.paymentAccountId !== null) {
+        provider =
+          byAccount.get(order.paymentAccountId) ?? (await orderProvider(orderEv, deps, order));
+        byAccount.set(order.paymentAccountId, provider);
+      }
+      charge = await provider.getCharge(order.providerOrderId!);
     } catch (err) {
       // 404: cobrança que o provedor não conhece mais (no simulado, a API reiniciou).
       if (!(err instanceof PaymentProviderError && err.status === 404)) {
@@ -47,7 +68,6 @@ export async function reconcileOrders(
       continue;
     }
     result.checked++;
-    const orderEv = ev ?? (await eventOfOrder(deps, order));
     const { changedTo } = await applyCharge(orderEv, deps, charge);
     if (changedTo)
       result.changed.push({ publicId: order.publicId, from: order.status, to: changedTo });
@@ -81,7 +101,9 @@ export async function refundOrder(
   }
   let charge: ChargeSnapshot;
   try {
-    charge = await deps.provider.refund(order.providerOrderId);
+    // Reembolso na conta em que o presente foi pago (o dinheiro está lá).
+    const provider = await orderProvider(ev, deps, order);
+    charge = await provider.refund(order.providerOrderId);
   } catch (err) {
     if (
       deps.provider.name === "simulado" &&
