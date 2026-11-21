@@ -11,6 +11,7 @@ import { applyImport, planImport } from "./guest-import.ts";
 import { buildGuestList, isGuestListKind } from "./guest-lists.ts";
 import { toCsv } from "./invitations.ts";
 import { buildXlsx } from "./spreadsheet.ts";
+import { checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 
 /** Linhas de exemplo do modelo de importação (mesma ordem de IMPORT_COLUMNS). */
 export const templateRows = (sides: EventSides): string[][] => {
@@ -105,6 +106,13 @@ export function adminImportRoutes(deps: AdminDeps) {
         { message: "Nada novo para importar: todos os convites da planilha já estão no painel." },
       ]);
     }
+    // Fase 6: limite de convidados por evento do plano da organização.
+    const allowed = await checkPlanLimit(db, ev.orgId, {
+      kind: "guestsPerEvent",
+      eventId: ev.id,
+      adding: plan.create.reduce((n, x) => n + x.input.guests.length, 0),
+    });
+    if (!allowed.ok) return planLimitResponse(c, allowed);
     const result = await applyImport(ev, db, plan, now());
     return c.json({ result }, 201);
   };

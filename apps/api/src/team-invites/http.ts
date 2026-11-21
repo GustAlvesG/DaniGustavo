@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import { TeamInviteError } from "./service.ts";
+import { PlanLimitError, planLimitResponse } from "../plans/limits.ts";
 
 const CODE: Record<TeamInviteError["status"], string> = {
   401: ERROR_CODES.unauthorized,
@@ -18,6 +19,10 @@ export async function handleInviteErrors(c: Context, fn: () => Promise<Response>
   } catch (err) {
     if (err instanceof TeamInviteError) {
       return apiError(c, err.status, CODE[err.status], err.message);
+    }
+    // Fase 6: a equipe já ocupa todas as vagas do plano.
+    if (err instanceof PlanLimitError) {
+      return planLimitResponse(c, { ok: false, kind: err.kind, limit: err.limit });
     }
     throw err;
   }

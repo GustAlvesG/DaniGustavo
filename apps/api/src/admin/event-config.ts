@@ -5,12 +5,15 @@ import {
   EventSides,
   eventTypeOf,
   MODULE_LABELS,
+  MODULES,
+  modulesFor,
   sideLabel,
   vocabularyFor,
   VocabularyOverrides,
 } from "@casamento/shared";
 import { byEvent, count, eq, events, invitations, type Database } from "@casamento/db";
 import { Hono } from "hono";
+import { checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 import { resolverFor } from "../tenancy/resolver.ts";
 import { eventModules } from "../tenancy/modules.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
@@ -83,6 +86,13 @@ export function adminEventConfigRoutes(deps: AdminDeps) {
         { message: `Não dá para tirar um lado em uso: ${detail}. Mude esses convites antes.` },
       ]);
     }
+
+    // Fase 6: módulo que o plano não inclui não liga (os já ligados continuam).
+    const before = await eventModules(ev, db);
+    const after = modulesFor(input.type, input.modules);
+    const turningOn = MODULES.filter((id) => after[id] && !before[id]);
+    const allowed = await checkPlanLimit(db, ev.orgId, { kind: "modules", modules: turningOn });
+    if (!allowed.ok) return planLimitResponse(c, allowed);
 
     await db.transaction(async (tx) => {
       await tx

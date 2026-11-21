@@ -25,6 +25,7 @@ import {
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { apiError, ERROR_CODES } from "../errors.ts";
+import { addStorageUsage, checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 import { STORAGE_MIME } from "../storage/index.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
@@ -177,6 +178,14 @@ export function adminMediaRoutes(deps: AdminDeps) {
         });
       }
 
+      // Fase 6: espaço em disco do plano da organização (fotos + miniaturas).
+      const addingBytes = prepared.reduce(
+        (n, p) => n + p.bytes.byteLength + (p.thumb?.byteLength ?? 0),
+        0,
+      );
+      const allowed = await checkPlanLimit(db, ev.orgId, { kind: "storageMb", addingBytes });
+      if (!allowed.ok) return planLimitResponse(c, allowed);
+
       const written: string[] = [];
       try {
         for (const p of prepared) {
@@ -208,6 +217,7 @@ export function adminMediaRoutes(deps: AdminDeps) {
         await Promise.all(written.map((f) => storage.delete(ev.id, f)));
         throw err;
       }
+      await addStorageUsage(db, ev.orgId, addingBytes);
       await deps.revalidate(ev.id, ["site"]);
       const rows = await db
         .select()

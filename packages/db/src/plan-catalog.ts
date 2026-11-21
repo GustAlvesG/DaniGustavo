@@ -100,8 +100,9 @@ export async function ensurePlans(db: Database): Promise<number> {
 }
 
 /**
- * Garante uma assinatura para a organização (sem cobrança: `internal` para plano interno, senão
- * `trialing` até a frente A ligar o provedor). Não troca o plano de quem já tem. true = criou.
+ * Garante uma assinatura para a organização, sem cobrança: `internal` para plano interno (não
+ * público), `trialing` pelos dias de teste do plano (ou `active` sem teste). A cobrança começa
+ * quando o dono escolhe o ciclo na página do plano. Não troca o plano de quem já tem. true = criou.
  */
 export async function ensureOrgSubscription(
   db: Database,
@@ -109,19 +110,21 @@ export async function ensureOrgSubscription(
   planCode: string,
 ): Promise<boolean> {
   const [plan] = await db
-    .select({ id: plans.id, trialDays: plans.trialDays })
+    .select({ id: plans.id, trialDays: plans.trialDays, public: plans.public })
     .from(plans)
     .where(eq(plans.code, planCode));
   if (!plan) throw new Error(`Plano inexistente: ${planCode}`);
-  const internal = planCode === COURTESY_PLAN_CODE;
+  const internal = planCode === COURTESY_PLAN_CODE || !plan.public;
+  const trial = !internal && plan.trialDays > 0;
   const [res] = await db
     .insert(organizationSubscriptions)
     .ignore()
     .values({
       organizationId,
       planId: plan.id,
-      status: internal ? "internal" : "trialing",
-      trialEndsAt: internal ? null : new Date(Date.now() + plan.trialDays * 86_400_000),
+      status: internal ? "internal" : trial ? "trialing" : "active",
+      billingCycle: internal ? null : "monthly",
+      trialEndsAt: trial ? new Date(Date.now() + plan.trialDays * 86_400_000) : null,
     });
   return res.affectedRows === 1;
 }

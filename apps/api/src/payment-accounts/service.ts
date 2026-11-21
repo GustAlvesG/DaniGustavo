@@ -23,6 +23,7 @@ import {
 } from "@casamento/shared";
 import { newWebhookToken, secretsOf, sha256Hex } from "../crypto/secret-box.ts";
 import type { Env } from "../env.ts";
+import { organizationFeeBps } from "../plans/fees.ts";
 import type { PaymentProvider } from "../payments/index.ts";
 import { PaymentProviderError } from "../payments/provider.ts";
 import type { EventCtx } from "../tenancy/types.ts";
@@ -75,8 +76,6 @@ export class PaymentAccountError extends Error {
               : ERROR_CODES.invalidRequest;
   }
 }
-
-const feePercent = (env: Env) => env.PLATFORM_FEE_PERCENT ?? 0;
 
 /** Traduz o erro do provedor sem repassar nada além da mensagem já tratada. */
 function providerFailure(err: unknown): PaymentAccountError {
@@ -263,7 +262,7 @@ export async function listOrgPaymentAccounts(
       db,
       rows.filter((r) => r.holder === "user"),
     ),
-    platformFeePercent: feePercent(env),
+    platformFeePercent: (await organizationFeeBps(db, env, orgId)) / 100,
     provider: provider.name as "simulado" | "asaas",
   };
 }
@@ -318,7 +317,8 @@ export async function eventPaymentView(
     receiver: current.receiver,
     account,
     state: receiverState(current),
-    platformFeePercent: current.receiver === "platform" ? 0 : feePercent(env),
+    platformFeePercent:
+      current.receiver === "platform" ? 0 : (await organizationFeeBps(db, env, ev.orgId)) / 100,
     options,
     canConfigure,
   };

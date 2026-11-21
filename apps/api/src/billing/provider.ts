@@ -1,5 +1,9 @@
 import type { BillingCycle, SubscriptionPaymentStatus } from "@casamento/shared";
-import { PaymentProviderError, type WebhookRequest } from "../payments/provider.ts";
+import {
+  PaymentProviderError,
+  verifyWebhookToken,
+  type WebhookRequest,
+} from "../payments/provider.ts";
 
 /*
  * Fase 6, frente A (docs/saas/fase-6.md §2): cobrança da assinatura das organizações. Mesmo
@@ -25,6 +29,8 @@ export interface BillingCustomerInput {
   organizationId: number;
   name: string;
   email: string;
+  /** CPF/CNPJ de quem paga, quando houver (o Asaas pode exigir para emitir a cobrança). */
+  cpfCnpj?: string | null;
 }
 
 export interface SubscriptionInput {
@@ -83,4 +89,72 @@ export { PaymentProviderError as SubscriptionProviderError };
 /** Método reservado pela fundação, ainda sem implementação. */
 export function notImplementedBilling(what: string): PaymentProviderError {
   return new PaymentProviderError(`${what}: ainda não implementado (Fase 6, frente A).`, 501);
+}
+
+/** Token do webhook da assinatura não confere (a rota responde 401). */
+export class SubscriptionWebhookTokenError extends Error {
+  constructor() {
+    super("Token do webhook da assinatura inválido.");
+    this.name = "SubscriptionWebhookTokenError";
+  }
+}
+
+/**
+ * Eventos de cobrança que podem mudar a assinatura (os outros: 200 e ignorados, sem consultar o
+ * provedor). O status em si sempre vem do provedor (`listPayments`).
+ */
+export const HANDLED_SUBSCRIPTION_EVENTS = new Set([
+  "PAYMENT_CREATED",
+  "PAYMENT_UPDATED",
+  "PAYMENT_CONFIRMED",
+  "PAYMENT_RECEIVED",
+  "PAYMENT_OVERDUE",
+  "PAYMENT_DELETED",
+  "PAYMENT_RESTORED",
+  "PAYMENT_REFUNDED",
+  "PAYMENT_RECEIVED_IN_CASH_UNDONE",
+  "PAYMENT_CHARGEBACK_REQUESTED",
+]);
+
+/**
+ * Webhook no formato do Asaas (simulado e Asaas): confere o token do header
+ * `asaas-access-token` em tempo constante (lança `SubscriptionWebhookTokenError`) e lê
+ * `{ id, event, payment: { id, subscription } }`. Cobrança avulsa (sem `subscription`) ou evento
+ * que não interessa → null.
+ */
+export function parseSubscriptionWebhook(
+  token: string,
+  req: WebhookRequest,
+): SubscriptionWebhookNotice | null {
+  if (!verifyWebhookToken(token, req)) throw new SubscriptionWebhookTokenError();
+  const body = req.body as
+    | { id?: unknown; event?: unknown; payment?: { id?: unknown; subscription?: unknown } }
+    | undefined;
+  const type = typeof body?.event === "string" ? body.event : "";
+  const paymentId = body?.payment?.id;
+  const subscriptionId = body?.payment?.subscription;
+  if (!HANDLED_SUBSCRIPTION_EVENTS.has(type)) return null;
+  if (typeof paymentId !== "string" || typeof subscriptionId !== "string" || !subscriptionId) {
+    return null;
+  }
+  const eventId = typeof body?.id === "string" && body.id ? body.id : `${type}:${paymentId}`;
+  return {
+    eventId: eventId.slice(0, 100),
+    providerPaymentId: paymentId,
+    providerSubscriptionId: subscriptionId,
+    type,
+  };
+}
+
+/** AAAA-MM-DD de uma data no fuso de São Paulo (vencimentos do Asaas). */
+export function isoDay(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+}
+
+/** Soma um ciclo (mês ou ano) a uma data AAAA-MM-DD, em UTC (fim do período pago). */
+export function addCycle(day: string, cycle: BillingCycle): Date {
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  return cycle === "yearly"
+    ? new Date(Date.UTC(y + 1, m - 1, d, 23, 59, 59))
+    : new Date(Date.UTC(y, m, d, 23, 59, 59));
 }
