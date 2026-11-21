@@ -11,7 +11,6 @@ import {
 import { ApiError, GiftsResponse, OrderView, PayWithCardResponse } from "@casamento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MailMessage, Mailer } from "../src/mailer.ts";
-import type { Notifier } from "../src/orders/notify.ts";
 import { expirePendingOrders } from "../src/orders/service.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
 import {
@@ -32,13 +31,6 @@ const mailer: Mailer = {
     return Promise.resolve();
   },
 };
-const telegrams: string[] = [];
-const notifier: Notifier = {
-  telegram(text) {
-    telegrams.push(text);
-    return Promise.resolve();
-  },
-};
 
 let clock = new Date();
 const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_KEY}` });
@@ -46,7 +38,6 @@ const revalidated: { eventId: number; tags: string[] }[] = [];
 const { app, db, env } = testApp(
   {
     mailer,
-    notifier,
     provider,
     now: () => clock,
     revalidate: (eventId, tags) => {
@@ -131,8 +122,8 @@ const flush = () => new Promise((r) => setTimeout(r, 20));
 /*
  * Os avisos de pedido pago saem sem await (notifyPaid roda depois da resposta e ainda consulta o
  * banco), então podem chegar depois do beforeEach do teste seguinte. Cada teste que confere avisos
- * usa um comprador próprio e espera o Telegram dele (o último aviso que notifyPaid dispara junto
- * com os e-mails), em vez de um tempo fixo.
+ * usa um comprador próprio e espera o agradecimento dele (notifyPaid dispara o agradecimento e os
+ * e-mails dos anfitriões juntos, só por e-mail desde a Fase 6), em vez de um tempo fixo.
  */
 let buyerSeq = 0;
 function uniqueBuyer() {
@@ -144,8 +135,9 @@ function uniqueBuyer() {
     message: `Felicidades ${tag}!`,
   };
 }
-const noticesFor = (b: { buyerName: string }) => telegrams.filter((t) => t.includes(b.buyerName));
-const waitNotices = (b: { buyerName: string }, count: number) =>
+const noticesFor = (b: { buyerEmail: string }) =>
+  sent.filter((m) => m.to === b.buyerEmail && m.subject === "Presente enviado");
+const waitNotices = (b: { buyerEmail: string }, count: number) =>
   vi.waitFor(() => expect(noticesFor(b).length).toBeGreaterThanOrEqual(count), {
     timeout: 5000,
   });
@@ -153,7 +145,6 @@ const waitNotices = (b: { buyerName: string }, count: number) =>
 beforeEach(() => {
   clock = new Date();
   sent.length = 0;
-  telegrams.length = 0;
   revalidated.length = 0;
 });
 
@@ -303,8 +294,8 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     const hostMails = sent.filter((m) => m.to !== b.buyerEmail && m.text.includes(b.message));
     expect(hostMails.map((m) => m.to)).toEqual([T.users.host.email]);
     for (const m of hostMails) expect(m.fromName).toBe(T.eventA.name);
-    const [notice] = noticesFor(b);
-    expect(notice).toMatch(/^\[.+\] Presente recebido/);
+    // Sem Telegram (Fase 6): os avisos são só estes e-mails.
+    expect(sent.filter((m) => m.text.includes(b.message))).toHaveLength(hostMails.length);
   });
 
   it("revalida só as tags do evento do pedido: gifts, e messages quando há recado", async () => {
@@ -442,7 +433,7 @@ describe("expiração", () => {
     );
     expect(await quotaSold(gift.id)).toBe(2);
 
-    const deps = { env, db, provider, mailer, notifier, now: () => clock };
+    const deps = { env, db, provider, mailer, now: () => clock };
     clock = new Date(clock.getTime() + 29 * 60_000);
     await expirePendingOrders(deps, T.eventA.id);
     expect((await getOrder(created.publicId)).status).toBe("pending");
@@ -480,10 +471,7 @@ describe("expiração", () => {
       .where(eq(giftOrders.publicId, created.publicId));
     provider.approve(row!.providerOrderId!); // pago, mas o webhook se perdeu
     clock = new Date(clock.getTime() + 31 * 60_000);
-    await expirePendingOrders(
-      { env, db, provider, mailer, notifier, now: () => clock },
-      T.eventA.id,
-    );
+    await expirePendingOrders({ env, db, provider, mailer, now: () => clock }, T.eventA.id);
     expect((await getOrder(created.publicId)).status).toBe("paid");
     expect(await quotaSold(gift.id)).toBe(1);
   });

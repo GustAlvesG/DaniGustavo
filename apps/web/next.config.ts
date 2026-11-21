@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 import type { NextConfig } from "next";
+import { siteSecurityHeaders } from "./src/lib/security-headers";
 
 /**
  * Um único `.env` na raiz do monorepo (CLAUDE.md). O Next só lê `.env` da
@@ -59,9 +60,14 @@ const nextConfig: NextConfig = {
     const api = process.env.API_URL?.replace(/\/+$/, "");
     return api ? [{ source: "/uploads/:path*", destination: `${api}/uploads/:path*` }] : [];
   },
-  // O service worker nunca fica em cache do navegador: uma versão nova vale na hora.
   async headers() {
     return [
+      // Fase 6: CSP e cabeçalhos de segurança em tudo (por que sem nonce: lib/security-headers.ts).
+      {
+        source: "/:path*",
+        headers: siteSecurityHeaders({ dev: process.env.NODE_ENV === "development" }),
+      },
+      // O service worker nunca fica em cache do navegador: uma versão nova vale na hora.
       {
         source: "/sw.js",
         headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],

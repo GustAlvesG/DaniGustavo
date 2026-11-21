@@ -7,9 +7,33 @@ import { Hono } from "hono";
 /** Saída do `vite build` do painel (ver vite.config.ts). */
 export const PAINEL_DIST = fileURLToPath(new URL("../dist/painel", import.meta.url));
 
+/**
+ * CSP do painel (Fase 6): o build do Vite não tem script nem estilo inline em <script>/<style>,
+ * então script só da própria origem. `style-src 'unsafe-inline'` cobre os `style={}` do React;
+ * imagens: fotos em /uploads, miniaturas em blob: e QR em data:.
+ */
+export const PAINEL_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "worker-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 /** Serve o SPA do painel em /painel, com fallback para index.html nas rotas do cliente. */
 export function painelRoutes(distDir: string = PAINEL_DIST) {
   const app = new Hono();
+
+  app.use("/painel/*", async (c, next) => {
+    await next();
+    c.res.headers.set("Content-Security-Policy", PAINEL_CSP);
+  });
 
   app.get("/painel", (c) => c.redirect("/painel/", 301));
 

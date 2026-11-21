@@ -15,7 +15,6 @@ import { ulid } from "ulid";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { newWebhookToken, secretBoxFromEnv, sha256Hex } from "../src/crypto/secret-box.ts";
 import type { Mailer } from "../src/mailer.ts";
-import type { Notifier } from "../src/orders/notify.ts";
 import { reconcileOrders, refundOrder } from "../src/orders/reconcile.ts";
 import {
   expirePendingOrders,
@@ -39,15 +38,14 @@ import { createTestEvents, TEST_WEB_KEY, testApp, type TestEvents } from "./help
  */
 
 const mailer: Mailer = { send: () => Promise.resolve() };
-const notifier: Notifier = { telegram: () => Promise.resolve() };
 let clock = new Date();
 const provider = createSimulatedProvider({ webhookSecret: `simulado:${TEST_WEB_KEY}` });
 const { app, db, env } = testApp(
-  { mailer, notifier, provider, now: () => clock, revalidate: () => Promise.resolve() },
+  { mailer, provider, now: () => clock, revalidate: () => Promise.resolve() },
   { PLATFORM_FEE_PERCENT: "2.5" },
 );
 const secrets = secretBoxFromEnv(env);
-const deps: OrderDeps = { env, db, provider, mailer, notifier, now: () => clock, secrets };
+const deps: OrderDeps = { env, db, provider, mailer, now: () => clock, secrets };
 
 const run = Date.now().toString(36);
 let T: TestEvents;

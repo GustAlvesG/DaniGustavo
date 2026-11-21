@@ -14,7 +14,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runReminderRound } from "../src/jobs.ts";
 import { fromHeader, type Mailer, type MailMessage } from "../src/mailer.ts";
-import { eventNotifyRecipients, notifyPaid, type Notifier } from "../src/orders/notify.ts";
+import { eventNotifyRecipients, notifyPaid } from "../src/orders/notify.ts";
 import { resolverFor, type EventResolver } from "../src/tenancy/resolver.ts";
 import { eventBaseUrl } from "../src/tenancy/urls.ts";
 import { createTestEvents, testApp, type TestEvents } from "./helpers.ts";
@@ -23,7 +23,6 @@ import { createTestEvents, testApp, type TestEvents } from "./helpers.ts";
 // Tudo em eventos criados pela fixture (os eventos reais só são lidos).
 
 const sent: MailMessage[] = [];
-const telegrams: string[] = [];
 let failTo: string | null = null;
 const mailer: Mailer = {
   send(m) {
@@ -32,15 +31,9 @@ const mailer: Mailer = {
     return Promise.resolve();
   },
 };
-const notifier: Notifier = {
-  telegram(text) {
-    telegrams.push(text);
-    return Promise.resolve();
-  },
-};
 const uploadDir = await mkdtemp(join(tmpdir(), "casamento-uploads-e6-"));
 let clock = new Date("2027-03-01T12:00:00Z");
-const { app, db, env } = testApp({ mailer, notifier, now: () => clock }, { UPLOAD_DIR: uploadDir });
+const { app, db, env } = testApp({ mailer, now: () => clock }, { UPLOAD_DIR: uploadDir });
 
 let T: TestEvents;
 const resolver = resolverFor(db);
@@ -186,11 +179,10 @@ describe("avisos por evento", () => {
     expect(await eventNotifyRecipients(T.eventB, db)).toEqual([]);
   });
 
-  it("e-mails com o nome e o host do evento; Telegram com prefixo", async () => {
+  it("e-mails com o nome e o host do evento (só e-mail: sem Telegram)", async () => {
     await setting(T.eventA.id, "notify.org_owners", true);
     sent.length = 0;
-    telegrams.length = 0;
-    await notifyPaid({ env, db, mailer, notifier }, T.eventA, order, gift);
+    await notifyPaid({ env, db, mailer }, T.eventA, order, gift);
 
     const thanks = sent.find((m) => m.to === "ana-e6@exemplo.com")!;
     expect(thanks.fromName).toBe(T.eventA.name);
@@ -199,8 +191,7 @@ describe("avisos por evento", () => {
     expect(thanks.text).not.toContain("Dani");
     const hostMails = sent.filter((m) => m.to !== "ana-e6@exemplo.com").map((m) => m.to);
     expect(hostMails.sort()).toEqual([T.users.host.email, T.users.owner.email].sort());
-    expect(telegrams).toHaveLength(1);
-    expect(telegrams[0]?.startsWith(`[${T.eventA.name}] Presente recebido: Jantar`)).toBe(true);
+    expect(sent).toHaveLength(3);
   });
 
   it("falha num destinatário não impede os outros", async () => {
@@ -209,7 +200,7 @@ describe("avisos por evento", () => {
     const quiet = console.error;
     console.error = () => undefined;
     try {
-      await notifyPaid({ env, db, mailer, notifier }, T.eventA, order, gift);
+      await notifyPaid({ env, db, mailer }, T.eventA, order, gift);
     } finally {
       console.error = quiet;
       failTo = null;
