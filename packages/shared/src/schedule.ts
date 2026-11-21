@@ -23,7 +23,9 @@ export const ScheduleItemInput = z.object({
 });
 export type ScheduleItemInput = z.infer<typeof ScheduleItemInput>;
 /** PATCH /schedule/:itemId (só os campos enviados mudam). */
-export const ScheduleItemUpdate = ScheduleItemInput.partial();
+export const ScheduleItemUpdate = ScheduleItemInput.omit({ eventVendorId: true })
+  .partial()
+  .extend({ eventVendorId: z.number().int().positive().nullable().optional() });
 export type ScheduleItemUpdate = z.infer<typeof ScheduleItemUpdate>;
 
 export interface ScheduleItemRow {

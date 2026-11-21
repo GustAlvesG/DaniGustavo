@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiRoot, SESSION_EXPIRED } from "./api.ts";
 import { authClient, describeError } from "./auth-client.ts";
 import {
@@ -75,23 +75,28 @@ function useHashPath(): string {
  * Menu do evento; `action` é a permissão de LEITURA que libera o item (sem ela, some do menu).
  * Sem a escrita da área, a página abre e a API recusa a gravação com 403.
  */
-const NAV: { href: string; label: string; action?: EventAction }[] = [
+const NAV: { href: string; label: string; action?: EventAction; group?: string }[] = [
   { href: "/", label: "Início" },
   { href: "/convites", label: "Convites", action: "invitations.read" },
   { href: "/presentes", label: "Presentes", action: "gifts.read" },
   { href: "/pedidos", label: "Pedidos", action: "orders.read" },
   { href: "/recados", label: "Recados", action: "messages.read" },
   { href: "/lembretes", label: "Lembretes", action: "reminders.read" },
-  // Fase 4: gestão do evento (a frente D organiza o menu).
-  { href: "/tarefas", label: "Tarefas", action: "tasks.read" },
-  { href: "/fornecedores", label: "Fornecedores", action: "vendors.read" },
-  { href: "/financeiro", label: "Financeiro", action: "budget.read" },
-  { href: "/cronograma", label: "Cronograma", action: "schedule.read" },
-  { href: "/site", label: "Site", action: "content.read" },
-  { href: "/galeria", label: "Galeria", action: "content.read" },
-  { href: "/aparencia", label: "Aparência", action: "content.read" },
-  { href: "/evento", label: "Evento", action: "event.configure" },
-  { href: "/configuracoes", label: "Configurações", action: "settings.read" },
+  // Fase 4: grupo "Gestão" do evento; cada item some sem a respectiva permissão de leitura.
+  { href: "/tarefas", label: "Tarefas", action: "tasks.read", group: "Gestão" },
+  { href: "/fornecedores", label: "Fornecedores", action: "vendors.read", group: "Gestão" },
+  { href: "/financeiro", label: "Financeiro", action: "budget.read", group: "Gestão" },
+  { href: "/cronograma", label: "Cronograma", action: "schedule.read", group: "Gestão" },
+  { href: "/site", label: "Site", action: "content.read", group: "Site e ajustes" },
+  { href: "/galeria", label: "Galeria", action: "content.read", group: "Site e ajustes" },
+  { href: "/aparencia", label: "Aparência", action: "content.read", group: "Site e ajustes" },
+  { href: "/evento", label: "Evento", action: "event.configure", group: "Site e ajustes" },
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    action: "settings.read",
+    group: "Site e ajustes",
+  },
 ];
 
 const SECTION_ACTION = new Map(NAV.map((i) => [i.href.slice(1), i.action]));
@@ -370,6 +375,7 @@ function Frame({
   const [signingOut, setSigningOut] = useState(false);
   const access = useEventAccess(event?.id ?? null);
   const section = `/${rest.split("?")[0]!.split("/")[1] ?? ""}`;
+  const navItems = NAV.filter((item) => !item.action || canDo(access, item.action));
   // Antes de renderizar a página: as rotas e links dela usam o evento atual.
   if (event) setCurrentEventId(event.id);
   if (org) setCurrentOrgId(org.id);
@@ -426,12 +432,19 @@ function Frame({
       {event && (
         <nav className="nav" aria-label="Seções do painel">
           <ul>
-            {NAV.filter((item) => !item.action || canDo(access, item.action)).map((item) => (
-              <li key={item.href}>
-                <a href={eh(item.href)} aria-current={section === item.href ? "page" : undefined}>
-                  {item.label}
-                </a>
-              </li>
+            {navItems.map((item, i) => (
+              <Fragment key={item.href}>
+                {item.group && navItems[i - 1]?.group !== item.group && (
+                  <li className="nav__group" aria-hidden="true">
+                    {item.group}
+                  </li>
+                )}
+                <li>
+                  <a href={eh(item.href)} aria-current={section === item.href ? "page" : undefined}>
+                    {item.label}
+                  </a>
+                </li>
+              </Fragment>
             ))}
             {/* Equipe da organização (dono, membro, administração): anfitriões e permissões. */}
             {(access?.role ?? event.role) !== "event_host" && (

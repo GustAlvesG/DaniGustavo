@@ -298,3 +298,46 @@ a.tab {
     text-align: left !important;
   }
 }
+
+/* Cronograma do dia (Fase 4): linha do tempo na tela e roteiro na impressão. */
+.schedule-day {
+  display: grid;
+  gap: 8px;
+}
+.schedule-day h2 {
+  font-size: 1.05rem;
+  text-transform: capitalize;
+}
+.schedule-time {
+  min-width: 5.5rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--marinho);
+}
+.schedule-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.schedule-item .row__main {
+  flex: 1;
+}
+.print-only {
+  display: none;
+}
+@media print {
+  .print-only {
+    display: block;
+  }
+  .schedule-item {
+    break-inside: avoid;
+    border-bottom: 1px solid #999;
+    padding: 2mm 0;
+  }
+  .schedule-time {
+    color: #000;
+  }
+  .schedule-item .row__side {
+    display: none;
+  }
+}
