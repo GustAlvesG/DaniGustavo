@@ -14,6 +14,7 @@ import {
   messages,
   organizationMembers,
   organizations,
+  paymentAccounts,
   payments,
   sql,
   user,
@@ -118,7 +119,19 @@ export async function retryOnDeadlock<T>(fn: () => Promise<T>, tries = 5): Promi
   }
 }
 
-export async function createTestEvents(db: Database): Promise<TestEvents> {
+export interface TestEventsOptions {
+  /**
+   * Recebedor dos presentes dos eventos da fixture (Fase 5). O padrão do banco é `organization`,
+   * e sem conta aprovada o pedido responde 409; os testes de pedido anteriores à Fase 5 cobram na
+   * conta principal, como o casamento, com `"platform"`.
+   */
+  paymentReceiver?: "organization" | "platform";
+}
+
+export async function createTestEvents(
+  db: Database,
+  opts: TestEventsOptions = {},
+): Promise<TestEvents> {
   const run = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
   const org = async (suffix: string) => {
@@ -138,6 +151,7 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
   ): Promise<EventCtx> => {
     const values = {
       organizationId: orgId,
+      paymentReceiver: opts.paymentReceiver ?? "organization",
       slug: `t-ev-${suffix}-${run}`,
       type: "wedding",
       name: `Evento ${suffix.toUpperCase()} ${run}`,
@@ -240,6 +254,12 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
         db.delete(giftOrders).where(inArray(giftOrders.eventId, eventIds)),
       );
       await retryOnDeadlock(() => db.delete(events).where(inArray(events.id, eventIds)));
+      // Contas de recebimento (FK restrict na org e no usuário) que algum teste deixou.
+      await retryOnDeadlock(() =>
+        db
+          .delete(paymentAccounts)
+          .where(inArray(paymentAccounts.organizationId, [orgA.id, orgB.id])),
+      );
       await retryOnDeadlock(() =>
         db.delete(organizations).where(inArray(organizations.id, [orgA.id, orgB.id])),
       );

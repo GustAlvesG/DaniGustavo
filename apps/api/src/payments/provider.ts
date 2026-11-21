@@ -67,6 +67,8 @@ export interface CardChargeInput {
   paymentMethodId: string;
   paymentType: "credit_card" | "debit_card";
   installments: number;
+  /** Fase 5: repasse à carteira da plataforma (vazio/ausente = sem split). */
+  split?: SplitRule[];
 }
 
 /** Cartão na página hospedada do provedor: os dados do cartão nunca passam por nós. */
@@ -212,11 +214,6 @@ export interface PaymentProvider {
   parseAccountWebhook?(req: WebhookRequest): AccountWebhookNotice | null;
 }
 
-/** Fase 5: recurso que a frente dona ainda vai implementar (some na integração). */
-export function notImplemented(what: string): PaymentProviderError {
-  return new PaymentProviderError(`${what} ainda não disponível neste provedor.`, 501);
-}
-
 /** Erro de comunicação ou recusa técnica do provedor (não é cartão recusado). */
 export class PaymentProviderError extends Error {
   readonly status?: number;
@@ -280,8 +277,8 @@ export function parsePaymentEvent(req: WebhookRequest): WebhookNotice | null {
 }
 
 /**
- * Eventos de situação cadastral que fazem a API consultar o status da subconta de novo.
- * TODO(asaas-doc): conferir a lista completa em "Eventos para verificar situação da conta".
+ * Eventos de situação cadastral que fazem a API consultar o status da subconta de novo
+ * (lista "Eventos para verificar situação da conta" da documentação do Asaas).
  */
 export const HANDLED_ACCOUNT_EVENTS = new Set([
   "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_APPROVED",
@@ -289,6 +286,8 @@ export const HANDLED_ACCOUNT_EVENTS = new Set([
   "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_PENDING",
   "ACCOUNT_STATUS_BANK_ACCOUNT_INFO_REJECTED",
   "ACCOUNT_STATUS_COMMERCIAL_INFO_APPROVED",
+  "ACCOUNT_STATUS_COMMERCIAL_INFO_EXPIRING_SOON",
+  "ACCOUNT_STATUS_COMMERCIAL_INFO_EXPIRED",
   "ACCOUNT_STATUS_COMMERCIAL_INFO_AWAITING_APPROVAL",
   "ACCOUNT_STATUS_COMMERCIAL_INFO_PENDING",
   "ACCOUNT_STATUS_COMMERCIAL_INFO_REJECTED",

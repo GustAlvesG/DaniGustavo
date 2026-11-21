@@ -31,6 +31,15 @@ const STATUS_TONE: Record<PaymentAccountView["status"], string> = {
   disabled: "muted",
 };
 
+type SimulatedStatus = "pending" | "approved" | "rejected";
+
+/** Botões do modo simulado (a API só aceita fora de produção, com PAYMENT_PROVIDER=simulado). */
+const SIMULATED_ACTIONS: [SimulatedStatus, string][] = [
+  ["approved", "Simular aprovação"],
+  ["pending", "Simular pendência"],
+  ["rejected", "Simular recusa"],
+];
+
 const STEPS = [
   ["commercialInfo", "Dados cadastrais"],
   ["bankAccountInfo", "Conta bancária"],
@@ -64,12 +73,17 @@ export function SituacaoConta({
   const kyc = account.kyc;
   const disabled = account.status === "disabled" || Boolean(account.disabledAt);
 
-  async function refresh() {
+  async function refresh(simulated?: SimulatedStatus) {
     setBusy(true);
     setError(null);
     try {
       const call = escopo === "org" ? orgApi : api;
-      const res = await call<{ account: PaymentAccountView }>(refreshPath, { method: "POST" });
+      const res = await call<{ account: PaymentAccountView }>(
+        simulated ? refreshPath.replace(/\/refresh$/, "/simulate") : refreshPath,
+        simulated
+          ? { method: "POST", body: JSON.stringify({ status: simulated }) }
+          : { method: "POST" },
+      );
       onChange?.(res.account);
       toast("Situação atualizada.");
     } catch (err) {
@@ -127,11 +141,33 @@ export function SituacaoConta({
             : "Ainda não consultada."}
         </span>
         {!disabled && (
-          <button className="button button--ghost" type="button" onClick={refresh} disabled={busy}>
+          <button
+            className="button button--ghost"
+            type="button"
+            onClick={() => refresh()}
+            disabled={busy}
+          >
             {busy ? "Consultando…" : "Atualizar situação"}
           </button>
         )}
       </div>
+
+      {account.provider === "simulado" && !disabled && (
+        <div className="card__foot" aria-label="Modo simulado">
+          <span className="muted">Modo simulado (só em desenvolvimento):</span>
+          {SIMULATED_ACTIONS.map(([status, label]) => (
+            <button
+              key={status}
+              className="button button--ghost"
+              type="button"
+              onClick={() => refresh(status)}
+              disabled={busy || account.status === status}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

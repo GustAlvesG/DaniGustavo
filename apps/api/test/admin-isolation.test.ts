@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Mailer } from "../src/mailer.ts";
 import { createTestEvents, testApp, type TestEvents, type TestUserKind } from "./helpers.ts";
 
@@ -7,6 +7,11 @@ import { createTestEvents, testApp, type TestEvents, type TestUserKind } from ".
 // rota: quem não tem acesso ao evento recebe o 404 de "rota não existe" (não descobre que o
 // evento existe); quem tem acesso passa da barreira (a resposta pode ser 400/422 por corpo
 // vazio, ou 404 "X não encontrado" do recurso, mas nunca o 404 de rota).
+
+// Cada teste sonda todas as rotas (centenas de requisições em série, cada uma com sessão e
+// consultas): com a suíte inteira em paralelo, os 5 s padrão por teste estouravam sem falha
+// real. O limite maior vale só aqui; as asserções continuam as mesmas.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 30_000 });
 
 const mailer: Mailer = { send: () => Promise.resolve() };
 const { app, db } = testApp({ mailer, revalidate: () => Promise.resolve() });
@@ -68,13 +73,6 @@ async function probe(route: RouteCase, eventId: number, cookie: string): Promise
 }
 
 const label = (r: RouteCase) => `${r.method} ${r.pattern.slice(PREFIX.length)}`;
-
-/**
- * Fase 5: rotas reservadas (501) até a integração. TODO(fase5-integracao): apagar esta lista e
- * o `admin/stub.ts` quando as frentes implementarem (o teste volta a recusar 501 em tudo).
- */
-const PHASE5_STUB = /\/(payments|payment-accounts)(\/|$)/;
-const allows501 = (r: RouteCase) => PHASE5_STUB.test(r.pattern);
 
 /**
  * Fase 5: o anfitrião nunca escolhe a conta recebedora (`payments.configure`) e só cuida da
@@ -184,8 +182,8 @@ describe("quem tem acesso ao evento A", () => {
           continue;
         }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501), fora as da Fase 5 até a integração.
-        if (!allows501(r)) expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        // Nenhuma rota reservada (501).
+        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
       }
     },
   );
@@ -460,7 +458,7 @@ describe("organização: barreira de acesso", () => {
         expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
         expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
         if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
-        if (!allows501(r)) expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
+        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
       }
     }
   });

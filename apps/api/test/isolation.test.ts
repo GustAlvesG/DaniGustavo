@@ -33,7 +33,6 @@ import {
   testApp,
   type TestEvents,
 } from "./helpers.ts";
-import { receiveOnPlatform } from "./payment-fixtures.ts";
 
 // Rotas públicas por evento (/api/e/:slug/*): nada de B aparece em A, e o que é de B usado em A
 // (slug de presente, token de convite, publicId de pedido) é 404. As rotas antigas seguem
@@ -101,8 +100,7 @@ async function quotaSold(id: number) {
 }
 
 beforeAll(async () => {
-  t = await createTestEvents(db);
-  await receiveOnPlatform(db, t);
+  t = await createTestEvents(db, { paymentReceiver: "platform" });
   A = t.eventA;
   B = t.eventB;
   const [legacy] = await db.select().from(events).where(eq(events.id, LEGACY_EVENT_ID));

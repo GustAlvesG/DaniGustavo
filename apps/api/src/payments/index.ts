@@ -10,6 +10,7 @@ import {
 export * from "./provider.ts";
 export {
   ASAAS_URLS,
+  AsaasApiError,
   asaasEnvFromKey,
   createAsaasProvider,
   mapAsaasStatus,

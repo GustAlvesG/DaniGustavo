@@ -145,10 +145,6 @@ function MinhaConta({ onChanged }: { onChanged: () => void }) {
     () => api<MyPaymentAccountView>("/payments/my-account"),
     [],
   );
-  // O SituacaoConta da frente D escolhe a rota pelo `escopo` ("evento" = rota do evento);
-  // o stub da fundação ainda não declara a prop, então ela vai por espalhamento.
-  const escopoEvento = { escopo: "evento" } as Record<string, unknown>;
-
   async function create(input: PaymentAccountInput) {
     await send("POST", "/payments/my-account", input);
     toast("Conta cadastrada. Acompanhe a situação cadastral abaixo.");
@@ -163,7 +159,7 @@ function MinhaConta({ onChanged }: { onChanged: () => void }) {
       <h2 id="rec-minha">Minha conta de recebimento</h2>
       {data?.account ? (
         <SituacaoConta
-          {...escopoEvento}
+          escopo="evento"
           account={data.account}
           refreshPath="/payments/my-account/refresh"
           onChange={(account) => setData({ account })}

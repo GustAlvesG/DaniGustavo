@@ -484,9 +484,7 @@ export async function payWithCard(
   try {
     const provider = await orderProvider(ev, deps, order);
     const split = orderSplit(deps, order);
-    // TODO(integração): `split` ainda não está em CardChargeInput (só o simulado usa o
-    // formulário de cartão); vai como campo extra.
-    const input: CardChargeInput & { split?: SplitRule[] } = {
+    const input: CardChargeInput = {
       publicId,
       amountCents: order.amountCents + feeCents,
       description: `Presente: ${gift.title}`,

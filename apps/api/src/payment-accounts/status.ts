@@ -1,6 +1,7 @@
 import {
   and,
   eq,
+  events,
   inArray,
   isNull,
   isNotNull,
@@ -12,12 +13,13 @@ import {
   type Database,
 } from "@casamento/db";
 import { KycSnapshot, type PaymentAccountView } from "@casamento/shared";
+import type { Revalidate } from "../admin/revalidate.ts";
 import type { SecretBox } from "../crypto/secret-box.ts";
 import type { Env } from "../env.ts";
 import type { Mailer } from "../mailer.ts";
 import { accountStatusLink, buildAccountStatusEmail } from "../payment-account-email.ts";
 import {
-  notImplemented,
+  PaymentProviderError,
   type AccountWebhookNotice,
   type PaymentProvider,
 } from "../payments/index.ts";
@@ -44,6 +46,36 @@ export interface AccountStatusDeps {
   secrets: SecretBox;
   mailer: Mailer;
   now: () => Date;
+  /** Cache do site: a situação decide se os presentes em dinheiro aparecem (paymentsAvailable). */
+  revalidate?: Revalidate;
+}
+
+/**
+ * Eventos cujos presentes dependem desta conta (a da organização para `organization`; a
+ * escolhida para `host`): a lista de presentes do site muda quando a situação muda.
+ */
+async function revalidateDependents(deps: AccountStatusDeps, row: PaymentAccountRow) {
+  if (!deps.revalidate) return;
+  try {
+    const rows = await deps.db
+      .select({
+        id: events.id,
+        receiver: events.paymentReceiver,
+        accountId: events.receivingAccountId,
+      })
+      .from(events)
+      .where(eq(events.organizationId, row.organizationId));
+    const ids = rows
+      .filter((e) =>
+        row.holder === "organization"
+          ? e.receiver === "organization"
+          : e.receiver === "host" && e.accountId === row.id,
+      )
+      .map((e) => e.id);
+    for (const id of ids) await deps.revalidate(id, ["gifts"]);
+  } catch (err) {
+    console.error("[contas] Falha ao revalidar os presentes dos eventos da conta:", err);
+  }
 }
 
 async function viewOf(db: Database, row: PaymentAccountRow): Promise<PaymentAccountView> {
@@ -125,7 +157,9 @@ export async function refreshAccountStatus(
 ): Promise<PaymentAccountView> {
   if (account.disabledAt || account.status === "disabled") return viewOf(deps.db, account);
   const scoped = deps.provider.forAccount?.(accountCredentials(deps.secrets, account));
-  if (!scoped?.getAccountStatus) throw notImplemented("Situação cadastral da subconta");
+  if (!scoped?.getAccountStatus) {
+    throw new PaymentProviderError("O provedor configurado não consulta a situação de subcontas.");
+  }
   const snapshot = await scoped.getAccountStatus();
   const kyc = KycSnapshot.parse(snapshot.kyc);
   const now = deps.now();
@@ -148,7 +182,10 @@ export async function refreshAccountStatus(
       ),
     );
   const fresh = await reload(deps.db, account);
-  if (changed && result.affectedRows > 0) await notifyChange(deps, fresh);
+  if (changed && result.affectedRows > 0) {
+    await notifyChange(deps, fresh);
+    await revalidateDependents(deps, fresh);
+  }
   return viewOf(deps.db, fresh);
 }
 

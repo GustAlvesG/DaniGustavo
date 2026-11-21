@@ -250,9 +250,7 @@ export function createSimulatedProvider(opts: { webhookSecret: string }): Simula
         });
       },
 
-      // O split do cartão chega como campo extra (CardChargeInput não o declara: o Asaas não
-      // usa o formulário de cartão, só a fatura hospedada).
-      createCard(input: CardChargeInput & { split?: SplitRule[] }) {
+      createCard(input: CardChargeInput) {
         const match = /^sim_(\d{4})_/.exec(input.token);
         if (!match) {
           return Promise.reject(

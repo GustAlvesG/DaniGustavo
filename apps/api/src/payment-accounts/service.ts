@@ -56,9 +56,9 @@ export interface PaymentAccountDeps {
 /** Erro de regra de negócio com o status HTTP que a rota devolve. */
 export class PaymentAccountError extends Error {
   readonly code: string;
-  readonly status: 403 | 404 | 409 | 422 | 502 | 501;
+  readonly status: 403 | 404 | 409 | 422 | 502;
   readonly field?: string;
-  constructor(status: 403 | 404 | 409 | 422 | 502 | 501, message: string, field?: string) {
+  constructor(status: 403 | 404 | 409 | 422 | 502, message: string, field?: string) {
     super(message);
     this.name = "PaymentAccountError";
     this.status = status;
@@ -81,9 +81,6 @@ const feePercent = (env: Env) => env.PLATFORM_FEE_PERCENT ?? 0;
 /** Traduz o erro do provedor sem repassar nada além da mensagem já tratada. */
 function providerFailure(err: unknown): PaymentAccountError {
   if (err instanceof PaymentProviderError) {
-    if (err.status === 501) {
-      return new PaymentAccountError(501, "O provedor de pagamento não cria subcontas.");
-    }
     if (err.status === 400 || err.status === 422) {
       return new PaymentAccountError(
         422,
@@ -117,7 +114,7 @@ export async function createPaymentAccount(
   const { orgId, holder, userId, createdBy, input } = args;
   const createSubaccount = provider.createSubaccount?.bind(provider);
   if (!createSubaccount) {
-    throw new PaymentAccountError(501, "O provedor de pagamento não cria subcontas.");
+    throw new PaymentAccountError(422, "O provedor de pagamento configurado não cria subcontas.");
   }
   const box = secretsOf(deps);
   const publicId = newPublicId();
