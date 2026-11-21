@@ -3,6 +3,7 @@ import {
   EVENT_ACTION_LABELS,
   withDependents,
   type HostConfigurableAction,
+  type HostOptInAction,
   type HostPermissionsView,
 } from "@casamento/shared";
 import { useEffect, useState, type FormEvent } from "react";
@@ -22,12 +23,17 @@ export function PermissoesAnfitriao({ eventId }: { eventId: number }) {
     [eventId],
   );
   const [deny, setDeny] = useState<HostConfigurableAction[]>([]);
+  const [allow, setAllow] = useState<HostOptInAction[]>([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) setDeny(data.deny);
   }, [data?.deny.join(",")]);
+
+  useEffect(() => {
+    if (data) setAllow(data.allow);
+  }, [data?.allow.join(",")]);
 
   const effective = new Set(withDependents(deny));
   const blockedBy = (a: HostConfigurableAction) => {
@@ -47,8 +53,8 @@ export function PermissoesAnfitriao({ eventId }: { eventId: number }) {
       setData(
         await orgSend<HostPermissionsView>("PUT", path, {
           deny: withDependents(deny),
-          // Fase 5: ações opt-in (a frente C põe na tela); por ora mantém o que está gravado.
-          allow: data?.allow ?? [],
+          // Fase 5: ações que o anfitrião só tem se a organização liberar.
+          allow,
         }),
       );
       toast("Permissões do anfitrião salvas.");
@@ -98,6 +104,30 @@ export function PermissoesAnfitriao({ eventId }: { eventId: number }) {
               </label>
             );
           })}
+          {data.optIn.length > 0 ? (
+            <>
+              <div>
+                <h2 id="perm-optin">Só se você liberar</h2>
+                <p className="muted small">
+                  Ações que mexem com dinheiro nascem desligadas para o anfitrião.
+                </p>
+              </div>
+              {data.optIn.map((a) => (
+                <label key={a} className="check">
+                  <input
+                    type="checkbox"
+                    checked={allow.includes(a)}
+                    onChange={(e) =>
+                      setAllow((list) =>
+                        e.target.checked ? [...list, a] : list.filter((x) => x !== a),
+                      )
+                    }
+                  />
+                  <span>{EVENT_ACTION_LABELS[a]}</span>
+                </label>
+              ))}
+            </>
+          ) : null}
           <FormError message={formError} />
           <div className="actions">
             <button className="button" type="submit" disabled={saving}>

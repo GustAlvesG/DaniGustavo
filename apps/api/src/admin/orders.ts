@@ -5,19 +5,26 @@ import {
   eq,
   giftOrders,
   gifts,
+  inArray,
   like,
   or,
+  paymentAccounts,
   payments,
+  type Database,
   type SQL,
 } from "@casamento/db";
 import {
   AdminOrdersQuery,
   ERROR_CODES,
+  estimatePlatformFeeCents,
   type AdminOrder,
   type AdminOrderDetail,
+  type OrderSplitView,
+  type PaymentAccountSummary,
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { apiError } from "../errors.ts";
+import { holdersOf, toPaymentAccountSummary } from "../payment-accounts/store.ts";
 import { reconcileOrders, refundOrder } from "../orders/reconcile.ts";
 import type { GiftRow, OrderRow } from "../orders/service.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
@@ -25,8 +32,45 @@ import type { EventAdminEnv } from "../tenancy/types.ts";
 import { invalid, iso, notFound, sensitiveLimit } from "./context.ts";
 import type { AdminDeps } from "./context.ts";
 
-function orderDto(order: OrderRow, gift: Pick<GiftRow, "id" | "title">): AdminOrder {
+/** Contas que receberam os pedidos (por id, só da organização do evento). */
+async function accountsOf(
+  db: Database,
+  orgId: number,
+  orders: OrderRow[],
+): Promise<Map<number, PaymentAccountSummary>> {
+  const ids = [...new Set(orders.map((o) => o.paymentAccountId).filter((id) => id != null))];
+  const map = new Map<number, PaymentAccountSummary>();
+  if (!ids.length) return map;
+  const rows = await db
+    .select()
+    .from(paymentAccounts)
+    .where(and(eq(paymentAccounts.organizationId, orgId), inArray(paymentAccounts.id, ids)));
+  const holders = await holdersOf(db, rows);
+  for (const r of rows) {
+    map.set(r.id, toPaymentAccountSummary(r, r.userId ? (holders.get(r.userId) ?? null) : null));
+  }
+  return map;
+}
+
+/** Conta que recebeu e taxa da plataforma: o valor do provedor ou a estimativa. */
+function splitOf(order: OrderRow, accounts: Map<number, PaymentAccountSummary>): OrderSplitView {
+  const bps = order.platformFeeBps ?? 0;
+  const reported = order.platformFeeCents;
   return {
+    account: order.paymentAccountId ? (accounts.get(order.paymentAccountId) ?? null) : null,
+    feePercent: bps / 100,
+    feeCents: reported ?? estimatePlatformFeeCents(order.amountCents, bps),
+    feeEstimated: reported == null && bps > 0,
+  };
+}
+
+function orderDto(
+  order: OrderRow,
+  gift: Pick<GiftRow, "id" | "title">,
+  accounts: Map<number, PaymentAccountSummary>,
+): AdminOrder {
+  return {
+    split: splitOf(order, accounts),
     publicId: order.publicId,
     status: order.status,
     statusDetail: order.statusDetail,
@@ -79,7 +123,12 @@ export function adminOrderRoutes(deps: AdminDeps) {
       .where(and(...where))
       .orderBy(desc(giftOrders.createdAt))
       .limit(300);
-    return c.json({ orders: rows.map((r) => orderDto(r.order, r.gift)) });
+    const accounts = await accountsOf(
+      db,
+      ev.orgId,
+      rows.map((r) => r.order),
+    );
+    return c.json({ orders: rows.map((r) => orderDto(r.order, r.gift, accounts)) });
   });
 
   app.post(
@@ -106,7 +155,7 @@ export function adminOrderRoutes(deps: AdminDeps) {
       .from(payments)
       .where(and(eq(payments.orderId, row.order.id), byEvent(payments, ev)));
     const detail: AdminOrderDetail = {
-      ...orderDto(row.order, row.gift),
+      ...orderDto(row.order, row.gift, await accountsOf(db, ev.orgId, [row.order])),
       payments: pays.map((p) => ({
         gatewayId: p.gatewayId,
         method: p.method,

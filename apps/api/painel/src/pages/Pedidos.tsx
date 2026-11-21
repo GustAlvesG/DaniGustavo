@@ -210,6 +210,26 @@ function OrderDetail({ publicId, onChanged }: { publicId: string; onChanged: () 
             {o.statusDetail && <span className="muted small"> · {o.statusDetail}</span>}
           </dd>
         </div>
+        {o.split ? (
+          <>
+            <div>
+              <dt>Conta que recebeu</dt>
+              <dd data-testid="pedido-conta">
+                {o.split.account
+                  ? (o.split.account.user?.name ?? o.split.account.name)
+                  : "Conta principal da plataforma"}
+              </dd>
+            </div>
+            <div>
+              <dt>Taxa da plataforma</dt>
+              <dd data-testid="pedido-taxa">
+                {o.split.feePercent > 0
+                  ? `${formatBRL(o.split.feeCents)} (${String(o.split.feePercent).replace(".", ",")}%${o.split.feeEstimated ? ", estimada" : ""})`
+                  : "Sem taxa"}
+              </dd>
+            </div>
+          </>
+        ) : null}
         <div>
           <dt>Código</dt>
           <dd className="mono">{o.publicId}</dd>
