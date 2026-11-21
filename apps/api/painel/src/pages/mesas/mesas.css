@@ -1,0 +1,203 @@
+/* Fase 7, frente B: mapa de mesas (lista, distribuição e impressão). */
+
+.mesas__filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.mesas__check {
+  min-height: 44px;
+  align-items: center;
+}
+.mesas__board {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+.mesas__tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.mesas__table--over {
+  border-color: var(--erro);
+}
+.mesas__count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--marinho);
+}
+.mesas__table--over .mesas__count {
+  color: var(--erro);
+}
+.mesas__group {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--linha);
+}
+.mesas__group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.mesas__group-head select {
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+}
+.mesas__people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.mesas__person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+.mesas__person select {
+  width: auto;
+  max-width: 100%;
+  flex: 0 1 190px;
+}
+.mesas__move {
+  display: flex;
+  gap: 6px;
+  flex: 0 1 auto;
+  align-items: center;
+}
+.mesas__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 140px;
+}
+.mesas__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mesas__actions {
+  margin-top: auto;
+}
+
+@media (max-width: 899px) {
+  .mesas__board {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 599px) {
+  .mesas__person select {
+    flex: 1 1 100%;
+  }
+  .mesas__move {
+    flex: 1 1 100%;
+  }
+  .mesas__move select {
+    flex: 1 1 auto;
+  }
+  .mesas__group-head select {
+    margin-left: 0;
+    width: 100%;
+  }
+  .mesas__actions .button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+  .mesas__tables {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------- impressão */
+
+.mesas-sheet header {
+  margin-bottom: 12px;
+}
+.mesas-sheet h2 {
+  font-size: 1.6rem;
+}
+.mesas-sheet__list {
+  margin: 0;
+  padding-left: 1.6em;
+  display: grid;
+  gap: 6px;
+  font-size: 1.1rem;
+}
+.mesas-sheet__list li {
+  padding-left: 4px;
+}
+.mesas-sheet__list li > span:first-child {
+  margin-right: 12px;
+}
+.mesas-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0;
+}
+.mesas-card {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 110px;
+  padding: 12px;
+  text-align: center;
+  border: 1px dashed var(--linha-forte);
+  background: var(--branco);
+}
+.mesas-card__name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--marinho);
+}
+.mesas-card__table {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--suave);
+}
+
+@media print {
+  .mesas-sheet {
+    break-after: page;
+    break-inside: avoid;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .mesas-sheet:last-child {
+    break-after: auto;
+  }
+  .mesas-sheet h2 {
+    font-size: 28pt;
+  }
+  .mesas-sheet__list {
+    font-size: 15pt;
+    gap: 8pt;
+  }
+  .mesas-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mesas-card {
+    break-inside: avoid;
+    height: 48mm;
+    border: 1px dashed #666;
+    background: #fff;
+  }
+  .mesas-card__name {
+    font-size: 22pt;
+    color: #000;
+  }
+  .mesas-card__table {
+    color: #000;
+  }
+}

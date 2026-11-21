@@ -1,4 +1,14 @@
-import { and, asc, byEvent, eq, guests, invitations, type Database } from "@casamento/db";
+import {
+  and,
+  asc,
+  byEvent,
+  eq,
+  guests,
+  invitations,
+  seatAssignments,
+  seatingTables,
+  type Database,
+} from "@casamento/db";
 import {
   GUEST_LIST_KINDS,
   sideLabel,
@@ -44,9 +54,18 @@ export async function buildGuestList(
       label: invitations.label,
       side: invitations.side,
       contactPhone: invitations.contactPhone,
+      table: seatingTables.name,
     })
     .from(guests)
     .innerJoin(invitations, and(eq(guests.invitationId, invitations.id), byEvent(invitations, ev)))
+    .leftJoin(
+      seatAssignments,
+      and(eq(seatAssignments.guestId, guests.id), byEvent(seatAssignments, ev)),
+    )
+    .leftJoin(
+      seatingTables,
+      and(eq(seatingTables.id, seatAssignments.tableId), byEvent(seatingTables, ev)),
+    )
     .where(and(byEvent(guests, ev), eq(guests.rsvpStatus, "confirmed")))
     .orderBy(asc(invitations.label), asc(guests.isPlusOne), asc(guests.id));
 
@@ -95,6 +114,7 @@ export async function buildGuestList(
         "Acompanhante",
         "Restrição alimentar",
         "Telefone",
+        "Mesa",
       ],
       rows: rows.map((g) => [
         g.label,
@@ -105,6 +125,7 @@ export async function buildGuestList(
         g.isPlusOne ? "Sim" : "",
         g.dietaryNotes ?? "",
         g.phone ?? g.contactPhone ?? "",
+        g.table ?? "",
       ]),
       summary: [
         { label: "Convites", value: String(invs.size) },
@@ -124,8 +145,8 @@ export async function buildGuestList(
     kind,
     title: "Lista da portaria",
     note: "Confirmados em ordem alfabética. Sem telefone nem restrições: a portaria só confere nomes.",
-    columns: ["Convidado", "Convite", "Adulto/criança", "Chegou"],
-    rows: sorted.map((g) => [g.name, g.label, type(g), ""]),
+    columns: ["Convidado", "Convite", "Adulto/criança", "Mesa", "Chegou"],
+    rows: sorted.map((g) => [g.name, g.label, type(g), g.table ?? "", ""]),
     summary: [
       { label: "Pessoas", value: String(rows.length) },
       { label: "Adultos", value: String(adults) },
