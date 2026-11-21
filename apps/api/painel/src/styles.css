@@ -1113,3 +1113,14 @@ input[readonly] {
     text-transform: uppercase;
   }
 }
+
+/* Valores em colunas (Financeiro, orçamento): à direita e com algarismos de mesma largura. */
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tarefa feita: riscada na lista. */
+.row__title--done {
+  text-decoration: line-through;
+}

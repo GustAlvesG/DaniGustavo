@@ -269,7 +269,7 @@ describe("fornecedores do evento", () => {
     expect((await call("host", orgUrl(t.orgA.id), "POST", newVendor("n"))).status).toBe(404);
   });
 
-  it("remover: anula o cronograma e recusa com orçamento contratado", async () => {
+  it("remover: anula o cronograma, apaga orçamentos não contratados e recusa com contratado", async () => {
     const a = await link("owner", t.eventA.id, { vendor: newVendor("Para remover") });
     const idA = a.vendor!.id;
     const [sch] = await db.insert(scheduleItems).values({
@@ -277,6 +277,13 @@ describe("fornecedores do evento", () => {
       startsAt: new Date("2030-01-01T18:00:00Z"),
       title: "Jantar",
       eventVendorId: idA,
+    });
+    const [draft] = await db.insert(quotes).values({
+      eventId: t.eventA.id,
+      eventVendorId: idA,
+      title: "Rascunho",
+      category: "buffet",
+      status: "draft",
     });
     const b = await link("owner", t.eventA.id, { vendor: newVendor("Contratado") });
     const idB = b.vendor!.id;
@@ -294,6 +301,11 @@ describe("fornecedores do evento", () => {
       .from(scheduleItems)
       .where(and(eq(scheduleItems.id, sch.insertId), eq(scheduleItems.eventId, t.eventA.id)));
     expect(item?.eventVendorId).toBeNull();
+    const gone = await db
+      .select()
+      .from(quotes)
+      .where(and(eq(quotes.id, draft.insertId), eq(quotes.eventId, t.eventA.id)));
+    expect(gone).toHaveLength(0);
     const [still] = await db
       .select()
       .from(eventVendors)

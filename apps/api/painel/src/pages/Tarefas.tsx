@@ -173,8 +173,7 @@ export function Tarefas() {
               </label>
               <div className="row__main">
                 <span
-                  className="row__title"
-                  style={t.status === "done" ? { textDecoration: "line-through" } : undefined}
+                  className={t.status === "done" ? "row__title row__title--done" : "row__title"}
                 >
                   {t.title}
                 </span>

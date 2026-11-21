@@ -172,6 +172,37 @@ describe("negar uma ação", () => {
     ]);
   });
 
+  it("Fase 4: cada área de gestão tem a sua leitura (tarefas, fornecedores, financeiro, cronograma)", async () => {
+    const base = `/api/admin/events/${ev.eventA.id}`;
+    const areas = [
+      ["tasks.read", ["/tasks", "/tasks/assignees", "/tasks/templates"]],
+      ["vendors.read", ["/vendors", "/vendor-catalog"]],
+      ["budget.read", ["/budget", "/quotes"]],
+      ["schedule.read", ["/schedule"]],
+    ] as const;
+    for (const [action, paths] of areas) {
+      const view = await setDeny([action]);
+      expect(view.deny, action).toContain(action.replace(".read", ".write"));
+      for (const path of paths) {
+        expect((await call("host", `${base}${path}`)).status, `${action} ${path}`).toBe(403);
+        expect((await call("owner", `${base}${path}`)).status, `dono ${path}`).toBe(200);
+      }
+      // As outras áreas continuam abertas ao anfitrião.
+      for (const [other, otherPaths] of areas) {
+        if (other === action) continue;
+        expect((await call("host", `${base}${otherPaths[0]}`)).status, other).toBe(200);
+      }
+    }
+    // Só a escrita negada: lê, mas não cria orçamento nem marca parcela.
+    await setDeny(["budget.write"]);
+    expect((await call("host", `${base}/budget`)).status).toBe(200);
+    expect((await call("host", `${base}/quotes`, { method: "POST", body: "{}" })).status).toBe(403);
+    expect(
+      (await call("host", `${base}/installments/999999999`, { method: "PATCH", body: "{}" }))
+        .status,
+    ).toBe(403);
+  });
+
   it("liberar de novo vale na hora", async () => {
     await setDeny([]);
     const gifts = `/api/admin/events/${ev.eventA.id}/gifts`;

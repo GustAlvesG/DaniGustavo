@@ -1,4 +1,4 @@
-import { and, byEvent, eq, giftOrders, gt, messages, or, sql } from "@casamento/db";
+import { and, byEvent, eq, giftOrders, gt, isNotNull, messages, or } from "@casamento/db";
 import type { ReconcileResult } from "@casamento/shared";
 import { PaymentProviderError, type ChargeSnapshot } from "../payments/index.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
@@ -22,7 +22,7 @@ export async function reconcileOrders(
 ): Promise<ReconcileResult> {
   const since = new Date(deps.now().getTime() - RECONCILE_DAYS * 24 * 60 * 60_000);
   const filter = and(
-    sql`${giftOrders.providerOrderId} IS NOT NULL`,
+    isNotNull(giftOrders.providerOrderId),
     or(eq(giftOrders.status, "pending"), gt(giftOrders.updatedAt, since)),
   );
   const rows = ev

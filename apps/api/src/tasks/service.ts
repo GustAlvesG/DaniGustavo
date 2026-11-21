@@ -5,6 +5,7 @@ import {
   eq,
   eventMembers,
   eventTasks,
+  isNotNull,
   organizationMembers,
   sql,
   taskTemplateItems,
@@ -244,7 +245,7 @@ export async function recalculateTaskDues(db: Database, ev: EventCtx): Promise<n
   const rows = await db
     .select({ id: eventTasks.id, dueOn: eventTasks.dueOn, offset: eventTasks.dueOffsetDays })
     .from(eventTasks)
-    .where(and(byEvent(eventTasks, ev), sql`${eventTasks.dueOffsetDays} is not null`));
+    .where(and(byEvent(eventTasks, ev), isNotNull(eventTasks.dueOffsetDays)));
   let updated = 0;
   for (const r of rows) {
     const next = eventDate ? addDays(eventDate, r.offset!) : null;

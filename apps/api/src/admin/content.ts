@@ -6,6 +6,7 @@ import {
   desc,
   eq,
   eventSettings,
+  events,
   giftOrders,
   gifts,
   guests,
@@ -24,6 +25,7 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { cardFeePercent } from "../orders/service.ts";
+import { recalculateTaskDues } from "../tasks/service.ts";
 import { resolverFor } from "../tenancy/resolver.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import { buildSiteContent } from "../site-content.ts";
@@ -212,6 +214,20 @@ export function adminMessageRoutes(deps: AdminDeps) {
 /* Configurações                                                             */
 /* ------------------------------------------------------------------------ */
 
+/** Data e fuso do evento a partir das configurações (sem a chave, fica o que `events` tem). */
+function eventDateFrom(
+  values: Map<string, unknown>,
+  ev: EventCtx,
+): { startsAt: Date | null; timezone: string } {
+  const raw = values.get("wedding.datetime");
+  const tz = values.get("wedding.timezone");
+  const startsAt = typeof raw === "string" ? new Date(raw) : ev.startsAt;
+  return {
+    startsAt: startsAt && !Number.isNaN(startsAt.getTime()) ? startsAt : ev.startsAt,
+    timezone: typeof tz === "string" && tz ? tz : ev.timezone,
+  };
+}
+
 export function adminSettingsRoutes(deps: AdminDeps) {
   const { db, revalidate, env } = deps;
   const app = new Hono<EventAdminEnv>();
@@ -262,6 +278,11 @@ export function adminSettingsRoutes(deps: AdminDeps) {
       ]);
     }
 
+    // `wedding.datetime`/`wedding.timezone` são a data do evento: `events` acompanha.
+    const next = eventDateFrom(merged, ev);
+    const dateChanged =
+      next.timezone !== ev.timezone || next.startsAt?.getTime() !== ev.startsAt?.getTime();
+
     await db.transaction(async (tx) => {
       for (const [key, value] of Object.entries(parsed.data)) {
         await tx
@@ -274,7 +295,18 @@ export function adminSettingsRoutes(deps: AdminDeps) {
           })
           .onDuplicateKeyUpdate({ set: { value, updatedAt: new Date() } });
       }
+      if (dateChanged) {
+        await tx
+          .update(events)
+          .set({ startsAt: next.startsAt, timezone: next.timezone, updatedAt: new Date() })
+          .where(eq(events.id, ev.id));
+      }
     });
+    if (dateChanged) {
+      // Data/fuso vivem no cache do resolver (60 s); os prazos relativos das tarefas seguem a data.
+      resolverFor(db, deps.eventResolver).invalidate(ev.id);
+      await recalculateTaskDues(db, { ...ev, ...next });
+    }
     await revalidate(ev.id, ["site", "gifts"]);
     return c.json({ ok: true, saved: Object.keys(parsed.data) });
   });

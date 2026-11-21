@@ -62,6 +62,7 @@ export {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
   like,
   lt,

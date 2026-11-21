@@ -152,8 +152,6 @@ function Resumo() {
   );
 }
 
-const RIGHT = { textAlign: "right" } as const;
-
 function BudgetTable({ view }: { view: BudgetView }) {
   if (view.categories.length === 0) {
     return (
@@ -169,13 +167,13 @@ function BudgetTable({ view }: { view: BudgetView }) {
         <thead>
           <tr>
             <th scope="col">Categoria</th>
-            <th scope="col" style={RIGHT}>
+            <th scope="col" className="num">
               Previsto
             </th>
-            <th scope="col" style={RIGHT}>
+            <th scope="col" className="num">
               Contratado
             </th>
-            <th scope="col" style={RIGHT}>
+            <th scope="col" className="num">
               Pago
             </th>
           </tr>
@@ -189,8 +187,8 @@ function BudgetTable({ view }: { view: BudgetView }) {
                   {VENDOR_CATEGORY_LABELS[c.category] ?? c.category}
                   {c.notes && <span className="muted small"> · {c.notes}</span>}
                 </td>
-                <td style={RIGHT}>{formatBRL(c.plannedCents)}</td>
-                <td style={RIGHT}>
+                <td className="num">{formatBRL(c.plannedCents)}</td>
+                <td className="num">
                   {formatBRL(c.contractedCents)}
                   {over && (
                     <>
@@ -199,15 +197,15 @@ function BudgetTable({ view }: { view: BudgetView }) {
                     </>
                   )}
                 </td>
-                <td style={RIGHT}>{formatBRL(c.paidCents)}</td>
+                <td className="num">{formatBRL(c.paidCents)}</td>
               </tr>
             );
           })}
           <tr>
             <th scope="row">Total</th>
-            <th style={RIGHT}>{formatBRL(view.totals.plannedCents)}</th>
-            <th style={RIGHT}>{formatBRL(view.totals.contractedCents)}</th>
-            <th style={RIGHT}>{formatBRL(view.totals.paidCents)}</th>
+            <th className="num">{formatBRL(view.totals.plannedCents)}</th>
+            <th className="num">{formatBRL(view.totals.contractedCents)}</th>
+            <th className="num">{formatBRL(view.totals.paidCents)}</th>
           </tr>
         </tbody>
       </table>

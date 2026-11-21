@@ -1,9 +1,15 @@
-import { and, eq, eventTasks } from "@casamento/db";
+import { and, eq, events, eventSettings, eventTasks } from "@casamento/db";
 import type { ApiError, TaskList, TaskRow } from "@casamento/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, localDate } from "../src/tasks/dates.ts";
 import { createTask, recalculateTaskDues } from "../src/tasks/service.ts";
-import { createTestEvents, testApp, type TestEvents, type TestUserKind } from "./helpers.ts";
+import {
+  createTestEvents,
+  legacySettingsBase,
+  testApp,
+  type TestEvents,
+  type TestUserKind,
+} from "./helpers.ts";
 
 // Fase 4, frente A: tarefas do evento. Relógio fixo: hoje = 2029-12-20 em São Paulo;
 // o evento de teste é em 2030-01-01 (15h UTC).
@@ -240,6 +246,45 @@ describe("recalcular prazos relativos", () => {
     expect(row).toMatchObject({ dueOn: null, dueOffsetDays: -3 });
     await call("owner", `${base(ev.eventA.id)}/recalculate`, { method: "POST" });
     expect((await list()).tasks.find((x) => x.id === t.id)?.dueOn).toBe("2029-12-29");
+  });
+});
+
+describe("data do evento mudada nas configurações", () => {
+  it("PUT /settings com nova data atualiza o evento e recalcula os prazos relativos", async () => {
+    // Conteúdo público válido (o PUT confere o site inteiro): base do evento 1.
+    const base = await legacySettingsBase(db);
+    await db
+      .insert(eventSettings)
+      .values(base.map((r) => ({ ...r, eventId: ev.eventA.id })))
+      .onDuplicateKeyUpdate({ set: { updatedAt: new Date() } });
+    const t = await created("Segue a data", { due: { kind: "offset", days: -7 } });
+    const abs = await created("Não segue", { due: { kind: "date", date: "2030-05-05" } });
+    expect(t.dueOn).toBe("2029-12-25");
+
+    const put = (datetime: string, timezone = "America/Sao_Paulo") =>
+      call("owner", `/api/admin/events/${ev.eventA.id}/settings`, {
+        method: "PUT",
+        body: { values: { "wedding.datetime": datetime, "wedding.timezone": timezone } },
+      });
+    try {
+      expect((await put("2030-03-01T12:00:00-03:00")).status).toBe(200);
+      const [row] = await db
+        .select({ startsAt: events.startsAt })
+        .from(events)
+        .where(eq(events.id, ev.eventA.id));
+      expect(row!.startsAt!.toISOString()).toBe("2030-03-01T15:00:00.000Z");
+      let tasks = (await list()).tasks;
+      expect(tasks.find((x) => x.id === t.id)?.dueOn).toBe("2030-02-22");
+      expect(tasks.find((x) => x.id === abs.id)?.dueOn).toBe("2030-05-05");
+
+      // Só o fuso muda: 23h30 em São Paulo vira o dia seguinte em Tóquio.
+      expect((await put("2030-03-01T23:30:00-03:00", "Asia/Tokyo")).status).toBe(200);
+      tasks = (await list()).tasks;
+      expect(tasks.find((x) => x.id === t.id)?.dueOn).toBe("2030-02-23");
+    } finally {
+      expect((await put("2030-01-01T12:00:00-03:00")).status).toBe(200);
+    }
+    expect((await list()).tasks.find((x) => x.id === t.id)?.dueOn).toBe("2029-12-25");
   });
 });
 

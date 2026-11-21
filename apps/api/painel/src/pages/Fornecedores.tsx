@@ -353,9 +353,9 @@ function Detalhe({ id }: { id: number }) {
             onCancel={() => setRemoving(false)}
           >
             <p>
-              <strong>{row.vendor.name}</strong> sai deste evento e os contratos anexados são
-              apagados. O cadastro no catálogo continua. Com orçamento contratado, a remoção é
-              recusada.
+              <strong>{row.vendor.name}</strong> sai deste evento; os contratos anexados e os
+              orçamentos não contratados são apagados e o cronograma perde o vínculo. O cadastro no
+              catálogo continua. Com orçamento contratado, a remoção é recusada.
             </p>
           </Confirm>
         </>

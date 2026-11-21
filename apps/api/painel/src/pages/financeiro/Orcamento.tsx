@@ -225,7 +225,7 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
               <thead>
                 <tr>
                   <th scope="col">Item</th>
-                  <th scope="col" style={RIGHT}>
+                  <th scope="col" className="num">
                     Total
                   </th>
                   <th scope="col">Quantidade × unitário</th>
@@ -235,7 +235,7 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
                 {q.items.map((it) => (
                   <tr key={it.id}>
                     <td>{it.description}</td>
-                    <td style={RIGHT}>{formatBRL(it.totalCents)}</td>
+                    <td className="num">{formatBRL(it.totalCents)}</td>
                     <td>
                       {it.quantity} × {formatBRL(it.unitCents)}
                     </td>
@@ -372,8 +372,6 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
     </div>
   );
 }
-
-const RIGHT = { textAlign: "right" } as const;
 
 /* ------------------------------------------------------------------------ */
 /* Plano de parcelas                                                         */

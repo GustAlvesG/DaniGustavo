@@ -6,6 +6,7 @@ import {
   desc,
   eq,
   eventVendors,
+  isNotNull,
   isNull,
   quoteInstallments,
   quoteItems,
@@ -44,9 +45,6 @@ import type { EventCtx } from "../tenancy/types.ts";
  * evento (`byEvent`); o nome do fornecedor vem do catálogo da organização pelo par
  * (organization_id, vendor_id) de `event_vendors`.
  */
-
-/** `coluna IS NOT NULL` (o pacote db não reexporta `isNotNull`). */
-const isNotNull = (column: Parameters<typeof isNull>[0]) => sql`${column} IS NOT NULL`;
 
 /** Erro de regra de negócio: a rota converte em 404/409/422 com a mensagem pt-BR. */
 export class BudgetError extends Error {

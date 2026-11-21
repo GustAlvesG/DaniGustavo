@@ -165,6 +165,8 @@ describe("quem tem acesso ao evento A", () => {
         expect(p.routeNotFound, `${kind} ${label(r)}`).toBe(false);
         expect(p.status, `${kind} ${label(r)}`).not.toBe(401);
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
+        // Nenhuma rota reservada (501) sobrou depois da integração da Fase 4.
+        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
       }
     },
   );
@@ -282,6 +284,77 @@ describe("dados de um evento não aparecem nem se alteram pelo outro", () => {
   });
 });
 
+describe("Fase 4: gestão de um evento não aparece nem se altera pelo outro", () => {
+  const call = (id: number, path: string, kind: TestUserKind, init: RequestInit = {}) =>
+    app.request(`/api/admin/events/${id}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", cookie: cookies[kind], ...init.headers },
+    });
+  const json = async <T>(res: Response | Promise<Response>) => (await (await res).json()) as T;
+
+  it("tarefa, fornecedor, orçamento e item do cronograma de B ficam fora de A", async () => {
+    const B = ev.eventB.id;
+    const A = ev.eventA.id;
+    const task = await json<{ task: { id: number } }>(
+      call(B, "/tasks", "stranger", { method: "POST", body: JSON.stringify({ title: "De B" }) }),
+    );
+    const vendor = await json<{ vendor: { id: number } }>(
+      call(B, "/vendors", "stranger", {
+        method: "POST",
+        body: JSON.stringify({ vendor: { name: "Buffet de B", category: "buffet" } }),
+      }),
+    );
+    const quote = await json<{ quote: { id: number } }>(
+      call(B, "/quotes", "stranger", {
+        method: "POST",
+        body: JSON.stringify({
+          eventVendorId: vendor.vendor.id,
+          title: "Orçamento de B",
+          items: [{ description: "Jantar", quantity: 1, unitCents: 1000 }],
+        }),
+      }),
+    );
+    const item = await json<{ item: { id: number } }>(
+      call(B, "/schedule", "stranger", {
+        method: "POST",
+        body: JSON.stringify({ startTime: "18:00", title: "Jantar de B" }),
+      }),
+    );
+    expect(task.task.id).toBeGreaterThan(0);
+    expect(vendor.vendor.id).toBeGreaterThan(0);
+    expect(quote.quote.id).toBeGreaterThan(0);
+    expect(item.item.id).toBeGreaterThan(0);
+
+    // Listas de A não mostram nada de B.
+    expect((await json<{ tasks: unknown[] }>(call(A, "/tasks?view=all", "host"))).tasks).toEqual(
+      [],
+    );
+    expect((await json<{ vendors: unknown[] }>(call(A, "/vendors", "host"))).vendors).toEqual([]);
+    expect((await json<{ quotes: unknown[] }>(call(A, "/quotes", "host"))).quotes).toEqual([]);
+    expect((await json<{ items: unknown[] }>(call(A, "/schedule", "host"))).items).toEqual([]);
+
+    // Recursos de B pelo caminho de A: 404 (leitura e escrita).
+    const patch = (body: unknown) => ({ method: "PATCH", body: JSON.stringify(body) });
+    expect((await call(A, `/tasks/${task.task.id}`, "host", patch({ title: "x" }))).status).toBe(
+      404,
+    );
+    expect((await call(A, `/vendors/${vendor.vendor.id}/contracts`, "host")).status).toBe(404);
+    expect(
+      (await call(A, `/vendors/${vendor.vendor.id}`, "host", { method: "DELETE" })).status,
+    ).toBe(404);
+    expect((await call(A, `/quotes/${quote.quote.id}`, "host")).status).toBe(404);
+    expect((await call(A, `/schedule/${item.item.id}`, "host", patch({ title: "x" }))).status).toBe(
+      404,
+    );
+    // Orçamento em A com fornecedor de B → 404/422, nunca criado.
+    const cross = await call(A, "/quotes", "host", {
+      method: "POST",
+      body: JSON.stringify({ eventVendorId: vendor.vendor.id, title: "Cruzado", items: [] }),
+    });
+    expect([404, 422]).toContain(cross.status);
+  });
+});
+
 /* ------------------------------------------------------------------------ */
 /* Fase 3: rotas por organização (/api/admin/orgs/:orgId/*)                 */
 /* ------------------------------------------------------------------------ */
@@ -365,6 +438,7 @@ describe("organização: barreira de acesso", () => {
         expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
         expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
         if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
+        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
       }
     }
   });
