@@ -144,4 +144,10 @@ export interface MeResponse {
   events: MeEvent[];
   /** Fase 3: organizações em que o usuário é owner/member (todas, para platform admin). */
   organizations: MeOrganization[];
+  /**
+   * Situação da plataforma. `paymentsActive: false` = produção sem Asaas (provedor simulado):
+   * presentes em dinheiro indisponíveis em todos os eventos. `billingActive: false` = assinatura
+   * simulada em produção: nada é cobrado e não há bloqueio por atraso.
+   */
+  platform: { paymentsActive: boolean; billingActive: boolean };
 }

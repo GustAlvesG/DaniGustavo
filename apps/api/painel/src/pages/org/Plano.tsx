@@ -14,7 +14,7 @@ import { useOrg } from "../../org.tsx";
 import { Confirm, ErrorBox, FormError, Loading, PageHeader, useLoad, useToast } from "../../ui.tsx";
 import { CobrancasAssinatura } from "../plano/Cobrancas.tsx";
 import { percent } from "../plano/formato.ts";
-import { avisoAssinatura, SituacaoAssinatura } from "../plano/Situacao.tsx";
+import { avisoAssinatura, COBRANCA_INATIVA, SituacaoAssinatura } from "../plano/Situacao.tsx";
 import { UsoDoPlano } from "../plano/Uso.tsx";
 
 /*
@@ -249,6 +249,11 @@ export function OrgPlano() {
       {error ? <ErrorBox message={error} onRetry={reload} /> : null}
       {data ? (
         <>
+          {sub?.billingActive === false ? (
+            <p className="alert alert--info" role="status" data-testid="cobranca-inativa">
+              {COBRANCA_INATIVA}
+            </p>
+          ) : null}
           {notice ? (
             <p className={`alert ${sub?.readOnly ? "alert--error" : "alert--info"}`} role="status">
               {notice}

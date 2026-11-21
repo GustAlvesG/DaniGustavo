@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { getDb, loadRootEnv } from "@casamento/db";
 import { createApp } from "./app.ts";
 import { createAuth } from "./auth.ts";
-import { EnvError, parseEnv } from "./env.ts";
+import { billingLive, EnvError, parseEnv, paymentsLive } from "./env.ts";
 import { createWebRevalidator } from "./admin/revalidate.ts";
 import {
   startAccountStatusJob,
@@ -89,6 +89,17 @@ const stopRetentionJob = startRetentionJob({
 });
 const stopTaskReminderJob = startTaskReminderJob(jobDeps);
 
+// Produção sem Asaas: nada de pagamento de mentira para convidados reais nem cobrança simulada.
+if (!paymentsLive(env)) {
+  logger.warn(
+    "[pagamentos] Produção com PAYMENT_PROVIDER=simulado: presentes em dinheiro indisponíveis em todos os eventos até o Asaas ser ligado.",
+  );
+}
+if (!billingLive(env)) {
+  logger.warn(
+    "[assinaturas] Produção com BILLING_PROVIDER=simulado: assinaturas não são cobradas e não há bloqueio por atraso ou fim do teste.",
+  );
+}
 if (env.PAYMENT_PROVIDER === "asaas" && !env.ASAAS_PLATFORM_WALLET_ID) {
   logger.warn(
     "[pagamentos] ASAAS_PLATFORM_WALLET_ID vazio: eventos que recebem em subconta com taxa da plataforma ficam sem presentes em dinheiro.",

@@ -25,7 +25,7 @@ import {
   type SubscriptionProvider,
   type SubscriptionWebhookNotice,
 } from "../billing/index.ts";
-import type { Env } from "../env.ts";
+import { billingLive, type Env } from "../env.ts";
 import type { Mailer } from "../mailer.ts";
 import {
   buildSubscriptionEmail,
@@ -317,7 +317,8 @@ export async function changePlan(
 
   let providerCustomerId = ours ? (sub?.providerCustomerId ?? null) : null;
   let providerSubscriptionId: string | null = null;
-  if (price > 0) {
+  // Cobrança simulada em produção: o plano muda, mas nada é cobrado (sem assinatura no provedor).
+  if (price > 0 && billingLive(deps.env)) {
     providerCustomerId ??= (
       await billing.createCustomer({
         organizationId: actor.org.id,
@@ -349,7 +350,7 @@ export async function changePlan(
     planId: plan.id,
     status,
     billingCycle: input.billingCycle,
-    provider: price > 0 ? billing.name : null,
+    provider: providerSubscriptionId ? billing.name : null,
     providerCustomerId,
     providerSubscriptionId,
     trialEndsAt: trialEndsAt ?? sub?.trialEndsAt ?? null,
@@ -560,6 +561,8 @@ export async function runSubscriptionRound(
 ): Promise<SubscriptionRoundResult> {
   const { db } = deps;
   const now = deps.now();
+  // Cobrança simulada em produção: sem conferência no provedor e sem fim de teste → atraso.
+  if (!billingLive(deps.env)) return { synced: 0, trialsEnded: 0, errors: 0 };
   const rows = await crossEvent(
     "rotina das assinaturas",
     async () =>

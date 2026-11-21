@@ -167,6 +167,23 @@ export const envSchema = z
 
 export type Env = z.output<typeof envSchema>;
 
+/**
+ * Produção com o provedor simulado não recebe dinheiro de verdade (o Asaas ainda não foi testado):
+ * os presentes em dinheiro ficam indisponíveis em todos os eventos (como "sem conta aprovada").
+ * Fora de produção (dev, CI, e2e) o simulado continua aprovando pagamentos de mentira.
+ */
+export function paymentsLive(env: Pick<Env, "NODE_ENV" | "PAYMENT_PROVIDER">): boolean {
+  return !(env.NODE_ENV === "production" && env.PAYMENT_PROVIDER === "simulado");
+}
+
+/**
+ * Produção com a assinatura simulada: nada é cobrado e não há inadimplência nem bloqueio por
+ * fim de teste (nenhum 402 por assinatura); os limites do plano continuam valendo.
+ */
+export function billingLive(env: Pick<Env, "NODE_ENV" | "BILLING_PROVIDER">): boolean {
+  return !(env.NODE_ENV === "production" && env.BILLING_PROVIDER === "simulado");
+}
+
 export class EnvError extends Error {
   constructor(issues: string[]) {
     super(

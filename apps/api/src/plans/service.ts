@@ -28,6 +28,7 @@ import {
   type SubscriptionView,
   type UsageView,
 } from "@casamento/shared";
+import { billingLive, type Env } from "../env.ts";
 
 /*
  * Fase 6, frente A (docs/saas/fase-6.md §3): leitura da assinatura, do plano e do uso de uma
@@ -284,6 +285,15 @@ export async function subscriptionView(
     usage,
     payments: pays.map(paymentView),
   };
+}
+
+/**
+ * Cobrança simulada em produção (`billingLive` falso): a assinatura não cobra nem fica em atraso,
+ * e o painel mostra "Cobrança de assinaturas ainda não ativa" (`billingActive: false`).
+ */
+export function withBillingState(view: SubscriptionView, env: Env): SubscriptionView {
+  if (billingLive(env)) return { ...view, billingActive: true };
+  return { ...view, billingActive: false, readOnly: false, pastDueSince: null };
 }
 
 /** Situação da organização para o gate: suspensa e/ou assinatura só leitura. */

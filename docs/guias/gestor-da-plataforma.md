@@ -287,13 +287,15 @@ O backup roda sozinho toda madrugada (às 3h), guardando o banco e todas as foto
 
 ## 11. O que ainda está pendente
 
-- **Pagamentos de mentira.** Os presentes e as assinaturas estão no modo **simulado**: o Pix
-  mostra "Simulação: não pague este QR" e nenhum dinheiro se move. Enquanto for assim:
-  - peça aos organizadores que **desliguem o módulo Lista de presentes** (painel do evento →
-    **Evento** → **Módulos**) dos eventos reais, para nenhum convidado "comprar" um presente que
-    não foi pago;
-  - deixe as organizações de clientes na **Cortesia**: no plano com teste, o teste acaba, a
-    assinatura vira "Pagamento em atraso" e, sem cobrança real, o cliente não tem como pagar.
+- **Pagamentos ainda não ligados.** Os presentes e as assinaturas estão no modo **simulado**, e
+  no servidor de produção esse modo não aceita nada de mentira:
+  - os presentes em dinheiro aparecem como **"Disponível em breve"** no site de todos os
+    eventos (nenhum convidado consegue "comprar" um presente sem pagar), e o painel mostra
+    "Pagamentos ainda não estão ativos na plataforma". Os organizadores podem montar a lista e
+    deixar o módulo ligado: ela passa a aceitar presentes sozinha quando o Asaas for ligado;
+  - as assinaturas não são cobradas e não ficam em atraso: o fim do teste não deixa o painel só
+    para consulta. Os limites do plano continuam valendo e o painel do plano mostra "Cobrança de
+    assinaturas ainda não ativa". Não precisa colocar ninguém na **Cortesia** só por isso.
 - **Ligar o Asaas** exige, antes: uma chave do ambiente de testes do Asaas para validar Pix,
   cartão, reembolso, subcontas, divisão da taxa (split) e assinaturas; e pedir ao Asaas a
   liberação de subcontas e split na conta principal. O passo a passo técnico está em
@@ -317,9 +319,9 @@ Happy4Ever.
 Não. O site, as confirmações e os presentes continuam. Só o painel fica para consulta.
 
 **Posso testar um pagamento sem gastar dinheiro?**
-Sim, enquanto o modo simulado estiver ligado: num evento de teste, o cartão 4111 1111 1111 1111
-"aprova" e o 4000 0000 0000 0002 "recusa". Os botões "Simular pagamento" do painel só aparecem
-fora do servidor de produção.
+No servidor de produção, não: com o modo simulado, os presentes em dinheiro ficam "Disponível em
+breve". Num ambiente de testes (fora da produção), o cartão 4111 1111 1111 1111 "aprova", o
+4000 0000 0000 0002 "recusa" e aparecem os botões "Simular pagamento" do painel.
 
 **Criei a organização, mas ela não aparece no seletor do topo.**
 Recarregue a página do painel. O seletor só aparece quando você tem mais de uma organização ou
@@ -329,5 +331,5 @@ evento; senão, use **Todas as organizações e eventos**.
 Rode `docker compose up -d happy4ever-api`. O `restart` não relê o arquivo.
 
 **Onde vejo quanto a plataforma ganhou de taxa?**
-Em **Plataforma → Visão geral**, "Taxas nos últimos 30 dias". Com o modo simulado, o valor não
-representa dinheiro de verdade.
+Em **Plataforma → Visão geral**, "Taxas nos últimos 30 dias". Enquanto o Asaas não estiver
+ligado, não há presentes pagos e o valor fica zerado.

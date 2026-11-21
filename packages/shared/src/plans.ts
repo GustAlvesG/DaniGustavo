@@ -147,6 +147,11 @@ export interface SubscriptionView {
   payments: SubscriptionPaymentView[];
   /** Provedor simulado fora de produção: o painel mostra "Simular pagamento" (dev e e2e). */
   canSimulate?: boolean;
+  /**
+   * false = produção com a assinatura simulada: nada é cobrado e não há atraso nem bloqueio;
+   * o painel mostra "Cobrança de assinaturas ainda não ativa".
+   */
+  billingActive?: boolean;
 }
 
 export interface SubscriptionPaymentView {

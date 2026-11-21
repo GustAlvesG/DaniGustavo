@@ -179,7 +179,14 @@ Preencha:
   diferente do `openssl`; hex evita `@ / : #`, que quebram a `DATABASE_URL`);
 - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
 - SMTP (`MAIL_*`): sem ele os e-mails de confirmação e lembretes não saem (só aparecem no log);
-- pagamentos: comece com `PAYMENT_PROVIDER=simulado` e ligue o Asaas no passo 10;
+- pagamentos: comece com `PAYMENT_PROVIDER=simulado` e ligue o Asaas no passo 10. Em produção o
+  simulado **não aceita pagamento**: presentes em dinheiro ficam "Disponível em breve" em todos
+  os eventos (`POST /orders` 409), o painel avisa "Pagamentos ainda não estão ativos na
+  plataforma" e a API registra um aviso ao subir. Do mesmo jeito, `BILLING_PROVIDER=simulado` em
+  produção não cobra assinatura nem aplica inadimplência ou bloqueio por fim de teste (os
+  limites do plano continuam valendo; o painel do plano mostra "Cobrança de assinaturas ainda
+  não ativa"). Não há variável extra: vale o par `NODE_ENV=production` + provedor `simulado`.
+  Fora de produção (dev, CI, e2e) o simulado segue aprovando de mentira;
 - `PAYMENT_SECRETS_KEY` (plataforma, Fase 5): mais um valor do `openssl rand -hex 32`,
   **obrigatório em produção** (a API não sobe sem ele). Cifra as chaves de API das subcontas
   Asaas; trocá-lo depois invalida as chaves gravadas. `PLATFORM_FEE_PERCENT` (taxa da plataforma,

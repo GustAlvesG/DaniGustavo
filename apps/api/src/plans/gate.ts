@@ -2,6 +2,7 @@ import type { Database } from "@casamento/db";
 import { ERROR_CODES, PAST_DUE_GRACE_DAYS } from "@casamento/shared";
 import type { Context, MiddlewareHandler } from "hono";
 import type { AdminUser } from "../admin/context.ts";
+import { billingLive, type Env } from "../env.ts";
 import { apiError } from "../errors.ts";
 import type { EventAdminEnv, OrgAdminEnv } from "../tenancy/types.ts";
 import { orgGateState } from "./service.ts";
@@ -39,6 +40,7 @@ async function blocked(
   c: Context,
   user: AdminUser,
   db: Database,
+  env: Env,
   orgId: number,
 ): Promise<Response | null> {
   if (SAFE.has(c.req.method) || user.platformRole === "admin") return null;
@@ -46,29 +48,30 @@ async function blocked(
   if (state.suspended) {
     return apiError(c, 402, ERROR_CODES.subscriptionInactive, SUSPENDED_MESSAGE);
   }
-  if (state.readOnly) {
+  // Cobrança simulada em produção: sem inadimplência (só a suspensão manual bloqueia).
+  if (state.readOnly && billingLive(env)) {
     return apiError(c, 402, ERROR_CODES.subscriptionInactive, READ_ONLY_MESSAGE);
   }
   return null;
 }
 
 /** Painel de evento: a organização vem de `c.get("event").orgId`. */
-export function eventSubscriptionGate(db: Database): MiddlewareHandler<EventAdminEnv> {
+export function eventSubscriptionGate(db: Database, env: Env): MiddlewareHandler<EventAdminEnv> {
   return async (c, next) => {
     const res = GUEST_PROTECTION_PATH.test(c.req.path)
       ? null
-      : await blocked(c, c.get("user"), db, c.get("event").orgId);
+      : await blocked(c, c.get("user"), db, env, c.get("event").orgId);
     if (res) return res;
     await next();
   };
 }
 
 /** Painel da organização: a organização vem de `c.get("org").id`. */
-export function orgSubscriptionGate(db: Database): MiddlewareHandler<OrgAdminEnv> {
+export function orgSubscriptionGate(db: Database, env: Env): MiddlewareHandler<OrgAdminEnv> {
   return async (c, next) => {
     const res = BILLING_PATH.test(c.req.path)
       ? null
-      : await blocked(c, c.get("user"), db, c.get("org").id);
+      : await blocked(c, c.get("user"), db, env, c.get("org").id);
     if (res) return res;
     await next();
   };

@@ -27,7 +27,7 @@ export function adminOrgRoutes(deps: AdminDeps) {
   const app = new Hono<OrgAdminEnv>();
   app.use("*", requireOrgAccess(deps.db));
   // Fase 6, frente A: inadimplência além da carência → só leitura (exceto /subscription).
-  app.use("*", orgSubscriptionGate(deps.db));
+  app.use("*", orgSubscriptionGate(deps.db, deps.env));
 
   app.get("/", (c) => c.json({ organization: c.get("org"), role: c.get("orgRole") }));
 

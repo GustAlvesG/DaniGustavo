@@ -1,4 +1,4 @@
-import { SubscriptionChangeInput } from "@casamento/shared";
+import { SubscriptionChangeInput, type SubscriptionView } from "@casamento/shared";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { isSimulatedBilling, SubscriptionProviderError } from "../../billing/index.ts";
@@ -8,6 +8,7 @@ import {
   computeUsage,
   loadSubscription,
   subscriptionView,
+  withBillingState,
   type OrgSubscription,
 } from "../../plans/service.ts";
 import {
@@ -80,10 +81,9 @@ export function orgSubscriptionRoutes(deps: AdminDeps) {
   };
   const app = new Hono<OrgAdminEnv>();
   const canSimulate = isSimulatedBilling(billing) && deps.env.NODE_ENV !== "production";
-  const view = async (current: OrgSubscription) => ({
-    ...(await subscriptionView(db, current, deps.now())),
-    canSimulate,
-  });
+  const view = async (current: OrgSubscription) =>
+    flags(await subscriptionView(db, current, deps.now()));
+  const flags = (v: SubscriptionView) => ({ ...withBillingState(v, deps.env), canSimulate });
 
   app.get("/subscription", requireOrgPermission("org.read"), async (c) => {
     const current = await loadSubscription(db, c.get("org").id);
@@ -104,14 +104,12 @@ export function orgSubscriptionRoutes(deps: AdminDeps) {
         { org: { id: org.id, name: org.name }, payer: { name: user.name, email: user.email } },
         parsed.data,
       );
-      return c.json({ ...result, subscription: { ...result.subscription, canSimulate } });
+      return c.json({ ...result, subscription: flags(result.subscription) });
     });
   });
 
   app.post("/subscription/cancel", requireOrgPermission("billing.manage"), (c) =>
-    subscriptionErrors(c, async () =>
-      c.json({ ...(await cancelPlan(sdeps, c.get("org").id)), canSimulate }),
-    ),
+    subscriptionErrors(c, async () => c.json(flags(await cancelPlan(sdeps, c.get("org").id)))),
   );
 
   if (isSimulatedBilling(billing) && canSimulate) {

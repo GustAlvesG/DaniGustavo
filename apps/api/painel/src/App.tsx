@@ -543,6 +543,13 @@ function Frame({
       <main className="content" id="conteudo" tabIndex={-1}>
         {/* Fase 6: aviso da assinatura (teste acabando, atraso, só leitura); anfitrião não vê. */}
         {avisoOrgId !== null && <AvisoAssinatura key={avisoOrgId} orgId={avisoOrgId} />}
+        {/* Produção sem Asaas (provedor simulado): nenhum evento recebe presentes em dinheiro. */}
+        {(event || org) && me.platform?.paymentsActive === false ? (
+          <p className="alert alert--info" role="status" data-testid="pagamentos-inativos">
+            Pagamentos ainda não estão ativos na plataforma: os presentes em dinheiro aparecem como
+            “Disponível em breve” no site até que os pagamentos sejam ligados.
+          </p>
+        ) : null}
         {event ? (
           // key: ao trocar de evento a página remonta e recarrega os próprios dados.
           <EventProvider key={event.id} value={event}>

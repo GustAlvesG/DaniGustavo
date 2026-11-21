@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { billingLive, paymentsLive } from "../env.ts";
 import { adminDashboardRoutes, adminMessageRoutes, adminSettingsRoutes } from "./content.ts";
 import { requireSession, sameOrigin, type AdminDeps, type AdminEnv } from "./context.ts";
 import { adminAppearanceRoutes } from "./appearance.ts";
@@ -57,7 +58,11 @@ export function adminRoutes(deps: AdminDeps) {
       listAccessibleEvents(deps.db, user),
       listAccessibleOrgs(deps.db, user),
     ]);
-    return c.json({ user, events, organizations });
+    const platform = {
+      paymentsActive: paymentsLive(deps.env),
+      billingActive: billingLive(deps.env),
+    };
+    return c.json({ user, events, organizations, platform });
   });
   // Fase 6 (docs/saas/fase-6.md), frente C: exportar e apagar os dados da própria conta.
   app.route("/me", adminMeRoutes(deps));
@@ -65,7 +70,7 @@ export function adminRoutes(deps: AdminDeps) {
   const ev = new Hono<EventAdminEnv>();
   ev.use("*", requireEventAccess(deps.db, resolverFor(deps.db, deps.eventResolver)));
   // Fase 6, frente A: assinatura inadimplente além da carência → painel só leitura (402).
-  ev.use("*", eventSubscriptionGate(deps.db));
+  ev.use("*", eventSubscriptionGate(deps.db, deps.env));
   ev.route("/dashboard", adminDashboardRoutes(deps));
   ev.route("/invitations/import", adminImportRoutes(deps));
   ev.route("/invitations/lists", adminGuestListRoutes(deps));

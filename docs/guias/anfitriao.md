@@ -136,9 +136,10 @@ tem botão.
 
 ## 6. Presentes e recados
 
-> **Por enquanto, os pagamentos do Happy4Ever estão em modo de teste**: nenhum dinheiro de
-> verdade é cobrado nem chega a vocês. A organização vai avisar quando a lista de presentes
-> estiver valendo.
+> **Por enquanto, os pagamentos do Happy4Ever ainda não estão ligados**: o painel mostra
+> "Pagamentos ainda não estão ativos na plataforma" e, no site, os presentes em dinheiro aparecem
+> como "Disponível em breve" (ninguém consegue pagar). A organização vai avisar quando a lista de
+> presentes estiver valendo.
 
 - **Presentes**: veja a lista, as cotas pagas e reservadas. Se a organização liberar, você também
   cadastra e edita presentes em **Novo presente**.

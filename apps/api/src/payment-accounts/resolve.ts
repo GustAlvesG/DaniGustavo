@@ -1,7 +1,7 @@
 import type { Database } from "@casamento/db";
 import type { EventPaymentState } from "@casamento/shared";
 import type { SecretBox } from "../crypto/secret-box.ts";
-import type { Env } from "../env.ts";
+import { paymentsLive, type Env } from "../env.ts";
 import { organizationFeeBps } from "../plans/fees.ts";
 import {
   platformWalletId,
@@ -63,6 +63,8 @@ export async function eventPaymentState(
   ev: EventCtx,
   deps: Pick<ReceiverDeps, "db" | "provider"> & { env?: Env },
 ): Promise<EventPaymentState> {
+  // Produção com o provedor simulado: nenhum evento recebe (a criação do pedido também confere).
+  if (deps.env && !paymentsLive(deps.env)) return "no_account";
   const loaded = await loadEventReceiverAccount(deps.db, ev);
   const state = receiverState(loaded);
   if (state === "ready" && !sameProvider(loaded.account!, deps.provider)) return "no_account";
@@ -94,6 +96,7 @@ export async function resolveEventReceiver(
   ev: EventCtx,
   deps: ReceiverDeps,
 ): Promise<ReceiverResolution> {
+  if (!paymentsLive(deps.env)) return { ok: false, state: "no_account" };
   const loaded = await loadEventReceiverAccount(deps.db, ev);
   const state = receiverState(loaded);
   if (state === "platform") {

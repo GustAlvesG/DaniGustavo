@@ -30,6 +30,7 @@ import {
   loadSubscription,
   planView,
   subscriptionView,
+  withBillingState,
 } from "../../plans/service.ts";
 import {
   assignPlanAsAdmin,
@@ -187,7 +188,9 @@ export function platformRoutes(deps: AdminDeps) {
     const current = await loadSubscription(db, orgId);
     return c.json({
       organization: await toRow(db, o),
-      subscription: current ? await subscriptionView(db, current, deps.now()) : null,
+      subscription: current
+        ? withBillingState(await subscriptionView(db, current, deps.now()), deps.env)
+        : null,
     });
   }
 

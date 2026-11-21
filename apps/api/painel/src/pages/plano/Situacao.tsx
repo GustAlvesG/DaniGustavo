@@ -21,8 +21,13 @@ export function SituacaoAssinatura({ status }: { status: SubscriptionStatus }) {
 
 const DAY = 86_400_000;
 
+export const COBRANCA_INATIVA =
+  "Cobrança de assinaturas ainda não ativa: nenhuma fatura é gerada e o painel não fica bloqueado por atraso ou fim do teste. Os limites do plano continuam valendo.";
+
 /** Texto do aviso (null = nada a avisar). */
 export function avisoAssinatura(s: SubscriptionView, now = new Date()): string | null {
+  // Cobrança ainda não ativa na plataforma: sem atraso nem fim de teste (a página do plano avisa).
+  if (s.billingActive === false) return null;
   if (s.readOnly) {
     return s.status === "canceled"
       ? "A assinatura foi encerrada: o painel está só para consulta. Escolha um plano para voltar a editar. O site dos convidados continua no ar."

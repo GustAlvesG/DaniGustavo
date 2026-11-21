@@ -6,9 +6,11 @@ montar a equipe, criar um evento, deixar o site lindo, cuidar dos convidados, do
 gestão e do grande dia. Tudo é feito no painel:
 https://happy4ever-api.artzan.tech/painel/ (funciona no celular; vale salvar na tela inicial).
 
-> **Atenção, por enquanto:** os pagamentos do Happy4Ever estão em **modo de teste**. Nenhum
-> dinheiro de verdade se move. Até a plataforma avisar que os pagamentos estão ligados, deixe o
-> módulo **Lista de presentes** desligado nos eventos reais (veja a seção 5).
+> **Atenção, por enquanto:** os pagamentos do Happy4Ever **ainda não estão ligados**. O painel
+> mostra "Pagamentos ainda não estão ativos na plataforma" e, no site, os presentes em dinheiro
+> aparecem como "Disponível em breve" (ninguém consegue pagar). Pode montar a lista e deixar o
+> módulo ligado: ela passa a aceitar presentes quando a plataforma ligar os pagamentos (seção 9).
+> A assinatura também ainda não é cobrada.
 
 ## Sumário
 
@@ -143,7 +145,9 @@ lado maior.
 - **Palavras**: troque o vocabulário do site (em branco, vale o padrão do tipo).
 - Toque em **Salvar evento**.
 
-> Enquanto os pagamentos estiverem em modo de teste, **desligue a Lista de presentes** aqui.
+> Enquanto os pagamentos não estiverem ligados, a Lista de presentes pode ficar ligada: os
+> presentes em dinheiro aparecem como "Disponível em breve". Desligue só se preferir esconder a
+> lista até lá.
 
 ### Dados do evento (menu Configurações)
 
@@ -274,9 +278,11 @@ Convite sem telefone fica sem botão.
 
 ## 9. Presentes e recebimentos
 
-> **Modo de teste.** Hoje os pagamentos são simulados: o Pix aparece com "Simulação: não pague
-> este QR" e nenhum dinheiro chega a ninguém. Monte a lista se quiser, mas mantenha o módulo
-> **Lista de presentes** desligado nos eventos reais até o Happy4Ever avisar.
+> **Pagamentos ainda não ligados.** Enquanto o Happy4Ever não ligar os pagamentos, o painel
+> mostra "Pagamentos ainda não estão ativos na plataforma" e a lista aparece no site com
+> "Disponível em breve" no lugar do botão: ninguém paga e nenhum pedido é criado. Monte a lista e
+> cadastre a conta à vontade; os presentes passam a valer sozinhos quando os pagamentos forem
+> ligados.
 
 ### Conta de recebimento da organização
 
@@ -460,8 +466,9 @@ Veja em **Permissões do anfitrião** se aquela área está desmarcada. Sem o "v
 menu dele.
 
 **Os convidados podem comprar presentes já?**
-Ainda não de verdade: os pagamentos estão em modo de teste. Deixe a **Lista de presentes**
-desligada no menu **Evento** até o Happy4Ever avisar.
+Ainda não: enquanto os pagamentos não forem ligados, os presentes em dinheiro aparecem como
+"Disponível em breve" e ninguém consegue pagar. A lista pode ficar ligada; ela começa a aceitar
+presentes quando o Happy4Ever ligar os pagamentos.
 
 **O convite foi parar com a pessoa errada.**
 Abra o convite e toque em **Gerar link novo**. O link antigo para de funcionar.
