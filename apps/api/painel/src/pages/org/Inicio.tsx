@@ -3,6 +3,7 @@ import { orgApi } from "../../api.ts";
 import { formatBRL } from "../../format.ts";
 import { eventPath, oh } from "../../nav.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../../ui.tsx";
+import { OrgPlanningSummary } from "../PlanejamentoResumo.tsx";
 import { EventNumbers, EventStatusBadge } from "./Eventos.tsx";
 
 export function OrgInicio() {
@@ -40,6 +41,7 @@ export function OrgInicio() {
               <dd>{formatBRL(data.totals.giftsReceivedCents)}</dd>
             </div>
           </dl>
+          <OrgPlanningSummary events={data.events.filter((e) => e.status !== "archived")} />
           {data.events.length === 0 ? (
             <p className="empty">Nenhum evento ainda. Crie o primeiro em “Novo evento”.</p>
           ) : (

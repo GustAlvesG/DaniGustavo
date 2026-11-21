@@ -1097,3 +1097,19 @@ input[readonly] {
     margin: 6px 12px;
   }
 }
+
+/* Rótulo de grupo do menu do evento (Gestão, Site e ajustes): só na barra lateral. */
+.nav__group {
+  display: none;
+}
+@media (min-width: 900px) {
+  .nav__group {
+    display: block;
+    margin: 14px 14px 4px;
+    color: var(--suave);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}

@@ -3,6 +3,7 @@ import { api } from "../api.ts";
 import { daysUntil, formatBRL, formatDate, formatDateTime, plural } from "../format.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../ui.tsx";
 import { ea, eh } from "../nav.ts";
+import { EventPlanningCards } from "./PlanejamentoResumo.tsx";
 
 const AGE_LABEL = { "0-2": "0 a 2 anos", "3-7": "3 a 7 anos", "8-12": "8 a 12 anos" } as const;
 
@@ -76,6 +77,8 @@ export function Dashboard() {
           </a>
         </section>
       </div>
+
+      <EventPlanningCards />
 
       <div className="grid grid--2">
         <section className="card" aria-labelledby="d-vem">
