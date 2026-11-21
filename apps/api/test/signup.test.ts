@@ -134,6 +134,10 @@ describe("pedido de cadastro", () => {
     const token = await requestFor(email);
     expect(sent).toHaveLength(1);
     expect(sent[0]!.to).toBe(email);
+    expect(sent[0]).toMatchObject({
+      fromName: "Happy4Ever",
+      subject: "Confirme seu e-mail para começar no Happy4Ever",
+    });
     expect(sent[0]!.text).toContain(`${env.BETTER_AUTH_URL}/painel/#/cadastro/${token}`);
     const [row] = await db.select().from(signupRequests).where(eq(signupRequests.email, email));
     expect(row!.tokenHash).toBe(hashInviteToken(token));

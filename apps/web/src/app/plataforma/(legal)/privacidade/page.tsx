@@ -37,7 +37,7 @@ export default function Privacidade() {
       <h2>Com quem compartilhamos</h2>
       <p>
         Com o parceiro de pagamentos (para processar presentes e assinaturas) e com os serviços de
-        hospedagem e e-mail que fazem {PLATFORM_NAME} funcionar.
+        hospedagem e e-mail que fazem o {PLATFORM_NAME} funcionar.
       </p>
 
       <h2>Seus direitos</h2>

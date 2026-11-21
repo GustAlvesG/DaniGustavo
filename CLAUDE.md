@@ -2,7 +2,7 @@ O modelo Opus deve ser apenas orquestrar a operação e delegar as tarefas para 
 
 ## Visão geral
 
-Branch `saas`: plataforma multi-evento (Plataforma → Organização → Evento → site por host). O casamento de Dani & Gustavo é o evento 1 (`dani-gustavo`, org 1); `main`/tag `v1-casamento` segue como o site do casamento até 10/04/2027. Cada evento tem site público (convidados, RSVP, lista de presentes, recados) e painel. Plano da fase em `docs/saas/fase-1.md`; especificação original do casamento em `docs/PROMPT.md` (pt-BR). Gustavo é dev Laravel: explique decisões não óbvias do Next.js em uma linha.
+Branch `saas`: plataforma multi-evento **Happy4Ever** (escrito assim; constante única `PLATFORM_NAME` em `packages/shared/src/brand.ts`, usada no site da plataforma, no painel, nos e-mails do sistema e no User-Agent do Asaas; os sites dos eventos não levam a marca) (Plataforma → Organização → Evento → site por host). O casamento de Dani & Gustavo é o evento 1 (`dani-gustavo`, org 1); `main`/tag `v1-casamento` segue como o site do casamento até 10/04/2027. Cada evento tem site público (convidados, RSVP, lista de presentes, recados) e painel. Plano da fase em `docs/saas/fase-1.md`; especificação original do casamento em `docs/PROMPT.md` (pt-BR). Gustavo é dev Laravel: explique decisões não óbvias do Next.js em uma linha.
 
 ## Stack (como construído)
 

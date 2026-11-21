@@ -105,7 +105,7 @@ describe("Asaas: cobranças", () => {
       "GET https://api-sandbox.asaas.com/v3/payments/pay_1/pixQrCode",
     ]);
     expect(m.calls[0]!.headers.access_token).toBe(KEY);
-    expect(m.calls[0]!.headers["user-agent"]).toMatch(/sandbox/);
+    expect(m.calls[0]!.headers["user-agent"]).toBe("Happy4Ever/1.0 (Node.js; sandbox)");
     expect(m.calls[1]!.body).toEqual({
       customer: "cus_1",
       billingType: "PIX",

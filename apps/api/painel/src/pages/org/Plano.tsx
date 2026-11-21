@@ -6,7 +6,7 @@ import type {
   SubscriptionView,
   UsageView,
 } from "@casamento/shared";
-import { BILLING_CYCLE_LABELS, BILLING_CYCLES } from "@casamento/shared";
+import { BILLING_CYCLE_LABELS, BILLING_CYCLES, PLATFORM_NAME } from "@casamento/shared";
 import { useState } from "react";
 import { ApiFailure, errorMessage, orgApi, orgSend } from "../../api.ts";
 import { formatBRL, formatDate, plural } from "../../format.ts";
@@ -291,8 +291,8 @@ export function OrgPlano() {
               </dl>
             ) : (
               <p className="muted">
-                Esta organização ainda não tem assinatura: sem limites e com a taxa padrão da
-                plataforma. Escolha um plano abaixo.
+                Esta organização ainda não tem assinatura: sem limites e com a taxa padrão do{" "}
+                {PLATFORM_NAME}. Escolha um plano abaixo.
               </p>
             )}
             {invoiceUrl ? (
@@ -327,8 +327,8 @@ export function OrgPlano() {
 
           {sub?.status === "internal" ? (
             <p className="muted">
-              Plano interno da plataforma: sem cobrança e sem limites. Para mudar, fale com a
-              plataforma.
+              Plano interno do {PLATFORM_NAME}: sem cobrança e sem limites. Para mudar, fale com a
+              equipe do {PLATFORM_NAME}.
             </p>
           ) : canManage ? (
             <>

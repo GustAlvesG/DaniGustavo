@@ -4,7 +4,7 @@ import { ApiFailure, errorMessage } from "../api.ts";
 import { authClient, describeError } from "../auth-client.ts";
 import { formatDateTime } from "../format.ts";
 import { goAbsolute } from "../nav.ts";
-import { ErrorBox, Field, FormError, Loading, useLoad } from "../ui.tsx";
+import { ErrorBox, Field, FormError, Loading, LoginBrand, useLoad } from "../ui.tsx";
 
 /*
  * Fase 6, frente B (docs/saas/fase-6.md): confirmação do cadastro self-service em
@@ -47,9 +47,7 @@ export function ConfirmarCadastro({ token }: { token: string }) {
   return (
     <main className="shell shell--center">
       <section className="card card--narrow stack">
-        <div className="login-brand" aria-hidden="true">
-          <span className="brand__mark">&amp;</span>
-        </div>
+        <LoginBrand />
         <h1>Confirmar cadastro</h1>
         {loading && !data ? <Loading /> : null}
         {error ? (

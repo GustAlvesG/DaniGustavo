@@ -1,4 +1,4 @@
-import type { MailMessage } from "./mailer.ts";
+import { PLATFORM_FOOTER, type MailMessage } from "./mailer.ts";
 
 /*
  * Fase 7, frente C: e-mail com o link mágico do portal do fornecedor (pt-BR). O token vai no
@@ -40,6 +40,8 @@ export function buildVendorPortalEmail(input: VendorPortalEmailInput): MailMessa
     "",
     validity,
     "Se você não esperava este e-mail, pode ignorá-lo.",
+    "",
+    PLATFORM_FOOTER,
   ];
   const html = [
     `<div style="font-family:system-ui,sans-serif;color:#1f2a37;max-width:520px">`,
@@ -48,6 +50,7 @@ export function buildVendorPortalEmail(input: VendorPortalEmailInput): MailMessa
     `<p>Para entrar, abra o link abaixo (não precisa de senha):</p>`,
     `<p><a href="${escapeHtml(link)}">Abrir o portal do fornecedor</a><br><small>${escapeHtml(link)}</small></p>`,
     `<p>${escapeHtml(validity)}<br>Se você não esperava este e-mail, pode ignorá-lo.</p>`,
+    `<p><small>${escapeHtml(PLATFORM_FOOTER)}</small></p>`,
     `</div>`,
   ].join("");
   return {

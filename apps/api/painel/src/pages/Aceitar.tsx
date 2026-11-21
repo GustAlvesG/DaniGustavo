@@ -9,7 +9,7 @@ import { errorMessage, teamInviteApi } from "../api.ts";
 import { authClient, describeError } from "../auth-client.ts";
 import { formatDateTime } from "../format.ts";
 import { goAbsolute } from "../nav.ts";
-import { ErrorBox, Field, FormError, Loading, useLoad } from "../ui.tsx";
+import { ErrorBox, Field, FormError, Loading, LoginBrand, useLoad } from "../ui.tsx";
 
 /*
  * Fase 3, frente B (docs/saas/fase-3.md): aceite de convite da equipe/anfitrião em
@@ -28,9 +28,7 @@ export function Aceitar({ token }: { token: string }) {
   return (
     <main className="shell shell--center">
       <section className="card card--narrow stack">
-        <div className="login-brand" aria-hidden="true">
-          <span className="brand__mark">&amp;</span>
-        </div>
+        <LoginBrand />
         <h1>Convite para o painel</h1>
         {loading && !data ? <Loading /> : null}
         {error ? (

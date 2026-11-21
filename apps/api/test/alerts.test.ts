@@ -1,4 +1,4 @@
-import { ALERT_COOLDOWN_MINUTES } from "@casamento/shared";
+import { ALERT_COOLDOWN_MINUTES, PLATFORM_NAME } from "@casamento/shared";
 import { describe, expect, it } from "vitest";
 import { createAlerter } from "../src/alerts.ts";
 import { startIntervalJob } from "../src/jobs.ts";
@@ -39,7 +39,8 @@ describe("alertas", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       to: "ops@plataforma.exemplo",
-      subject: "[alerta] Rotina caiu",
+      fromName: PLATFORM_NAME,
+      subject: `[${PLATFORM_NAME}] alerta: Rotina caiu`,
     });
     expect(sent[0]?.text).toContain("Error: boom");
   });

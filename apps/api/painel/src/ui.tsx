@@ -8,7 +8,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { PLATFORM_NAME } from "@casamento/shared";
 import { errorMessage } from "./api.ts";
+
+/** Marca textual da plataforma nas telas de entrada (login, cadastro, aceite de convite). */
+export function LoginBrand() {
+  return (
+    <p className="login-brand">
+      <span className="brand__mark">{PLATFORM_NAME}</span>
+    </p>
+  );
+}
 
 /* ------------------------------------------------------------------------ */
 /* Carregamento                                                              */

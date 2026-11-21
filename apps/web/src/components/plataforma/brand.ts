@@ -1,2 +1,2 @@
-/** Nome da plataforma no site e nos títulos. TODO(conteudo): nome e marca definitivos. */
-export const PLATFORM_NAME = "Plataforma de eventos";
+/** Nome da plataforma no site e nos títulos (constante única em `packages/shared/src/brand.ts`). */
+export { PLATFORM_NAME } from "@casamento/shared";

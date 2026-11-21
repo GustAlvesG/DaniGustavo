@@ -31,7 +31,7 @@ import {
   pickerValue,
   resolveRedirect,
 } from "./routes.ts";
-import type { EventAction } from "@casamento/shared";
+import { PLATFORM_NAME, type EventAction } from "@casamento/shared";
 import { Aceitar } from "./pages/Aceitar.tsx";
 import { Aparencia } from "./pages/Aparencia.tsx";
 import { Configuracoes } from "./pages/Configuracoes.tsx";
@@ -63,7 +63,7 @@ import { Mesas } from "./pages/mesas/Mesas.tsx";
 import { Portal } from "./pages/portal/Portal.tsx";
 import { Portaria } from "./pages/portaria/Portaria.tsx";
 import { WhatsApp } from "./pages/whatsapp/WhatsApp.tsx";
-import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
+import { ErrorBox, Loading, LoginBrand, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
 /* Rotas por hash (#/e/3/convites/12): sem roteador, o servidor só entrega index */
@@ -363,7 +363,7 @@ function Routed({ me, path }: { me: MeResponse; path: string }) {
 }
 
 function Brand({ event, org }: { event: MeEvent | null; org: MeOrganization | null }) {
-  const label = event ? event.name : org ? org.name : "Painel";
+  const label = event ? event.name : org ? org.name : PLATFORM_NAME;
   return (
     <a
       className="brand"
@@ -373,7 +373,7 @@ function Brand({ event, org }: { event: MeEvent | null; org: MeOrganization | nu
           ? `Painel de ${event.name}, início`
           : org
             ? `Organização ${org.name}, início`
-            : "Painel, seus eventos"
+            : `${PLATFORM_NAME}, seus eventos`
       }
     >
       <span className="brand__mark" aria-hidden="true">
@@ -453,7 +453,8 @@ function Frame({
   if (org) setCurrentOrgId(org.id);
   useEffect(() => {
     if (event) rememberEvent(event.id);
-    document.title = event ? `Painel · ${event.name}` : org ? `Painel · ${org.name}` : "Painel";
+    const where = event?.name ?? org?.name;
+    document.title = where ? `${where} · ${PLATFORM_NAME}` : `Painel · ${PLATFORM_NAME}`;
   }, [event, org]);
   // No celular o menu rola de lado: mantém a seção atual à vista.
   useEffect(() => {
@@ -585,9 +586,7 @@ function Login() {
   return (
     <main className="shell shell--center">
       <section className="card card--narrow">
-        <div className="login-brand" aria-hidden="true">
-          <span className="brand__mark">&amp;</span>
-        </div>
+        <LoginBrand />
         <form onSubmit={onSubmit} className="stack">
           <h1>Entrar no painel</h1>
           <p className="muted">Acesso só para quem organiza o evento.</p>

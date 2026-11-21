@@ -17,7 +17,7 @@ export default function Termos() {
 
       <h2>1. O que oferecemos</h2>
       <p>
-        {PLATFORM_NAME} é um serviço para criar o site de um evento, receber confirmações de
+        O {PLATFORM_NAME} é um serviço para criar o site de um evento, receber confirmações de
         presença, montar listas de presentes e organizar tarefas, fornecedores e orçamentos.
       </p>
 

@@ -1,5 +1,5 @@
 import { PAYMENT_ACCOUNT_STATUS_LABELS, type PaymentAccountStatus } from "@casamento/shared";
-import type { MailMessage } from "./mailer.ts";
+import { PLATFORM_FOOTER, type MailMessage } from "./mailer.ts";
 
 export interface AccountStatusEmailInput {
   to: string;
@@ -53,13 +53,24 @@ export function buildAccountStatusEmail(input: AccountStatusEmailInput): MailMes
     status === "approved"
       ? "Para ver os detalhes, abra o painel:"
       : "Para ver o que falta e enviar os documentos, abra o painel:";
-  const text = ["Olá!", "", headline(status, accountName), ...extra, "", open, link].join("\n");
+  const text = [
+    "Olá!",
+    "",
+    headline(status, accountName),
+    ...extra,
+    "",
+    open,
+    link,
+    "",
+    PLATFORM_FOOTER,
+  ].join("\n");
   const html = [
     `<div style="font-family:system-ui,sans-serif;color:#1f2a37;max-width:520px">`,
     `<p>Olá!</p>`,
     `<p>${escapeHtml(headline(status, accountName))}</p>`,
     ...extra.map((e) => `<p>${escapeHtml(e)}</p>`),
     `<p>${escapeHtml(open)}<br><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>`,
+    `<p><small>${escapeHtml(PLATFORM_FOOTER)}</small></p>`,
     `</div>`,
   ].join("");
   return { to: input.to, subject, text, html, fromName: input.organizationName };

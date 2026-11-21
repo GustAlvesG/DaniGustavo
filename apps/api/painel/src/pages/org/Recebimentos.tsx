@@ -3,7 +3,7 @@ import type {
   PaymentAccountInput,
   PaymentAccountView,
 } from "@casamento/shared";
-import { PAYMENT_ACCOUNT_STATUS_LABELS } from "@casamento/shared";
+import { PAYMENT_ACCOUNT_STATUS_LABELS, PLATFORM_NAME } from "@casamento/shared";
 import { useState } from "react";
 import { errorMessage, orgApi, orgSend } from "../../api.ts";
 import { formatDate } from "../../format.ts";
@@ -146,9 +146,9 @@ function ListaContas() {
       {data ? (
         <>
           <p className="muted small">
-            A plataforma retém {String(data.platformFeePercent).replace(".", ",")}% de cada presente
-            pago (o valor aparece em cada pedido). A cobrança e o saque ficam na conta do provedor (
-            {data.provider === "asaas" ? "Asaas" : "simulado"}).
+            O {PLATFORM_NAME} retém {String(data.platformFeePercent).replace(".", ",")}% de cada
+            presente pago (o valor aparece em cada pedido). A cobrança e o saque ficam na conta do
+            provedor ({data.provider === "asaas" ? "Asaas" : "simulado"}).
           </p>
           {mine ? (
             <section className="stack" aria-labelledby="rec-org">

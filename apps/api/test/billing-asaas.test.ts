@@ -87,7 +87,7 @@ describe("provedor Asaas (unidade)", () => {
     const [call] = m.calls;
     expect(call!.url).toBe("https://api-sandbox.asaas.com/v3/customers");
     expect(call!.headers.access_token).toBe(KEY);
-    expect(call!.headers["user-agent"]).toMatch(/sandbox/);
+    expect(call!.headers["user-agent"]).toBe("Happy4Ever/1.0 (Node.js; sandbox)");
     expect(call!.body).toEqual({
       name: "Organização de Teste",
       email: "dono@exemplo.com",

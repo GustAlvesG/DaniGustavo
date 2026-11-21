@@ -1,4 +1,4 @@
-import { ALERT_COOLDOWN_MINUTES } from "@casamento/shared";
+import { ALERT_COOLDOWN_MINUTES, PLATFORM_NAME } from "@casamento/shared";
 import type { Env } from "./env.ts";
 import { describeError, scrubText, type Logger } from "./log.ts";
 import type { Mailer } from "./mailer.ts";
@@ -66,7 +66,7 @@ export function createAlerter({
 
       const err = error === undefined ? null : describeError(error);
       const lines = [
-        `Alerta da plataforma (${env.NODE_ENV}): ${scrubText(title, 200)}`,
+        `Alerta do ${PLATFORM_NAME} (${env.NODE_ENV}): ${scrubText(title, 200)}`,
         `Quando: ${new Date(t).toISOString()}`,
         ...(held > 0 ? [`Repetições seguradas desde o último aviso: ${held}.`] : []),
         ...(detail ? ["", scrubText(detail, 2000)] : []),
@@ -83,8 +83,8 @@ export function createAlerter({
       try {
         await mailer.send({
           to,
-          fromName: "Plataforma",
-          subject: `[alerta] ${scrubText(title, 120)}`,
+          fromName: PLATFORM_NAME,
+          subject: `[${PLATFORM_NAME}] alerta: ${scrubText(title, 120)}`,
           text: lines.join("\n"),
           html: `<pre style="font-family:monospace;white-space:pre-wrap">${lines
             .join("\n")

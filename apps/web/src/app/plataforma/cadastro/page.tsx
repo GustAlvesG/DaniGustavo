@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PLATFORM_NAME } from "@/components/plataforma/brand";
 import { SignupForm, type SignupPlanOption } from "@/components/plataforma/SignupForm";
 import { priceLine, trialLine } from "@/components/plataforma/format";
 import { getPublicPlans } from "@/lib/api/platform";
@@ -17,8 +18,8 @@ export default function Cadastro({ searchParams }: PageProps<"/plataforma/cadast
       <div>
         <h1 className="font-display text-display-md">Vamos começar?</h1>
         <p className="mt-4 max-w-measure text-lg text-suave">
-          Em poucos minutos o seu espaço fica pronto. Depois de confirmar o e-mail, você escolhe a
-          senha, cria o evento e já pode montar o site.
+          Em poucos minutos o seu espaço no {PLATFORM_NAME} fica pronto. Depois de confirmar o
+          e-mail, você escolhe a senha, cria o evento e já pode montar o site.
         </p>
         <ul className="plataforma-lista mt-8">
           <li>Sem cartão de crédito para testar</li>

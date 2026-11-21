@@ -1,7 +1,7 @@
-import { SIGNUP_TOKEN_TTL_HOURS } from "@casamento/shared";
-import type { MailMessage } from "./mailer.ts";
+import { PLATFORM_NAME, SIGNUP_TOKEN_TTL_HOURS } from "@casamento/shared";
+import { PLATFORM_SIGNATURE, type MailMessage } from "./mailer.ts";
 
-/* Fase 6, frente B: e-mails do cadastro self-service (pt-BR). TODO(conteudo): nome da plataforma. */
+/* Fase 6, frente B: e-mails do cadastro self-service (pt-BR), em nome da plataforma. */
 
 const escapeHtml = (v: string) =>
   v
@@ -22,6 +22,7 @@ const wrap = (paragraphs: string[]) =>
   [
     `<div style="font-family:system-ui,sans-serif;color:#1f2a37;max-width:520px">`,
     ...paragraphs.map((p) => `<p>${p}</p>`),
+    `<p>${escapeHtml(PLATFORM_SIGNATURE)}</p>`,
     `</div>`,
   ].join("");
 
@@ -34,10 +35,11 @@ export function buildSignupEmail(input: {
 }): MailMessage {
   const validity = `O link vale por ${SIGNUP_TOKEN_TTL_HOURS} horas e só pode ser usado uma vez.`;
   const hello = `Olá, ${input.name}!`;
-  const intro = `Que alegria ter você por aqui. Falta só um passo para criar o espaço de ${input.organizationName}: confirme o seu e-mail e escolha uma senha.`;
+  const intro = `Que alegria ter você no ${PLATFORM_NAME}. Falta só um passo para criar o espaço de ${input.organizationName}: confirme o seu e-mail e escolha uma senha.`;
   return {
     to: input.to,
-    subject: "Confirme seu e-mail para começar",
+    fromName: PLATFORM_NAME,
+    subject: `Confirme seu e-mail para começar no ${PLATFORM_NAME}`,
     text: [
       hello,
       "",
@@ -46,6 +48,8 @@ export function buildSignupEmail(input: {
       "",
       validity,
       "Se não foi você quem pediu, é só ignorar este e-mail: nada será criado.",
+      "",
+      PLATFORM_SIGNATURE,
     ].join("\n"),
     html: wrap([
       escapeHtml(hello),
@@ -58,21 +62,25 @@ export function buildSignupEmail(input: {
 
 /** Pedido de cadastro com um e-mail que já tem conta: lembra de entrar (sem link de cadastro). */
 export function buildSignupExistingEmail(input: { to: string; loginUrl: string }): MailMessage {
+  const already = `Recebemos um pedido de cadastro com este e-mail, mas você já tem uma conta no ${PLATFORM_NAME}.`;
   const lines = [
     "Olá!",
     "",
-    "Recebemos um pedido de cadastro com este e-mail, mas você já tem uma conta com a gente.",
+    already,
     `Para entrar, use o painel: ${input.loginUrl}`,
     "",
     "Esqueceu a senha? Peça ajuda a quem administra a sua organização. Se não foi você, é só ignorar este e-mail.",
+    "",
+    PLATFORM_SIGNATURE,
   ];
   return {
     to: input.to,
-    subject: "Você já tem uma conta",
+    fromName: PLATFORM_NAME,
+    subject: `Você já tem uma conta no ${PLATFORM_NAME}`,
     text: lines.join("\n"),
     html: wrap([
       "Olá!",
-      "Recebemos um pedido de cadastro com este e-mail, mas você já tem uma conta com a gente.",
+      escapeHtml(already),
       `Para entrar, use o painel: <a href="${escapeHtml(input.loginUrl)}">${escapeHtml(input.loginUrl)}</a>`,
       "Esqueceu a senha? Peça ajuda a quem administra a sua organização. Se não foi você, é só ignorar este e-mail.",
     ]),

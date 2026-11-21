@@ -1,5 +1,5 @@
-import { TEAM_INVITE_TTL_DAYS } from "@casamento/shared";
-import type { MailMessage } from "./mailer.ts";
+import { PLATFORM_NAME, TEAM_INVITE_TTL_DAYS } from "@casamento/shared";
+import { PLATFORM_FOOTER, type MailMessage } from "./mailer.ts";
 
 export interface TeamInviteEmailInput {
   to: string;
@@ -29,7 +29,7 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): MailMessage {
   const { organizationName, eventName, role, inviterName, link } = input;
   const what =
     role === "host" && eventName
-      ? `administrar o evento ${eventName} pelo painel`
+      ? `administrar o evento ${eventName} pelo painel do ${PLATFORM_NAME}`
       : role === "owner"
         ? `fazer parte da equipe de ${organizationName} como dono`
         : `fazer parte da equipe de ${organizationName}`;
@@ -49,6 +49,8 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): MailMessage {
     "",
     validity,
     "Se você não esperava este convite, pode ignorar este e-mail.",
+    "",
+    PLATFORM_FOOTER,
   ];
   const html = [
     `<div style="font-family:system-ui,sans-serif;color:#1f2a37;max-width:520px">`,
@@ -57,6 +59,7 @@ export function buildTeamInviteEmail(input: TeamInviteEmailInput): MailMessage {
     `<p>Para aceitar, abra o link abaixo. Se você ainda não tem conta, é só criar uma senha; se já tem, entre com este e-mail.</p>`,
     `<p><a href="${escapeHtml(link)}">Aceitar o convite</a><br><small>${escapeHtml(link)}</small></p>`,
     `<p>${escapeHtml(validity)}<br>Se você não esperava este convite, pode ignorar este e-mail.</p>`,
+    `<p><small>${escapeHtml(PLATFORM_FOOTER)}</small></p>`,
     `</div>`,
   ].join("");
   return {

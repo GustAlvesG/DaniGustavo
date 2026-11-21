@@ -33,3 +33,4 @@ export * from "./checkin.ts";
 export * from "./seating.ts";
 export * from "./vendor-portal.ts";
 export * from "./whatsapp.ts";
+export * from "./brand.ts";

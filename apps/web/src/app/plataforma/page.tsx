@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui";
 import { Suspense } from "react";
+import { PLATFORM_NAME } from "@/components/plataforma/brand";
 import { PublicPlanCards } from "@/components/plataforma/PlanCards";
 
 /*
@@ -41,9 +42,9 @@ export default function PlataformaInicio() {
           Do primeiro convite ao último brinde, <em className="text-enfase">tudo num lugar só</em>
         </h1>
         <p className="mt-6 max-w-measure text-lg text-suave">
-          Monte o site do seu evento, receba as confirmações de presença e os presentes e cuide de
-          cada detalhe com calma. Feito para quem está celebrando e para quem organiza as
-          celebrações dos outros.
+          Com o {PLATFORM_NAME}, você monta o site do seu evento, recebe as confirmações de presença
+          e os presentes e cuida de cada detalhe com calma. Feito para quem está celebrando e para
+          quem organiza as celebrações dos outros.
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
           <ButtonLink href="/cadastro" size="lg">

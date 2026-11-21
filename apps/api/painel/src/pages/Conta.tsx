@@ -1,3 +1,4 @@
+import { PLATFORM_NAME } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
 import { apiRoot, errorMessage } from "../api.ts";
 import { authClient, describeError } from "../auth-client.ts";
@@ -119,8 +120,8 @@ function MeusDados({ email }: { email: string }) {
       <div>
         <h2 id="conta-dados">Meus dados</h2>
         <p className="muted small">
-          Baixe o que a plataforma guarda sobre você (conta, organizações, eventos e aceites dos
-          termos). Os dados dos convidados ficam na página Privacidade de cada evento.
+          Baixe o que o {PLATFORM_NAME} guarda sobre você (conta, organizações, eventos e aceites
+          dos termos). Os dados dos convidados ficam na página Privacidade de cada evento.
         </p>
       </div>
       <div>

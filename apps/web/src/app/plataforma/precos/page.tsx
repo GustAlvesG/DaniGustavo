@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { PLATFORM_NAME } from "@/components/plataforma/brand";
 import { PublicPlanCards } from "@/components/plataforma/PlanCards";
 
 export const metadata: Metadata = { title: "Preços" };
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: "Preços" };
 export default function Precos() {
   return (
     <div className="plataforma-wrap py-16">
-      <h1 className="font-display text-display-md">Planos e preços</h1>
+      <h1 className="font-display text-display-md">Planos e preços do {PLATFORM_NAME}</h1>
       <p className="mt-4 max-w-measure text-lg text-suave">
         Escolha o plano do tamanho da sua celebração. Todos começam com um período de teste, e o
         site dos convidados nunca sai do ar por causa da assinatura.

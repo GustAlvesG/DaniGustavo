@@ -1,5 +1,11 @@
+import { PLATFORM_NAME } from "@casamento/shared";
 import nodemailer from "nodemailer";
 import type { Env } from "./env.ts";
+
+/** Assinatura dos e-mails da própria plataforma (cadastro, assinatura). */
+export const PLATFORM_SIGNATURE = `Equipe ${PLATFORM_NAME}`;
+/** Rodapé dos e-mails que a plataforma manda em nome de uma organização ou evento. */
+export const PLATFORM_FOOTER = `Enviado pelo ${PLATFORM_NAME}.`;
 
 export interface MailMessage {
   to: string;

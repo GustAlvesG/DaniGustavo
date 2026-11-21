@@ -1,3 +1,4 @@
+import { PLATFORM_NAME } from "@casamento/shared";
 import {
   accountRequestBody,
   accountStatusFromAsaas,
@@ -196,7 +197,7 @@ function buildAsaasProvider(
   const now = opts.now ?? (() => new Date());
   const apiKey = opts.apiKey;
   // O Asaas exige User-Agent em contas novas (nome da aplicação e ambiente).
-  const userAgent = `plataforma-eventos/1.0 (Node.js; ${opts.environment})`;
+  const userAgent = `${PLATFORM_NAME}/1.0 (Node.js; ${opts.environment})`;
 
   async function call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown) {
     const headers: Record<string, string> = {

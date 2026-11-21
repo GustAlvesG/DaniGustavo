@@ -1,6 +1,6 @@
 import { AsaasApiError, ASAAS_URLS, type AsaasEnvironment } from "../payments/asaas.ts";
 import { PaymentProviderError } from "../payments/provider.ts";
-import type { SubscriptionPaymentStatus } from "@casamento/shared";
+import { PLATFORM_NAME, type SubscriptionPaymentStatus } from "@casamento/shared";
 import {
   parseSubscriptionWebhook,
   type SubscriptionPaymentSnapshot,
@@ -102,7 +102,7 @@ export function createAsaasBilling(opts: {
 }): SubscriptionProvider {
   const base = (opts.apiUrl ?? ASAAS_URLS[opts.environment]).replace(/\/+$/, "");
   const doFetch = opts.doFetch ?? fetch;
-  const userAgent = `plataforma-eventos/1.0 (Node.js; ${opts.environment})`;
+  const userAgent = `${PLATFORM_NAME}/1.0 (Node.js; ${opts.environment})`;
 
   async function call<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown) {
     const headers: Record<string, string> = {
