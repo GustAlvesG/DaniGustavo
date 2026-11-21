@@ -44,7 +44,13 @@ export function PermissoesAnfitriao({ eventId }: { eventId: number }) {
     setSaving(true);
     setFormError(null);
     try {
-      setData(await orgSend<HostPermissionsView>("PUT", path, { deny: withDependents(deny) }));
+      setData(
+        await orgSend<HostPermissionsView>("PUT", path, {
+          deny: withDependents(deny),
+          // Fase 5: ações opt-in (a frente C põe na tela); por ora mantém o que está gravado.
+          allow: data?.allow ?? [],
+        }),
+      );
       toast("Permissões do anfitrião salvas.");
     } catch (err) {
       setFormError(errorMessage(err));

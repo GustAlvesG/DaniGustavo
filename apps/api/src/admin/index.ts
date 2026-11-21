@@ -15,6 +15,8 @@ import { adminBudgetRoutes, adminInstallmentRoutes, adminQuoteRoutes } from "./b
 import { adminScheduleRoutes } from "./schedule.ts";
 import { adminTaskRoutes } from "./tasks.ts";
 import { adminEventVendorRoutes, adminVendorCatalogRoutes } from "./vendors.ts";
+import { adminPaymentRoutes } from "./payments.ts";
+import { eventAccountStatusRoutes } from "./payment-account-status.ts";
 import { listAccessibleEvents, requireEventAccess } from "../tenancy/access.ts";
 import { listAccessibleOrgs } from "../tenancy/org-access.ts";
 import { adminOrgRoutes } from "./org/index.ts";
@@ -75,6 +77,9 @@ export function adminRoutes(deps: AdminDeps) {
   ev.route("/installments", adminInstallmentRoutes(deps));
   ev.route("/budget", adminBudgetRoutes(deps));
   ev.route("/schedule", adminScheduleRoutes(deps));
+  // Fase 5 (docs/saas/fase-5.md): C = /payments; D = /payments/my-account/refresh.
+  ev.route("/payments", adminPaymentRoutes(deps));
+  ev.route("/payments", eventAccountStatusRoutes(deps));
   app.route("/events/:eventId", ev);
 
   // Fase 3 (docs/saas/fase-3.md): painel da organização.

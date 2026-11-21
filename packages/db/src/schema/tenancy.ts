@@ -1,13 +1,15 @@
 import {
   boolean,
+  foreignKey,
   index,
   mysqlEnum,
   mysqlTable,
+  text,
   uniqueIndex,
   varchar,
 } from "drizzle-orm/mysql-core";
 import { user } from "./auth.ts";
-import { createdAt, fk, pk, timestamps, utcDatetime } from "./columns.ts";
+import { createdAt, fk, json, pk, timestamps, utcDatetime } from "./columns.ts";
 
 // Plataforma multi-evento: organização → eventos → domínios e membros. Tabelas próprias em vez
 // do plugin organization do Better Auth (papel por evento, IDs bigint, sem rotas extras).
@@ -24,6 +26,19 @@ export const EVENT_TYPES = [
   "other",
 ] as const;
 export const ORGANIZATION_ROLES = ["owner", "member"] as const;
+/** Fase 5: quem recebe o dinheiro dos presentes de um evento (ver `events.payment_receiver`). */
+export const PAYMENT_RECEIVERS = ["organization", "host", "platform"] as const;
+/** Fase 5: titular da subconta: a organização ou uma pessoa (anfitrião/membro) dela. */
+export const PAYMENT_ACCOUNT_HOLDERS = ["organization", "user"] as const;
+export const PAYMENT_ACCOUNT_PERSON_TYPES = ["individual", "company"] as const;
+/** Situação cadastral (KYC) da subconta no provedor, já no nosso vocabulário. */
+export const PAYMENT_ACCOUNT_STATUSES = [
+  "pending",
+  "awaiting_approval",
+  "approved",
+  "rejected",
+  "disabled",
+] as const;
 export const EVENT_ROLES = ["host"] as const;
 export const PLATFORM_ROLES = ["admin"] as const;
 
@@ -33,6 +48,10 @@ export type EventType = (typeof EVENT_TYPES)[number];
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
 export type EventRole = (typeof EVENT_ROLES)[number];
 export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export type PaymentReceiver = (typeof PAYMENT_RECEIVERS)[number];
+export type PaymentAccountHolder = (typeof PAYMENT_ACCOUNT_HOLDERS)[number];
+export type PaymentAccountPersonType = (typeof PAYMENT_ACCOUNT_PERSON_TYPES)[number];
+export type PaymentAccountStatus = (typeof PAYMENT_ACCOUNT_STATUSES)[number];
 
 /**
  * Evento criado pela migration 0006 a partir do site do casamento (Organização 1 → Evento 1).
@@ -63,12 +82,28 @@ export const events = mysqlTable(
     status: mysqlEnum("status", EVENT_STATUSES).notNull().default("draft"),
     timezone: varchar("timezone", { length: 64 }).notNull().default("America/Sao_Paulo"),
     startsAt: utcDatetime("starts_at"),
+    /**
+     * Fase 5: quem recebe o dinheiro dos presentes. `organization` (padrão) = subconta da
+     * organização; `host` = a subconta em `receiving_account_id`; `platform` = conta principal
+     * da plataforma, sem split (eventos anteriores à Fase 5; só o platform admin escolhe).
+     */
+    paymentReceiver: mysqlEnum("payment_receiver", PAYMENT_RECEIVERS)
+      .notNull()
+      .default("organization"),
+    /** Subconta escolhida quando `payment_receiver = host` (FK composta: mesma organização). */
+    receivingAccountId: fk("receiving_account_id"),
     ...timestamps(),
   },
   (t) => [
     index("events_organization_id_idx").on(t.organizationId),
     // Fase 4: alvo da FK composta de event_vendors (fornecedor e evento da mesma organização).
     uniqueIndex("events_org_id_id_idx").on(t.organizationId, t.id),
+    // Fase 5: a subconta recebedora é da mesma organização do evento (garantido no banco).
+    foreignKey({
+      name: "events_receiving_account_fk",
+      columns: [t.organizationId, t.receivingAccountId],
+      foreignColumns: [paymentAccounts.organizationId, paymentAccounts.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -168,5 +203,68 @@ export const teamInvites = mysqlTable(
   (t) => [
     index("team_invites_org_email_idx").on(t.organizationId, t.email),
     index("team_invites_event_id_idx").on(t.eventId),
+  ],
+);
+
+/**
+ * Fase 5 (docs/saas/fase-5.md): subcontas do provedor de pagamento (Asaas) que recebem o
+ * dinheiro dos presentes. Uma por organização (`holder = organization`) e quantas pessoas da
+ * organização quiserem (`holder = user`, ex.: o anfitrião). Dados por organização: o auditor
+ * de SQL exige `organization_id` no WHERE (o webhook acha a conta por `public_id` dentro de
+ * crossEvent).
+ *
+ * Segredos: a `apiKey` da subconta só existe cifrada (`api_key_enc`, AES-256-GCM com a chave
+ * mestra `PAYMENT_SECRETS_KEY`, ver apps/api/src/crypto/secret-box.ts) e nunca sai da API; do
+ * token do webhook da conta fica só o SHA-256. Do cadastro guardamos o mínimo para o painel
+ * (nome, e-mail, tipo de pessoa, documento mascarado): CPF/CNPJ completo, endereço, renda e
+ * nascimento vão direto ao provedor e não são gravados.
+ */
+export const paymentAccounts = mysqlTable(
+  "payment_accounts",
+  {
+    id: pk(),
+    organizationId: fk("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    holder: mysqlEnum("holder", PAYMENT_ACCOUNT_HOLDERS).notNull(),
+    /** Titular quando `holder = user`; nulo para a conta da organização. */
+    userId: varchar("user_id", { length: 36 }).references(() => user.id, {
+      onDelete: "restrict",
+    }),
+    /** "simulado" ou "asaas" (o provedor em que a subconta existe). */
+    provider: mysqlEnum("provider", ["simulado", "asaas"]).notNull(),
+    /** ULID público: identifica a conta na URL do webhook dela. */
+    publicId: varchar("public_id", { length: 26 }).notNull().unique(),
+    /** Id da conta no provedor (Asaas: `id` devolvido por POST /v3/accounts). */
+    providerAccountId: varchar("provider_account_id", { length: 64 }),
+    /** Carteira da conta (destino de split; não é segredo, mas não vai ao navegador). */
+    walletId: varchar("wallet_id", { length: 64 }).unique(),
+    /** apiKey da subconta, cifrada (formato de secret-box.ts). Nunca devolvida nem logada. */
+    apiKeyEnc: text("api_key_enc"),
+    /** SHA-256 (hex) do token que o provedor manda no webhook desta conta. */
+    webhookTokenHash: varchar("webhook_token_hash", { length: 64 }),
+    personType: mysqlEnum("person_type", PAYMENT_ACCOUNT_PERSON_TYPES).notNull(),
+    /** PJ: MEI, LIMITED, INDIVIDUAL ou ASSOCIATION (como o Asaas). */
+    companyType: varchar("company_type", { length: 16 }),
+    name: varchar("name", { length: 191 }).notNull(),
+    email: varchar("email", { length: 191 }).notNull(),
+    /** CPF/CNPJ mascarado para o painel (ex.: "•••.•••.789-09"); o completo não é gravado. */
+    documentHint: varchar("document_hint", { length: 32 }).notNull(),
+    status: mysqlEnum("status", PAYMENT_ACCOUNT_STATUSES).notNull().default("pending"),
+    /** Última foto da situação cadastral (`KycSnapshot` em @casamento/shared). */
+    kyc: json<unknown>("kyc"),
+    statusCheckedAt: utcDatetime("status_checked_at"),
+    approvedAt: utcDatetime("approved_at"),
+    disabledAt: utcDatetime("disabled_at"),
+    createdBy: varchar("created_by", { length: 36 }).references(() => user.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps(),
+  },
+  (t) => [
+    index("payment_accounts_org_holder_idx").on(t.organizationId, t.holder),
+    index("payment_accounts_user_id_idx").on(t.userId),
+    // Alvo da FK composta de events (conta recebedora da mesma organização).
+    uniqueIndex("payment_accounts_org_id_id_idx").on(t.organizationId, t.id),
   ],
 );

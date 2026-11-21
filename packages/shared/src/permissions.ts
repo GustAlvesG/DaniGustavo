@@ -40,6 +40,12 @@ export const EVENT_ACTIONS = [
   /** Fase 4: cronograma do dia. */
   "schedule.read",
   "schedule.write",
+  /** Fase 5: ver para onde vai o dinheiro dos presentes (conta recebedora e split). */
+  "payments.read",
+  /** Fase 5: escolher a conta recebedora do evento (nunca o anfitrião; ver HOST_NEVER_ACTIONS). */
+  "payments.configure",
+  /** Fase 5: cadastrar e acompanhar a própria subconta (anfitrião só se a organização liberar). */
+  "payments.own_account",
 ] as const;
 export const EventAction = z.enum(EVENT_ACTIONS);
 export type EventAction = z.infer<typeof EventAction>;
@@ -71,14 +77,40 @@ export const EVENT_ACTION_LABELS: Record<EventAction, string> = {
   "budget.write": "Editar orçamentos, contratar e registrar pagamentos",
   "schedule.read": "Ver o cronograma do dia",
   "schedule.write": "Editar o cronograma do dia",
+  "payments.read": "Ver a conta que recebe os presentes",
+  "payments.configure": "Escolher a conta que recebe os presentes",
+  "payments.own_account": "Cadastrar a própria conta de recebimento",
 };
+
+/**
+ * Fase 5: ações que o anfitrião nunca tem (fora da matriz para `event_host` e fora da tela de
+ * permissões): mandar o dinheiro do evento para outra conta é decisão da organização.
+ */
+export const HOST_NEVER_ACTIONS = ["payments.configure"] as const satisfies readonly EventAction[];
+
+/**
+ * Fase 5: ações que o anfitrião só tem se a organização liberar (lista `allow` de
+ * `event.host_permissions`). As demais nascem liberadas (lista de negação).
+ */
+export const HOST_OPT_IN_ACTIONS = [
+  "payments.own_account",
+] as const satisfies readonly EventAction[];
+export type HostOptInAction = (typeof HOST_OPT_IN_ACTIONS)[number];
 
 /**
  * Ações que a organização pode tirar do anfitrião (`event_host`). `dashboard.read` fica sempre
  * (sem ela o anfitrião nem entra no painel do evento).
  */
 export const HOST_CONFIGURABLE_ACTIONS = EVENT_ACTIONS.filter(
-  (a): a is Exclude<EventAction, "dashboard.read"> => a !== "dashboard.read",
+  (
+    a,
+  ): a is Exclude<
+    EventAction,
+    "dashboard.read" | (typeof HOST_NEVER_ACTIONS)[number] | HostOptInAction
+  > =>
+    a !== "dashboard.read" &&
+    !(HOST_NEVER_ACTIONS as readonly string[]).includes(a) &&
+    !(HOST_OPT_IN_ACTIONS as readonly string[]).includes(a),
 );
 export type HostConfigurableAction = (typeof HOST_CONFIGURABLE_ACTIONS)[number];
 
@@ -86,11 +118,17 @@ export type HostConfigurableAction = (typeof HOST_CONFIGURABLE_ACTIONS)[number];
  * `event_settings` › `event.host_permissions` (privado; rota própria na organização, o PUT de
  * /settings do evento recusa). Guarda o que o anfitrião NÃO pode: chave ausente ou `deny`
  * vazio = pode tudo (padrão). Lista de negação para que ação nova nasça liberada, como hoje.
+ * Fase 5: `allow` libera as ações opt-in (HOST_OPT_IN_ACTIONS), que nascem negadas.
  */
 export const HostPermissions = z.object({
   deny: z
     .array(z.enum(HOST_CONFIGURABLE_ACTIONS as unknown as [HostConfigurableAction]))
     .max(EVENT_ACTIONS.length)
+    .default([])
+    .transform((list) => [...new Set(list)]),
+  allow: z
+    .array(z.enum(HOST_OPT_IN_ACTIONS))
+    .max(HOST_OPT_IN_ACTIONS.length)
     .default([])
     .transform((list) => [...new Set(list)]),
 });
@@ -114,6 +152,21 @@ export const ACTION_REQUIRES: Partial<Record<EventAction, HostConfigurableAction
   "budget.write": "budget.read",
   "schedule.write": "schedule.read",
 };
+
+/**
+ * Fase 5: o que o anfitrião não pode no evento, já somando as ações opt-in que a organização
+ * não liberou e as que ele nunca tem. É a lista que a API aplica (`hostDeny`).
+ */
+export function effectiveHostDeny(
+  deny: readonly HostConfigurableAction[],
+  allow: readonly HostOptInAction[] = [],
+): EventAction[] {
+  return [
+    ...withDependents(deny),
+    ...HOST_OPT_IN_ACTIONS.filter((a) => !allow.includes(a)),
+    ...HOST_NEVER_ACTIONS,
+  ];
+}
 
 /**
  * A lista de negação efetiva: a pedida mais o que depende de algo negado, sem repetição, na
@@ -141,6 +194,8 @@ export const ORG_ACTIONS = [
   "vendors.manage",
   /** Fase 4: criar e editar modelos de tarefas. */
   "templates.manage",
+  /** Fase 5: cadastrar e desativar a subconta de recebimento da organização. */
+  "payments.manage",
 ] as const;
 export const OrgAction = z.enum(ORG_ACTIONS);
 export type OrgAction = z.infer<typeof OrgAction>;
@@ -180,6 +235,10 @@ export interface HostPermissionsView {
   deny: HostConfigurableAction[];
   /** Ações que a organização pode tirar (HOST_CONFIGURABLE_ACTIONS). */
   actions: readonly HostConfigurableAction[];
+  /** Fase 5: ações opt-in liberadas ao anfitrião (vazio = nenhuma, o padrão). */
+  allow: HostOptInAction[];
+  /** Fase 5: ações que a organização pode liberar (HOST_OPT_IN_ACTIONS). */
+  optIn: readonly HostOptInAction[];
 }
 
 /**

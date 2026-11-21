@@ -69,6 +69,19 @@ async function probe(route: RouteCase, eventId: number, cookie: string): Promise
 
 const label = (r: RouteCase) => `${r.method} ${r.pattern.slice(PREFIX.length)}`;
 
+/**
+ * Fase 5: rotas reservadas (501) até a integração. TODO(fase5-integracao): apagar esta lista e
+ * o `admin/stub.ts` quando as frentes implementarem (o teste volta a recusar 501 em tudo).
+ */
+const PHASE5_STUB = /\/(payments|payment-accounts)(\/|$)/;
+const allows501 = (r: RouteCase) => PHASE5_STUB.test(r.pattern);
+
+/**
+ * Fase 5: o anfitrião nunca escolhe a conta recebedora (`payments.configure`) e só cuida da
+ * própria conta se a organização liberar (`payments.own_account`, opt-in): 403 por padrão.
+ */
+const HOST_FORBIDDEN = /\/payments\/(receiver|my-account)(\/|$)/;
+
 beforeAll(async () => {
   ev = await createTestEvents(db);
   for (const kind of ["host", "owner", "member", "stranger", "platformAdmin"] as const) {
@@ -101,6 +114,8 @@ describe("enumeração das rotas", () => {
       "installments",
       "budget",
       "schedule",
+      // Fase 5.
+      "payments",
     ]) {
       expect(areas, `área ${area}`).toContain(area);
     }
@@ -164,9 +179,13 @@ describe("quem tem acesso ao evento A", () => {
         const p = await probe(r, ev.eventA.id, cookies[kind]);
         expect(p.routeNotFound, `${kind} ${label(r)}`).toBe(false);
         expect(p.status, `${kind} ${label(r)}`).not.toBe(401);
+        if (kind === "host" && HOST_FORBIDDEN.test(r.pattern)) {
+          expect(p.status, `${kind} ${label(r)}`).toBe(403);
+          continue;
+        }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501) sobrou depois da integração da Fase 4.
-        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        // Nenhuma rota reservada (501), fora as da Fase 5 até a integração.
+        if (!allows501(r)) expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
       }
     },
   );
@@ -406,6 +425,9 @@ describe("organização: enumeração das rotas", () => {
       // Fase 4.
       "/task-templates",
       "/vendors",
+      // Fase 5.
+      "/payment-accounts",
+      "/payment-accounts/:accountId{[0-9]+}/refresh",
     ]) {
       expect(paths, p).toContain(p);
     }
@@ -438,9 +460,18 @@ describe("organização: barreira de acesso", () => {
         expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
         expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
         if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
-        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
+        if (!allows501(r)) expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
       }
     }
+  });
+
+  it("Fase 5: membro não cadastra a conta da organização (403)", async () => {
+    const res = await app.request(`/api/admin/orgs/${ev.orgA.id}/payment-accounts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie: cookies.member },
+      body: "{}",
+    });
+    expect(res.status).toBe(403);
   });
 
   it("membro não mexe na equipe (403)", async () => {

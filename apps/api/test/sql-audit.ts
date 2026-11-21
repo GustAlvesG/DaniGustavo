@@ -36,6 +36,8 @@ export const ORG_SCOPED_TABLES = [
   "vendors",
   "task_templates",
   "task_template_items",
+  // Fase 5: subcontas de recebimento.
+  "payment_accounts",
 ] as const;
 
 /** Tabela → coluna de escopo exigida depois do FROM. */

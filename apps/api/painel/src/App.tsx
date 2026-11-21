@@ -51,6 +51,7 @@ import { Cronograma } from "./pages/Cronograma.tsx";
 import { Financeiro } from "./pages/Financeiro.tsx";
 import { Fornecedores } from "./pages/Fornecedores.tsx";
 import { Tarefas } from "./pages/Tarefas.tsx";
+import { Recebimento } from "./pages/Recebimento.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
@@ -80,6 +81,8 @@ const NAV: { href: string; label: string; action?: EventAction; group?: string }
   { href: "/convites", label: "Convites", action: "invitations.read" },
   { href: "/presentes", label: "Presentes", action: "gifts.read" },
   { href: "/pedidos", label: "Pedidos", action: "orders.read" },
+  // Fase 5 (frente C): para onde vai o dinheiro dos presentes.
+  { href: "/recebimento", label: "Recebimento", action: "payments.read" },
   { href: "/recados", label: "Recados", action: "messages.read" },
   { href: "/lembretes", label: "Lembretes", action: "reminders.read" },
   // Fase 4: grupo "Gestão" do evento; cada item some sem a respectiva permissão de leitura.
@@ -160,6 +163,8 @@ function PageRoutes({ path }: { path: string }) {
       return <Financeiro quoteId={id === "orcamentos" && extra ? Number(extra) : undefined} />;
     case "cronograma":
       return <Cronograma />;
+    case "recebimento":
+      return <Recebimento />;
     case "conta":
       return <Conta />;
     default:

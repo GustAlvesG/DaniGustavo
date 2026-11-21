@@ -18,6 +18,8 @@ import { createPaymentProvider, isSimulated, type PaymentProvider } from "./paym
 import { loadSiteContent } from "./site-content.ts";
 import { createLocalStorage } from "./storage/index.ts";
 import { webKey } from "./middleware/web-key.ts";
+import { secretBoxFromEnv, type SecretBox } from "./crypto/secret-box.ts";
+import { accountWebhookRoutes } from "./routes/account-webhooks.ts";
 import { painelRoutes } from "./painel.ts";
 import { requireModule } from "./tenancy/modules.ts";
 import { publicEvent } from "./tenancy/public.ts";
@@ -51,6 +53,8 @@ export interface AppDeps {
   revalidate?: Revalidate;
   /** Slug/id/host → evento, com cache em memória (padrão: LRU de 60 s). */
   eventResolver?: EventResolver;
+  /** Fase 5: segredos das subcontas (padrão: PAYMENT_SECRETS_KEY do .env). */
+  secrets?: SecretBox;
 }
 
 /** Monta a aplicação sem abrir porta: o servidor fica em server.ts e os testes usam app.request(). */
@@ -66,6 +70,7 @@ export function createApp({
   notifier,
   revalidate = createWebRevalidator(env),
   eventResolver = createEventResolver(db),
+  secrets = secretBoxFromEnv(env),
 }: AppDeps) {
   const app = new Hono();
 
@@ -87,6 +92,7 @@ export function createApp({
     now,
     eventResolver,
     revalidate,
+    secrets,
   };
 
   // Rotas públicas de um evento: /api/e/:slug/{site,gifts,messages,invitations,orders}. O
@@ -143,6 +149,8 @@ export function createApp({
 
   // Global: uma URL por conta do provedor; o evento sai do pedido.
   app.route("/api/webhooks", webhookRoutes(orderDeps));
+  // Fase 5: um webhook por subconta (/api/webhooks/payments/accounts/:publicId).
+  app.route("/api/webhooks", accountWebhookRoutes(orderDeps));
 
   const storage = createLocalStorage(env.UPLOAD_DIR);
   const adminDeps: AdminDeps = {

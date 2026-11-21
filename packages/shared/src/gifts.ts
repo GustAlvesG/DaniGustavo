@@ -75,6 +75,11 @@ export const GiftsResponse = z.object({
   cardFeePercent: z.number().nonnegative(),
   /** O provedor exige o CPF de quem paga (Asaas): o formulário pede o campo. */
   requiresCpf: z.boolean().default(false),
+  /**
+   * Fase 5: o evento tem conta recebedora pronta. false = a lista aparece, mas sem o botão de
+   * presentear em dinheiro (aviso no lugar) e POST /orders responde 409.
+   */
+  paymentsAvailable: z.boolean().default(true),
 });
 export type GiftsResponse = z.infer<typeof GiftsResponse>;
 

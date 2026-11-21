@@ -1,7 +1,10 @@
 import {
   EVENT_ACTIONS,
   HOST_CONFIGURABLE_ACTIONS,
+  HOST_NEVER_ACTIONS,
+  HOST_OPT_IN_ACTIONS,
   withDependents,
+  type EventAction,
   type EventAccessView,
   type HostPermissionsView,
 } from "@casamento/shared";
@@ -19,6 +22,11 @@ const PREFIX = "/api/admin/events/:eventId";
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 /** Rotas de `dashboard.read` (o anfitrião sempre pode: sem elas nem entra no evento). */
 const ALWAYS = ["GET /dashboard", "GET /config", "GET /access"];
+/** Fase 5: ações que o anfitrião só tem se liberadas (opt-in) ou nunca tem. */
+const HOST_ONLY_IF_ALLOWED: readonly EventAction[] = [
+  ...HOST_OPT_IN_ACTIONS,
+  ...HOST_NEVER_ACTIONS,
+];
 
 interface RouteCase {
   method: string;
@@ -100,8 +108,14 @@ describe("padrão: pode tudo", () => {
       eventId: ev.eventA.id,
       deny: [],
       actions: [...HOST_CONFIGURABLE_ACTIONS],
+      allow: [],
+      optIn: [...HOST_OPT_IN_ACTIONS],
     });
-    expect(await access("host")).toEqual({ role: "event_host", allowed: [...EVENT_ACTIONS] });
+    // Fase 5: menos as que o anfitrião nunca tem e as opt-in não liberadas.
+    expect(await access("host")).toEqual({
+      role: "event_host",
+      allowed: EVENT_ACTIONS.filter((a) => !HOST_ONLY_IF_ALLOWED.includes(a)),
+    });
   });
 });
 

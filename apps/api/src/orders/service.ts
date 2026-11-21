@@ -1,3 +1,4 @@
+import type { SecretBox } from "../crypto/secret-box.ts";
 import {
   and,
   asc,
@@ -64,6 +65,11 @@ export interface OrderDeps {
   eventResolver?: EventResolver;
   /** Avisa o site para renovar o cache do evento quando um pedido muda (cota, mural). */
   revalidate?: Revalidate;
+  /**
+   * Fase 5: cifra/decifra a apiKey das subcontas. Ausente (testes antigos, rotinas) = a caixa
+   * do env (`secretsOf`).
+   */
+  secrets?: SecretBox;
 }
 
 /** Evento de um pedido achado sem escopo (rotina, webhook). Lança se o evento sumiu. */
@@ -135,6 +141,8 @@ export async function listGifts(
       quotaLeft: g.openAmount ? g.quotaTotal : Math.max(0, g.quotaTotal - g.quotaSold),
       category: g.category,
     })),
+    // Fase 5, frente B: false quando o evento não tem conta recebedora pronta.
+    paymentsAvailable: true,
     categories,
     cardFeePercent: feePercent,
   };

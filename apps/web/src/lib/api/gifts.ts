@@ -15,7 +15,13 @@ export type GiftList = GiftsResponse & { available: boolean };
  */
 export async function getGifts(event?: EventInfo): Promise<GiftList> {
   const ev = event ?? (await currentEvent());
-  const empty = { gifts: [], categories: [], cardFeePercent: 0, requiresCpf: false };
+  const empty = {
+    gifts: [],
+    categories: [],
+    cardFeePercent: 0,
+    requiresCpf: false,
+    paymentsAvailable: false,
+  };
   if (ev.id === 0) return { ...empty, available: false };
   const result = await apiGet(`/api/e/${encodeURIComponent(ev.slug)}/gifts`, GiftsResponse, {
     tags: [CACHE_TAGS.gifts(ev.id)],

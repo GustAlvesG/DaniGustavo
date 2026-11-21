@@ -7,6 +7,7 @@ import { createWebRevalidator } from "./admin/revalidate.ts";
 import { startExpiryJob, startReconcileJob, startReminderJob } from "./jobs.ts";
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
+import { secretBoxFromEnv } from "./crypto/secret-box.ts";
 
 loadRootEnv();
 
@@ -24,12 +25,14 @@ try {
 const db = getDb();
 const provider = createPaymentProvider(env);
 const mailer = createMailer(env);
-const app = createApp({ env, db, auth: createAuth(env, db), provider, mailer });
+const secrets = secretBoxFromEnv(env);
+const app = createApp({ env, db, auth: createAuth(env, db), provider, mailer, secrets });
 const jobDeps = {
   env,
   db,
   provider,
   mailer,
+  secrets,
   now: () => new Date(),
   revalidate: createWebRevalidator(env),
 };

@@ -123,6 +123,8 @@ async function seedLegacyEvent(db: Database): Promise<void> {
       status: "active",
       timezone: "America/Sao_Paulo",
       startsAt: new Date("2027-04-10T16:00:00-03:00"),
+      // Fase 5: o casamento recebe na conta principal (como antes); a migration 0011 faz o mesmo.
+      paymentReceiver: "platform",
     });
 }
 

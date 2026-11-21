@@ -195,7 +195,11 @@ describe("requireEventAccess", () => {
 describe("permissões", () => {
   it("pela matriz de papéis, todo papel do evento pode toda ação (a negação do anfitrião vem do evento)", () => {
     for (const role of EVENT_ACCESS_ROLES) {
-      for (const action of ACTIONS) expect(can(role, action)).toBe(true);
+      for (const action of ACTIONS) {
+        // Fase 5: escolher a conta recebedora nunca é do anfitrião.
+        const expected = !(role === "event_host" && action === "payments.configure");
+        expect(can(role, action), `${role} ${action}`).toBe(expected);
+      }
     }
   });
 

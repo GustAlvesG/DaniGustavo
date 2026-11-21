@@ -6,6 +6,7 @@ import { EventModulesInput } from "./modules.ts";
 import { AgeRange, RsvpStatus } from "./rsvp.ts";
 import { ThemeSelection } from "./themes.ts";
 import { HostPermissions } from "./permissions.ts";
+import type { OrderSplitView } from "./payment-accounts.ts";
 import {
   AccommodationItem,
   FaqItem,
@@ -244,6 +245,8 @@ export interface AdminOrder {
   createdAt: string;
   expiresAt: string;
   paidAt: string | null;
+  /** Fase 5 (frente C): conta que recebeu e taxa da plataforma; ausente nos pedidos antigos. */
+  split?: OrderSplitView | null;
 }
 
 export interface AdminOrderDetail extends AdminOrder {

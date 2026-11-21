@@ -58,11 +58,39 @@ export const envSchema = z
     ASAAS_ENV: z.enum(["sandbox", "producao"], { error: "use sandbox ou producao" }).optional(),
     /** Token cadastrado no webhook do Asaas (chega no header asaas-access-token). */
     ASAAS_WEBHOOK_TOKEN: z.string().optional(),
+    /**
+     * Fase 5: chave mestra (64 hex, `openssl rand -hex 32`) que cifra em repouso a apiKey das
+     * subcontas (AES-256-GCM, src/crypto/secret-box.ts). Obrigatória em produção; fora dela,
+     * vazia = chave derivada do BETTER_AUTH_SECRET. Trocar a chave invalida as já gravadas.
+     */
+    PAYMENT_SECRETS_KEY: z
+      .string()
+      .regex(/^[0-9a-fA-F]{64}$/, {
+        error: "deve ter 64 caracteres hexadecimais (gere com: openssl rand -hex 32)",
+      })
+      .optional(),
+    /**
+     * Fase 5: percentual da plataforma descontado por split de cada presente pago numa subconta
+     * (0 a 50; vazio = 0). TODO(conteudo): valor comercial; a Fase 6 leva para os planos.
+     */
+    PLATFORM_FEE_PERCENT: z.coerce
+      .number({ error: "deve ser um número, ex.: 2.5" })
+      .min(0, { error: "não pode ser negativo" })
+      .max(50, { error: "no máximo 50" })
+      .default(0),
+    /** Fase 5: walletId da conta principal do Asaas, destino do split da plataforma. */
+    ASAAS_PLATFORM_WALLET_ID: z.string().max(64).optional(),
   })
   .superRefine((e, ctx) => {
     // Nenhuma mensagem daqui inclui o valor da chave.
     const issue = (key: string, message: string) =>
       ctx.addIssue({ code: "custom", path: [key], message });
+    if (e.NODE_ENV === "production" && !e.PAYMENT_SECRETS_KEY) {
+      issue(
+        "PAYMENT_SECRETS_KEY",
+        "é obrigatória em produção (cifra a chave das subcontas): openssl rand -hex 32",
+      );
+    }
     if (e.ASAAS_API_KEY) {
       const fromKey = asaasEnvFromKey(e.ASAAS_API_KEY);
       if (!fromKey && !e.ASAAS_ENV) {
@@ -82,6 +110,13 @@ export const envSchema = z
       issue(
         "ASAAS_API_KEY",
         "é obrigatória com PAYMENT_PROVIDER=asaas (veja docs/PERSONALIZAR.md §6)",
+      );
+    }
+    // Fase 5: com taxa da plataforma, o split precisa da carteira da conta principal.
+    if (e.PLATFORM_FEE_PERCENT > 0 && !e.ASAAS_PLATFORM_WALLET_ID) {
+      issue(
+        "ASAAS_PLATFORM_WALLET_ID",
+        "é obrigatória com PAYMENT_PROVIDER=asaas e PLATFORM_FEE_PERCENT maior que 0 (walletId da conta principal)",
       );
     }
     // Em desenvolvimento dá para subir sem o token (sem túnel o webhook nem chega: a API

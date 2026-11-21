@@ -1,5 +1,6 @@
 import {
   HOST_CONFIGURABLE_ACTIONS,
+  HOST_OPT_IN_ACTIONS,
   HostPermissionsUpdate,
   withDependents,
   type HostPermissions,
@@ -7,7 +8,7 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { requireOrgPermission, type OrgEventEnv } from "../../tenancy/org-access.ts";
-import { HOST_PERMISSIONS_KEY, loadHostDeny } from "../../tenancy/permissions.ts";
+import { HOST_PERMISSIONS_KEY, loadHostPermissions } from "../../tenancy/permissions.ts";
 import { invalid, readJson, type AdminDeps } from "../context.ts";
 import { writeSetting } from "../event-settings.ts";
 
@@ -18,31 +19,38 @@ import { writeSetting } from "../event-settings.ts";
  * (privado). O anfitrião não chega aqui (não entra no painel da organização) e o PUT
  * genérico de /settings do evento recusa a chave.
  *
- * - GET / → HostPermissionsView (lista de negação efetiva + ações configuráveis)
+ * - GET / → HostPermissionsView (lista de negação efetiva + ações configuráveis; Fase 5: ações
+ *   opt-in liberadas em `allow`)
  * - PUT / → HostPermissionsUpdate; grava a lista já com as dependências (negar a leitura
- *   nega as escritas da mesma área) e devolve a HostPermissionsView.
+ *   nega as escritas da mesma área) e devolve a HostPermissionsView. Sem `allow` no corpo, as
+ *   opt-in voltam a ficar negadas.
  */
 export function orgHostPermissionRoutes(deps: AdminDeps) {
   const { db } = deps;
   const app = new Hono<OrgEventEnv>();
-  const view = (eventId: number, deny: HostPermissionsView["deny"]): HostPermissionsView => ({
+  const view = (eventId: number, value: HostPermissions): HostPermissionsView => ({
     eventId,
-    deny,
+    deny: value.deny,
     actions: HOST_CONFIGURABLE_ACTIONS,
+    allow: value.allow,
+    optIn: HOST_OPT_IN_ACTIONS,
   });
 
   app.get("/", requireOrgPermission("org.read"), async (c) => {
     const ev = c.get("event");
-    return c.json(view(ev.id, await loadHostDeny(ev, db)));
+    return c.json(view(ev.id, await loadHostPermissions(ev, db)));
   });
 
   app.put("/", requireOrgPermission("hosts.manage"), async (c) => {
     const ev = c.get("event");
     const body = HostPermissionsUpdate.safeParse(await readJson(c));
     if (!body.success) return invalid(c, body.error.issues);
-    const value: HostPermissions = { deny: withDependents(body.data.deny) };
+    const value: HostPermissions = {
+      deny: withDependents(body.data.deny),
+      allow: body.data.allow,
+    };
     await writeSetting(ev, db, HOST_PERMISSIONS_KEY, value, false);
-    return c.json(view(ev.id, value.deny));
+    return c.json(view(ev.id, value));
   });
   return app;
 }

@@ -1,5 +1,7 @@
 import {
   fromAmount,
+  notImplemented,
+  parseAccountEvent,
   parsePaymentEvent,
   PaymentProviderError,
   toAmount,
@@ -326,5 +328,15 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
     },
 
     parseWebhook: parsePaymentEvent,
+
+    // Fase 5, frente A (docs/saas/fase-5.md): POST /v3/accounts, GET /v3/myAccount/status e
+    // /documents com a apiKey da subconta, split na cobrança. Reservados pela fundação.
+    createSubaccount() {
+      return Promise.reject(notImplemented("Cadastro de subconta no Asaas"));
+    },
+    forAccount() {
+      throw notImplemented("Cobrança por subconta do Asaas");
+    },
+    parseAccountWebhook: parseAccountEvent,
   };
 }

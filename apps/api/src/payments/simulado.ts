@@ -1,5 +1,7 @@
 import { ulid } from "ulid";
 import {
+  notImplemented,
+  parseAccountEvent,
   parsePaymentEvent,
   PaymentProviderError,
   verifyWebhookToken,
@@ -140,6 +142,16 @@ export function createSimulatedProvider(opts: { webhookSecret: string }): Simula
     },
 
     parseWebhook: parsePaymentEvent,
+
+    // Fase 5, frente B (docs/saas/fase-5.md): subcontas, KYC e split simulados. Reservados
+    // pela fundação.
+    createSubaccount() {
+      return Promise.reject(notImplemented("Subconta simulada"));
+    },
+    forAccount() {
+      throw notImplemented("Cobrança por subconta simulada");
+    },
+    parseAccountWebhook: parseAccountEvent,
 
     approve(id) {
       const charge = get(id);

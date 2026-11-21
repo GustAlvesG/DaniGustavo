@@ -25,6 +25,8 @@ export const ORG_PERMISSIONS: Record<OrgAction, readonly OrgAccessRole[]> = {
   // Fase 4: catálogo de fornecedores e modelos de tarefas (ler é org.read).
   "vendors.manage": ALL,
   "templates.manage": ALL,
+  // Fase 5: a subconta da organização (dados da pessoa/empresa e o dinheiro) é do dono.
+  "payments.manage": ["platform_admin", "org_owner"],
 };
 
 export function canOrg(role: OrgAccessRole, action: OrgAction): boolean {

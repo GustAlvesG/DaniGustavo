@@ -12,7 +12,7 @@ import {
   varchar,
 } from "drizzle-orm/mysql-core";
 import { createdAt, fk, json, pk, timestamps, utcDatetime } from "./columns.ts";
-import { events } from "./tenancy.ts";
+import { events, paymentAccounts } from "./tenancy.ts";
 
 /**
  * Lados do evento 1 (casamento). Desde a migration 0008 a coluna `invitations.side` é varchar:
@@ -174,10 +174,22 @@ export const giftOrders = mysqlTable(
     status: mysqlEnum("status", ORDER_STATUSES).notNull().default("pending"),
     expiresAt: utcDatetime("expires_at").notNull(),
     paidAt: utcDatetime("paid_at"),
+    /**
+     * Fase 5: subconta em que a cobrança foi criada (nulo = conta principal da plataforma,
+     * como nos pedidos anteriores à Fase 5). Webhook, conciliação e reembolso usam esta conta.
+     */
+    paymentAccountId: fk("payment_account_id").references(() => paymentAccounts.id, {
+      onDelete: "restrict",
+    }),
+    /** Taxa da plataforma no momento do pedido, em centésimos de ponto percentual (250 = 2,5%). */
+    platformFeeBps: int("platform_fee_bps"),
+    /** Valor do split para a plataforma informado pelo provedor (centavos), quando houver. */
+    platformFeeCents: int("platform_fee_cents"),
     ...timestamps(),
   },
   (t) => [
     index("gift_orders_status_expires_idx").on(t.status, t.expiresAt),
+    index("gift_orders_payment_account_idx").on(t.paymentAccountId),
     index("gift_orders_event_status_created_idx").on(t.eventId, t.status, t.createdAt),
     index("gift_orders_event_gift_idx").on(t.eventId, t.giftId),
     uniqueIndex("gift_orders_event_id_id_idx").on(t.eventId, t.id),

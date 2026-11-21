@@ -6,6 +6,8 @@ import {
   EVENT_ACTION_LABELS,
   EVENT_ACTIONS,
   HOST_CONFIGURABLE_ACTIONS,
+  HOST_NEVER_ACTIONS,
+  HOST_OPT_IN_ACTIONS,
   HostPermissions,
   localDateTimeToIso,
   OrgInviteInput,
@@ -67,12 +69,15 @@ describe("contratos da fase 3", () => {
 
   it("permissões do anfitrião: só ações configuráveis, sem repetir, e rota própria", () => {
     expect(HOST_CONFIGURABLE_ACTIONS).not.toContain("dashboard.read");
-    expect(HOST_CONFIGURABLE_ACTIONS.length).toBe(EVENT_ACTIONS.length - 1);
+    // Fase 5: fora também as que o anfitrião nunca tem e as opt-in (lista `allow`).
+    expect(HOST_CONFIGURABLE_ACTIONS.length).toBe(
+      EVENT_ACTIONS.length - 1 - HOST_NEVER_ACTIONS.length - HOST_OPT_IN_ACTIONS.length,
+    );
     for (const a of EVENT_ACTIONS) expect(EVENT_ACTION_LABELS[a]).toBeTruthy();
-    expect(HostPermissions.parse({})).toEqual({ deny: [] });
+    expect(HostPermissions.parse({})).toEqual({ deny: [], allow: [] });
     expect(
       HostPermissions.parse({ deny: ["orders.refund", "orders.refund", "gifts.write"] }),
-    ).toEqual({ deny: ["orders.refund", "gifts.write"] });
+    ).toEqual({ deny: ["orders.refund", "gifts.write"], allow: [] });
     expect(HostPermissions.safeParse({ deny: ["dashboard.read"] }).success).toBe(false);
     expect(DEDICATED_SETTINGS_KEYS).toContain("event.host_permissions");
     expect(parseSettings({ "event.host_permissions": { deny: ["orders.refund"] } }).ok).toBe(true);
