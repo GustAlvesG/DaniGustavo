@@ -1,0 +1,74 @@
+/* Fase 7, frente C: portal do fornecedor (/fornecedor/#<token>). */
+
+.portal {
+  min-height: 100dvh;
+}
+.portal__top {
+  padding: 14px 16px;
+  background: var(--marinho);
+  color: var(--branco);
+}
+.portal__top p {
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+.portal__top strong {
+  display: block;
+  font-size: 1.05rem;
+}
+.portal__main {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 20px 16px 64px;
+}
+.portal__day {
+  margin: 8px 0 4px;
+  font-size: 0.95rem;
+  color: var(--suave);
+}
+.portal-item {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--branco);
+}
+.portal-item--mine {
+  border-color: var(--enfase);
+  background: color-mix(in srgb, var(--info-fundo) 70%, var(--branco));
+}
+.portal-item__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.portal-item__details {
+  grid-column: 2;
+  white-space: pre-line;
+}
+.portal-quote-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem 8rem 44px;
+  gap: 8px;
+  align-items: end;
+}
+@media (max-width: 600px) {
+  .portal-quote-item {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--linha);
+  }
+  .portal-quote-item > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+.portal-quote-item button {
+  min-height: 44px;
+}
+.portal__total {
+  font-size: 1.1rem;
+  text-align: right;
+}

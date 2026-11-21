@@ -35,6 +35,8 @@ export const TaskInput = z.object({
   /** Membro da organização ou anfitrião do evento; null = sem responsável. */
   assigneeUserId: z.string().min(1).max(36).nullable().default(null),
   due: TaskDue.default(null),
+  /** Fase 7: fornecedor do evento responsável (a tarefa aparece no portal dele); null = nenhum. */
+  eventVendorId: z.number().int().positive().nullable().default(null),
 });
 export type TaskInput = z.infer<typeof TaskInput>;
 /**
@@ -49,6 +51,7 @@ export const TaskUpdate = z
     status: TaskStatus,
     assigneeUserId: z.string().min(1).max(36).nullable(),
     due: TaskDue,
+    eventVendorId: z.number().int().positive().nullable(),
   })
   .partial();
 export type TaskUpdate = z.infer<typeof TaskUpdate>;
@@ -78,6 +81,8 @@ export interface TaskRow {
   overdue: boolean;
   completedAt: string | null;
   sort: number;
+  /** Fase 7: fornecedor do evento responsável (portal do fornecedor). */
+  eventVendor: { id: number; name: string } | null;
 }
 
 /** GET /tasks?view=… */

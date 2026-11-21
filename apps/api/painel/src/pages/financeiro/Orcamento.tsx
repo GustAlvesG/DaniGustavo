@@ -16,6 +16,7 @@ import { useCan, useEvent } from "../../event.tsx";
 import { centsToInput, formatBRL, parseBRL } from "../../format.ts";
 import { eh, go } from "../../nav.ts";
 import { useCategories } from "../fornecedores/categorias.ts";
+import { SourceBadge } from "../fornecedores/PortalLinks.tsx";
 import {
   Badge,
   Confirm,
@@ -153,7 +154,8 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
           subtitle={
             <>
               {q.vendorName} · {categories.label(q.category)} ·{" "}
-              <Badge tone={QUOTE_TONE[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>
+              <Badge tone={QUOTE_TONE[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>{" "}
+              <SourceBadge source={q.source} />
             </>
           }
           actions={

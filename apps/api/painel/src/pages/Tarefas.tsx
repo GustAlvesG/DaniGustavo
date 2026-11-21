@@ -4,6 +4,7 @@ import {
   TASK_STATUS_LABELS,
   TASK_STATUSES,
   type ApplyTaskTemplateResult,
+  type EventVendorRow,
   type PlanningPerson,
   type TaskDue,
   type TaskInput,
@@ -183,6 +184,7 @@ export function Tarefas() {
                 <span className="row__meta">
                   {TASK_CATEGORY_LABELS[t.category]} · {dueText(t)}
                   {t.assignee ? ` · ${t.assignee.name}` : ""}
+                  {t.eventVendor ? ` · fornecedor: ${t.eventVendor.name}` : ""}
                 </span>
               </div>
               <div className="row__side">
@@ -303,6 +305,17 @@ function TaskFields({
 }) {
   const toast = useToast();
   const people = useLoad(() => api<{ people: PlanningPerson[] }>("/tasks/assignees"), []);
+  // Fase 7: fornecedor da tarefa (aparece no portal dele). Sem `vendors.read`, o campo some e
+  // o PATCH não mexe nele.
+  const canSeeVendors = useCan("vendors.read");
+  const vendors = useLoad(
+    () =>
+      canSeeVendors
+        ? api<{ vendors: EventVendorRow[] }>("/vendors")
+        : Promise.resolve({ vendors: [] as EventVendorRow[] }),
+    [canSeeVendors],
+  );
+  const [vendorId, setVendorId] = useState(task?.eventVendor ? String(task.eventVendor.id) : "");
   const initial = dueToForm(task);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -333,6 +346,9 @@ function TaskFields({
       status,
       assigneeUserId: assignee || null,
       due,
+      ...(canSeeVendors && vendors.data
+        ? { eventVendorId: vendorId ? Number(vendorId) : null }
+        : {}),
     };
     setSaving(true);
     setError(null);
@@ -390,6 +406,21 @@ function TaskFields({
           ))}
         </select>
       </Field>
+      {canSeeVendors && vendors.data ? (
+        <Field
+          label="Fornecedor (opcional)"
+          hint="A tarefa aparece no portal do fornecedor escolhido."
+        >
+          <select value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+            <option value="">Nenhum</option>
+            {vendors.data.vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.vendor.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <div className="grid grid--2">
         <Field label="Prazo">
           <select value={kind} onChange={(e) => setKind(e.target.value as DueKind)}>

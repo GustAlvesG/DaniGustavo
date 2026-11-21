@@ -7,6 +7,7 @@ import {
   VendorCategoryKey,
   type EventVendorStatus,
 } from "./planning.ts";
+import type { PortalSource } from "./vendor-portal.ts";
 
 /*
  * Fase 4, frente C: orçamentos de fornecedores, parcelas e planejado × realizado
@@ -102,6 +103,8 @@ export interface QuoteSummary {
   paidCents: number;
   validUntil: string | null;
   updatedAt: string;
+  /** Fase 7: lançado pela equipe (`panel`) ou enviado pelo fornecedor no portal (`portal`). */
+  source: PortalSource;
 }
 
 export interface QuoteView extends QuoteSummary {

@@ -5,12 +5,14 @@ import {
   eq,
   eventMembers,
   eventTasks,
+  eventVendors,
   isNotNull,
   organizationMembers,
   sql,
   taskTemplateItems,
   taskTemplates,
   user,
+  vendors,
   type Database,
 } from "@casamento/db";
 import {
@@ -36,7 +38,13 @@ export class TaskRuleError extends Error {
   }
 }
 
-function toRow(t: TaskRecord, assigneeName: string | null, today: string): TaskRow {
+function toRow(
+  t: TaskRecord,
+  assigneeName: string | null,
+  today: string,
+  vendorNames: Map<number, string>,
+): TaskRow {
+  const vendorName = t.eventVendorId ? vendorNames.get(t.eventVendorId) : undefined;
   return {
     id: t.id,
     title: t.title,
@@ -49,7 +57,27 @@ function toRow(t: TaskRecord, assigneeName: string | null, today: string): TaskR
     overdue: t.status !== "done" && t.dueOn !== null && t.dueOn < today,
     completedAt: t.completedAt ? t.completedAt.toISOString() : null,
     sort: t.sort,
+    eventVendor:
+      t.eventVendorId && vendorName !== undefined
+        ? { id: t.eventVendorId, name: vendorName }
+        : null,
   };
+}
+
+/** Fornecedores do evento (id → nome do catálogo), juntando pelas colunas de escopo. */
+export async function eventVendorNames(db: Database, ev: EventCtx): Promise<Map<number, string>> {
+  const rows = await db
+    .select({ id: eventVendors.id, name: vendors.name })
+    .from(eventVendors)
+    .innerJoin(
+      vendors,
+      and(
+        eq(vendors.organizationId, eventVendors.organizationId),
+        eq(vendors.id, eventVendors.vendorId),
+      ),
+    )
+    .where(and(byEvent(eventVendors, ev), eq(vendors.organizationId, ev.orgId)));
+  return new Map(rows.map((r) => [r.id, r.name]));
 }
 
 async function loadRows(db: Database, ev: EventCtx, now: Date, taskId?: number) {
@@ -69,7 +97,8 @@ async function loadRows(db: Database, ev: EventCtx, now: Date, taskId?: number) 
       asc(eventTasks.sort),
       asc(eventTasks.id),
     );
-  return { today, rows: rows.map((r) => toRow(r.task, r.assigneeName, today)) };
+  const names = await eventVendorNames(db, ev);
+  return { today, rows: rows.map((r) => toRow(r.task, r.assigneeName, today, names)) };
 }
 
 export async function listTasks(
@@ -153,6 +182,16 @@ async function assertAssignee(db: Database, ev: EventCtx, userId: string | null 
   }
 }
 
+/** Fase 7: o fornecedor da tarefa tem de estar ligado a este evento (de outro → 422). */
+async function assertEventVendor(db: Database, ev: EventCtx, id: number | null | undefined) {
+  if (!id) return;
+  const [row] = await db
+    .select({ id: eventVendors.id })
+    .from(eventVendors)
+    .where(and(byEvent(eventVendors, ev), eq(eventVendors.id, id)));
+  if (!row) throw new TaskRuleError("Escolha um fornecedor deste evento.", "eventVendorId");
+}
+
 async function nextSort(db: Database, ev: EventCtx): Promise<number> {
   const [row] = await db
     .select({ max: sql<number | null>`max(${eventTasks.sort})` })
@@ -164,11 +203,12 @@ async function nextSort(db: Database, ev: EventCtx): Promise<number> {
 export async function createTask(
   db: Database,
   ev: EventCtx,
-  input: TaskInput,
+  input: Omit<TaskInput, "eventVendorId"> & { eventVendorId?: number | null },
   actor: { id: string },
   now: Date,
 ): Promise<TaskRow> {
   await assertAssignee(db, ev, input.assigneeUserId);
+  await assertEventVendor(db, ev, input.eventVendorId);
   const due = dueColumns(input.due, eventLocalDate(ev));
   const done = input.status === "done";
   const [res] = await db.insert(eventTasks).values({
@@ -178,6 +218,7 @@ export async function createTask(
     category: input.category,
     status: input.status,
     assigneeUserId: input.assigneeUserId,
+    eventVendorId: input.eventVendorId ?? null,
     ...due,
     completedAt: done ? now : null,
     completedBy: done ? actor.id : null,
@@ -202,11 +243,15 @@ export async function updateTask(
   if (patch.assigneeUserId !== undefined && patch.assigneeUserId !== current.assigneeUserId) {
     await assertAssignee(db, ev, patch.assigneeUserId);
   }
+  if (patch.eventVendorId !== undefined && patch.eventVendorId !== current.eventVendorId) {
+    await assertEventVendor(db, ev, patch.eventVendorId);
+  }
   const set: Partial<typeof eventTasks.$inferInsert> = {};
   if (patch.title !== undefined) set.title = patch.title;
   if (patch.description !== undefined) set.description = patch.description;
   if (patch.category !== undefined) set.category = patch.category;
   if (patch.assigneeUserId !== undefined) set.assigneeUserId = patch.assigneeUserId;
+  if (patch.eventVendorId !== undefined) set.eventVendorId = patch.eventVendorId;
   if (patch.due !== undefined) Object.assign(set, dueColumns(patch.due, eventLocalDate(ev)));
   if (patch.status !== undefined && patch.status !== current.status) {
     set.status = patch.status;
