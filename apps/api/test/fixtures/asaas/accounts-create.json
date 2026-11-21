@@ -1,0 +1,33 @@
+{
+  "object": "account",
+  "id": "4f468235-cec3-482f-b3d0-348af4c71940",
+  "name": "Ana Exemplo",
+  "email": "ana.exemplo@exemplo.com",
+  "loginEmail": "ana.exemplo@exemplo.com",
+  "phone": null,
+  "mobilePhone": "11987654321",
+  "address": "Rua das Flores",
+  "addressNumber": "100",
+  "complement": null,
+  "province": "Centro",
+  "postalCode": "01001-000",
+  "cpfCnpj": "52998224725",
+  "birthDate": "1990-05-20",
+  "personType": "FISICA",
+  "companyType": null,
+  "city": 15873,
+  "state": "SP",
+  "country": "Brasil",
+  "site": null,
+  "walletId": "c0c1688f-636b-42c0-b6ee-7339182276b7",
+  "accountNumber": { "agency": "0001", "account": "000000", "accountDigit": "0" },
+  "commercialInfoExpiration": null,
+  "accessToken": {
+    "id": "b6bff0c5-38c6-496a-a3a8-105b31d5bcfe",
+    "name": "Chave da subconta",
+    "enabled": true,
+    "apiKey": "$aact_hmlg_000000000000000000000000000000000000000000000000000000000000subconta-teste",
+    "expirationDate": null,
+    "dateCreated": "2026-11-21 10:00:00"
+  }
+}

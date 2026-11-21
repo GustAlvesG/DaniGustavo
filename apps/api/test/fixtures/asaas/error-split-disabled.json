@@ -1,0 +1,8 @@
+{
+  "errors": [
+    {
+      "code": "invalid_action",
+      "description": "A funcionalidade de split não está habilitada para a sua conta."
+    }
+  ]
+}
