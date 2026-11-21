@@ -53,7 +53,11 @@ export const QuoteStatusChange = z.object({
 });
 export type QuoteStatusChange = z.infer<typeof QuoteStatusChange>;
 
-/** PUT /quotes/:quoteId/installments: refaz o plano (parcelas já pagas não podem sumir). */
+/**
+ * PUT /quotes/:quoteId/installments: refaz o plano das parcelas **em aberto**. As já pagas
+ * ficam como estão (nunca somem); pagas + novas têm de somar o total (422). Todas são
+ * renumeradas pela ordem de vencimento.
+ */
 export const InstallmentPlan = z.object({
   installments: z.array(InstallmentInput).min(1).max(60),
 });
@@ -78,6 +82,7 @@ export interface InstallmentRow {
   number: number;
   dueOn: string;
   amountCents: number;
+  /** Data do pagamento "AAAA-MM-DD" no fuso do evento (a `paidOn` informada); null = em aberto. */
   paidAt: string | null;
   method: string | null;
   notes: string | null;
@@ -134,4 +139,66 @@ export interface BudgetView {
   totals: { plannedCents: number; contractedCents: number; paidCents: number };
   /** Parcelas não pagas, vencidas primeiro, depois por vencimento. */
   openInstallments: (InstallmentRow & { vendorName: string })[];
+}
+
+/* ------------------------------------------------------------------------ */
+/* Cálculos (usados pela API e pelo painel)                                  */
+/* ------------------------------------------------------------------------ */
+
+/** Total de um item: quantidade × valor unitário, em centavos. */
+export const quoteItemTotal = (item: Pick<QuoteItemInput, "quantity" | "unitCents">) =>
+  item.quantity * item.unitCents;
+
+/** Soma dos itens (antes do desconto), em centavos. */
+export const quoteSubtotal = (items: Pick<QuoteItemInput, "quantity" | "unitCents">[]) =>
+  items.reduce((sum, it) => sum + quoteItemTotal(it), 0);
+
+/**
+ * Divide `totalCents` em `n` parcelas inteiras sem perder centavo: as primeiras levam o resto
+ * (R$ 100,00 em 3 → 33,34 + 33,33 + 33,33).
+ */
+export function splitCents(totalCents: number, n: number): number[] {
+  if (!Number.isInteger(totalCents) || totalCents < 0) throw new Error("Total inválido.");
+  if (!Number.isInteger(n) || n < 1) throw new Error("Número de parcelas inválido.");
+  const base = Math.floor(totalCents / n);
+  const rest = totalCents - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
+}
+
+/** "AAAA-MM-DD" que existe no calendário (recusa 2027-02-30). */
+export function isCalendarDate(date: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
+/**
+ * Soma meses a uma data "AAAA-MM-DD", prendendo o dia no fim do mês
+ * (31/01 + 1 mês = 28/02 ou 29/02).
+ */
+export function addMonths(date: string, months: number): string {
+  const [y, mo, d] = date.split("-").map(Number) as [number, number, number];
+  const target = new Date(Date.UTC(y, mo - 1 + months, 1));
+  const lastDay = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(d, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+/**
+ * Plano de parcelas mensais: `n` parcelas a partir de `firstDueOn`, uma por mês, somando
+ * exatamente `totalCents` (o painel monta o plano com isto e o casal ajusta antes de contratar).
+ */
+export function planInstallments(
+  totalCents: number,
+  n: number,
+  firstDueOn: string,
+): { dueOn: string; amountCents: number }[] {
+  return splitCents(totalCents, n).map((amountCents, i) => ({
+    dueOn: addMonths(firstDueOn, i),
+    amountCents,
+  }));
 }
