@@ -1,0 +1,137 @@
+# Plataforma — Fase 5: recebimentos (subcontas Asaas e split da plataforma)
+
+Branch `saas`. Regras e fluxo dos agentes em `docs/saas/AGENTES.md`. **Nunca chamar o Asaas real** (a chave do `.env` raiz é de produção): testes com respostas gravadas/simuladas; frentes com `PAYMENT_PROVIDER=simulado` e sem `ASAAS_*`.
+
+**Objetivo:** o dinheiro dos presentes de cada evento cai numa subconta do provedor (Asaas) da organização — ou, por evento, na subconta de uma pessoa da organização (o anfitrião) — e a plataforma recebe a taxa dela por split na própria cobrança.
+
+**Pronto quando:**
+
+1. **Conta da organização:** o dono cadastra pelo painel (`#/o/:orgId/recebimentos`) a subconta (PF ou PJ: nome, CPF/CNPJ, e-mail, celular, endereço, renda/faturamento, nascimento na PF, tipo de empresa na PJ); a API cria no provedor com o webhook da conta, guarda a `apiKey` **cifrada** e mostra a situação cadastral (pendente, em análise, aprovada, recusada), os documentos pendentes e o link de envio do provedor.
+2. **Conta do anfitrião:** com a ação opt-in `payments.own_account` liberada pela organização, o anfitrião cadastra a própria subconta pelo evento (`#/recebimento`).
+3. **Recebedor por evento:** a organização escolhe a conta da organização (padrão) ou a de um anfitrião do evento; o painel mostra a situação e a taxa.
+4. **Cobranças:** Pix e fatura de cartão saem pela subconta resolvida com `split` para a carteira da plataforma (`PLATFORM_FEE_PERCENT`); o pedido grava a conta e a taxa; webhook (por conta), conciliação, expiração e reembolso falam com a conta do pedido.
+5. **Sem conta pronta:** presentes em dinheiro ficam indisponíveis no site (aviso no lugar do botão, `POST /orders` → 409) e o painel avisa (início e Recebimento).
+6. **Pedidos no painel:** conta que recebeu e taxa da plataforma (valor informado pelo provedor ou estimativa).
+7. O provedor `simulado` simula subcontas, KYC e split (dev, testes e e2e). Nenhum segredo (apiKey, token, documento completo) sai da API, vai a log ou ao banco em claro.
+8. `admin-isolation.test.ts` e o auditor estrito cobrem as rotas e a tabela novas; `pnpm lint`, `typecheck`, `test`, `build`, `format:check` e e2e verdes; screenshots das páginas novas.
+
+**Fora do escopo:** planos e preço da taxa (Fase 6; aqui um percentual único em env), transferência/saque pelo painel (feito no app do Asaas), split para mais de um recebedor, antecipação, cobrança recorrente, envio de documentos pela nossa API (o provedor dá o link de onboarding), white label do Asaas.
+
+## 1. Modelo de dados (migration `0011_recebimentos.sql`, feita pela fundação)
+
+Schema em `packages/db/src/schema/tenancy.ts` (`payment_accounts` fica junto de `events` por causa da FK cruzada) e `app.ts` (pedido).
+
+| Tabela / coluna                                       | Escopo            | Observação                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payment_accounts`                                    | `organization_id` | `holder` enum(organization, user) + `user_id` (→ `user`, restrict); `provider` enum(simulado, asaas); `public_id` ULID único (URL do webhook da conta); `provider_account_id`, `wallet_id` (único); `api_key_enc` (AES-256-GCM, ver §3); `webhook_token_hash` (SHA-256 hex); `person_type`, `company_type`, `name`, `email`, `document_hint` (mascarado); `status` enum(pending, awaiting_approval, approved, rejected, disabled); `kyc` JSON (`KycSnapshot`); `status_checked_at`, `approved_at`, `disabled_at`, `created_by`. Único `(organization_id, id)`. FK da org **restrict** (dinheiro não some em cascata). |
+| `events.payment_receiver`                             | —                 | enum(organization, host, platform), padrão `organization`. **A migration põe `platform` em todos os eventos que já existem** (o casamento continua recebendo como hoje); o seed faz o mesmo no evento 1.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `events.receiving_account_id`                         | —                 | Conta escolhida com `host`. FK composta `(organization_id, receiving_account_id)` → `payment_accounts (organization_id, id)` restrict: conta de outra organização não entra nem pelo banco.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `gift_orders.payment_account_id`                      | `event_id`        | Subconta em que a cobrança foi criada (nulo = conta principal; todos os pedidos antigos). FK restrict.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `gift_orders.platform_fee_bps` / `platform_fee_cents` | `event_id`        | Taxa no momento do pedido (centésimos de ponto: 250 = 2,5%) e o valor do split informado pelo provedor (centavos, quando houver).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+Sem uma conta ativa "única" no banco (MySQL não tem índice parcial): a aplicação garante no máximo uma conta não desativada por titular (`activeOrganizationAccount`/`activeUserAccount`), dentro de transação. Aplicada no `casamento` pela fundação (dump antes em scratchpad `casamento-antes-0011.sql`).
+
+## 2. Contratos e pontos de extensão (prontos na fundação)
+
+`packages/shared/src/payment-accounts.ts` (integração): listas `PAYMENT_RECEIVERS`/labels, `PAYMENT_ACCOUNT_HOLDERS`, `PAYMENT_ACCOUNT_PERSON_TYPES`, `COMPANY_TYPES`/labels, `PAYMENT_ACCOUNT_STATUSES`/labels, `KYC_STEP_STATUSES`, `KYC_DOCUMENT_STATUSES`; `PLATFORM_FEE_MAX_PERCENT`, `feePercentToBps`, `estimatePlatformFeeCents`; `isValidCnpj`, `maskDocument`; `PaymentAccountAddress`, `PaymentAccountInput` (PF exige CPF válido + nascimento; PJ, CNPJ + tipo; renda em centavos); `KycDocumentGroup`, `KycSnapshot`; `PaymentAccountView`, `PaymentAccountSummary`, `OrgPaymentAccountsView`, `EVENT_PAYMENT_STATES` (`ready`, `platform`, `no_account`, `not_approved`), `EventPaymentView`, `EventReceiverUpdate`, `MyPaymentAccountView`, `OrderSplitView`. Aditivos: `GiftsResponse.paymentsAvailable` (padrão `true`; a API manda `true` fixo até a frente B) e `AdminOrder.split?`.
+
+`packages/shared/src/permissions.ts`: ações de evento `payments.read` (todos), `payments.configure` (só organização/platform admin — `HOST_NEVER_ACTIONS`, fora da tela do anfitrião) e `payments.own_account` (`HOST_OPT_IN_ACTIONS`: o anfitrião só tem se a organização liberar); `HostPermissions.allow` (lista de liberação das opt-in, ao lado do `deny`), `effectiveHostDeny`, `HostPermissionsView.allow/optIn`; ação da organização `payments.manage` (dono e platform admin).
+
+`apps/api/src/`:
+
+- `crypto/secret-box.ts` (integração): AES-256-GCM (`v1.<iv>.<tag>.<cifrado>`, `aad` amarra o valor à conta: `paymentAccountAad(publicId)`), `secretBoxFromEnv` (`PAYMENT_SECRETS_KEY`; fora de produção, sem ela, HKDF do `BETTER_AUTH_SECRET`), `secretsOf(deps)`, `newWebhookToken`, `sha256Hex`, `tokenMatchesHash`. Teste em `test/secret-box.test.ts`.
+- `payments/provider.ts` (integração): `SplitRule`/`SplitSnapshot`, `ChargeSnapshot.split`, `PixChargeInput.split`, `CardCheckoutInput.split`, `SubaccountInput` (= `PaymentAccountInput` + `webhook { url, authToken, email }`), `SubaccountCreated`, `AccountCredentials`, `AccountStatusSnapshot`, `AccountWebhookNotice`, `HANDLED_ACCOUNT_EVENTS`, `parseAccountEvent`, `notImplemented`; na interface, opcionais `createSubaccount`, `forAccount`, `getAccountStatus`, `parseAccountWebhook`. Stubs (501) em `asaas.ts` (A) e `simulado.ts` (B).
+- `payment-accounts/store.ts` (integração): `getOrgPaymentAccount`, `activeOrganizationAccount`, `activeUserAccount`, `findAccountByPublicId` (crossEvent), `sealAccountApiKey`, `accountCredentials` (decifra só na hora), `canCharge`, `holdersOf`, `toPaymentAccountView`/`Summary`, `loadEventReceiverAccount` e `receiverState` (o mesmo cálculo para B e C).
+- `payment-accounts/resolve.ts` (B, stub): `resolveEventReceiver(ev, deps)` → `ReceiverResolution` (`ChargeAccount { provider, accountId, split, feeBps }`), `providerForOrder(ev, deps, order)`.
+- `payment-accounts/status.ts` (D, stub): `refreshAccountStatus`, `handleAccountWebhook`, `refreshPendingAccounts`.
+- `OrderDeps.secrets?` (ausente = `secretsOf`), `AppDeps.secrets`; `server.ts` passa a mesma caixa à API e às rotinas.
+- Env (`env.ts`, `.env.example`, `.env.production.example`, compose, `deploy.conf`): `PAYMENT_SECRETS_KEY` (64 hex, obrigatória em produção; em `REQUIRED_VARS`/`SECRET_VARS`), `PLATFORM_FEE_PERCENT` (0–50, padrão 0, `TODO(conteudo)`), `ASAAS_PLATFORM_WALLET_ID` (obrigatória com asaas e taxa > 0). URL pública do webhook da conta: `BETTER_AUTH_URL` + `/api/webhooks/payments/accounts/<publicId>` (o host da API já passa `/api/webhooks` no `site.caddy`).
+- Testes: `payment_accounts` em `ORG_SCOPED_TABLES`; `admin-isolation.test.ts` cobre `/payments` e `/payment-accounts`, aceita 501 só nelas (`PHASE5_STUB`, sai na integração) e espera 403 do anfitrião em `/payments/receiver` e `/payments/my-account*`; `host-permissions.test.ts`, `tenancy.test.ts` e `packages/shared/test/fase5.test.ts`; `packages/db/test/payments-schema.test.ts` (listas, `platform` no evento 1, FK composta, restrict).
+
+Painel (`apps/api/painel/src/`): páginas reservadas e ligadas — `pages/Recebimento.tsx` (`#/recebimento`, menu por `payments.read`), `pages/org/Recebimentos.tsx` (`#/o/:orgId/recebimentos[/:id]`), componente `pages/recebimentos/SituacaoConta.tsx` (D, usado pelas páginas de C). `pages/org/Permissoes.tsx` já reenvia o `allow` gravado no PUT.
+
+### Rotas
+
+Evento (`/api/admin/events/:eventId`, `requireEventAccess` + `requirePermission`):
+
+| Rota                                | Ação                   | Frente |
+| ----------------------------------- | ---------------------- | ------ |
+| `GET /payments`                     | `payments.read`        | C      |
+| `PUT /payments/receiver`            | `payments.configure`   | C      |
+| `GET /payments/my-account`          | `payments.own_account` | C      |
+| `POST /payments/my-account`         | `payments.own_account` | C      |
+| `POST /payments/my-account/refresh` | `payments.own_account` | D      |
+
+Organização (`/api/admin/orgs/:orgId`, `requireOrgAccess` + `requireOrgPermission`): `GET /payment-accounts`, `GET /payment-accounts/:accountId` (`org.read`); `POST /payment-accounts`, `POST /payment-accounts/:accountId/disable` (`payments.manage`) — C; `POST /payment-accounts/:accountId/refresh` (`org.read`) — D.
+
+Webhook (sem sessão, isento de `X-Web-Key`): `POST /api/webhooks/payments/accounts/:publicId` — B (cobranças) chamando D (`handleAccountWebhook`) para avisos `ACCOUNT_STATUS_*`. O `POST /api/webhooks/payments` global continua para a conta principal.
+
+### Contrato do provedor (o que A e B implementam igual)
+
+- `createSubaccount(input)` (conta principal): Asaas `POST /v3/accounts` com `name`, `email`, `cpfCnpj`, `birthDate` (PF) / `companyType` (PJ), `mobilePhone`, `phone`, `incomeValue` (reais), `address`, `addressNumber`, `complement`, `province` (bairro), `postalCode` e `webhooks: [{ name, url, email, enabled: true, interrupted: false, apiVersion: 3, authToken, sendType: "SEQUENTIALLY", events: [...HANDLED_PAYMENT_EVENTS, ...HANDLED_ACCOUNT_EVENTS] }]`. Resposta: `id`, `walletId` e `accessToken.apiKey` (só nesta resposta: perdê-la exige gerar outra chave no Asaas). Erro 400 → `PaymentProviderError` com os códigos/descrições do Asaas (nada do corpo enviado).
+- `forAccount(creds)`: o mesmo provedor com a `apiKey` da subconta (mesmas URLs; `createPix`, `createCardCheckout`, `getCharge`, `listCharges`, `refund`, `cancel` iguais). Sem estado entre chamadas.
+- `getAccountStatus()` (na instância da subconta): `GET /v3/myAccount/status` (`general`, `commercialInfo`, `bankAccountInfo`, `documentation`: PENDING/AWAITING_APPROVAL/APPROVED/REJECTED) + `GET /v3/myAccount/documents` (`rejectReasons`, grupos com `id`, `type`, `title`, `description`, `status` NOT_SENT/PENDING/APPROVED/REJECTED/IGNORED, `onboardingUrl`, `onboardingUrlExpirationDate`) → `KycSnapshot`. Mapeamento do `status`: `general` APPROVED → `approved`; qualquer etapa REJECTED → `rejected`; `general` AWAITING_APPROVAL → `awaiting_approval`; senão `pending`.
+- Split: `split: [{ walletId: ASAAS_PLATFORM_WALLET_ID, percentualValue }]` em `POST /payments` (Pix e cartão); sem taxa, sem `split`. A resposta traz `split[]` (`walletId`, `fixedValue`, `percentualValue`, `totalValue`, `status`) → `ChargeSnapshot.split`. `TODO(asaas-doc)`: o split vem desabilitado em conta nova (`invalid_action`) — pedir a liberação ao Asaas antes de produção; nunca pôr a carteira da própria conta que cobra.
+- Simulado: subcontas sem estado no servidor (a `apiKey` simulada carrega o cenário, ex.: `sim_<cenário>_<ULID>`); cenário pelo e-mail do cadastro: `+pendente` (documentos pendentes com link de onboarding fictício `about:blank#onboarding-simulado`), `+analise`, `+recusada`; qualquer outro nasce `approved`. Split calculado como o Asaas (percentual sobre o valor, sem taxa do provedor). `approve()` continua funcionando para cobranças de subconta (estado de cobranças compartilhado entre a conta principal e `forAccount`).
+
+## 3. Decisões (padrões adotados)
+
+- **Quem cobra é a subconta** (`forAccount`), com split para a carteira da plataforma: o dinheiro é do recebedor desde o início e a plataforma não custodia. O Asaas calcula o percentual **sobre o valor líquido** (depois da taxa dele); o pedido grava a taxa vigente (`platform_fee_bps`) e o valor real quando o provedor informa.
+- **Evento sem conta pronta → presentes em dinheiro indisponíveis** (padrão mais seguro: nunca cobrar numa conta que não é do recebedor). `GET /gifts` devolve `paymentsAvailable: false`, o site mostra a lista com aviso no lugar do botão e `POST /orders` responde 409; o painel avisa no início e em Recebimento. Pedidos já criados continuam na conta deles.
+- **Eventos anteriores à Fase 5** (o casamento) ficam em `platform`: conta principal, sem split, exatamente como hoje. Só o platform admin escolhe `platform` (403 para os outros) — é o modo "a plataforma é o próprio recebedor".
+- **Recebedor é decisão da organização:** `payments.configure` nunca é do anfitrião (nem aparece na tela de permissões). A conta escolhida precisa ser da organização do evento (FK composta) e, com `host`, de uma pessoa que é anfitriã daquele evento (422 senão).
+- **Conta própria do anfitrião é opt-in** (`payments.own_account` em `allow`): ação nova que mexe com dinheiro nasce negada, ao contrário da regra geral da lista de negação.
+- **Conta da organização só pelo dono** (`payments.manage`); membros veem a situação (`org.read`). Uma conta ativa por titular; desativar não apaga no provedor nem os pedidos (restrict) e é recusado (409) se algum evento ativo depende dela.
+- **Segredos:** `apiKey` cifrada (AES-256-GCM, `aad` = conta) e decifrada só ao chamar o provedor; token do webhook da conta gerado pela API e guardado só como SHA-256; nunca em view, log, erro ou `kyc`. Trocar `PAYMENT_SECRETS_KEY` invalida as chaves gravadas (rotação = fase futura).
+- **Mínimo de dados pessoais:** CPF/CNPJ completo, endereço, renda e nascimento vão ao provedor e não são gravados; fica o documento mascarado, nome, e-mail e tipo. Documentos de identidade são enviados pelo link de onboarding do provedor, nunca pela nossa API.
+- **Webhook por conta** (`/api/webhooks/payments/accounts/:publicId`, token próprio): a conta sai da URL, o pedido tem de ser daquela conta (senão ignora) e o status é sempre consultado no provedor pela própria subconta. Idempotência em `webhook_events` como hoje.
+- **Situação cadastral:** atualizada pelo webhook da conta, pelo botão "Atualizar situação" (rate limit) e por uma rotina a cada 6 horas para contas não aprovadas/desativadas; mudança de situação avisa por e-mail quem cadastrou e os donos da organização.
+- **Taxa:** `PLATFORM_FEE_PERCENT` (padrão 0 = sem split) até a Fase 6 levar para os planos. `TODO(conteudo)`.
+
+## 4. Frentes paralelas
+
+Cada frente: worktree próprio (a partir da `saas`), banco `casamento_f5<letra>`, portas de `AGENTES.md`, `PAYMENT_PROVIDER=simulado` e **sem `ASAAS_*` no `.env` do worktree**. **Sem migrations.** Contratos de `packages/shared` são da integração: precisou mudar → pare e reporte (acréscimo pequeno no próprio arquivo de serviço é ok). Ao implementar, troque o `notYet`/`notImplemented` das suas rotas/métodos (o `admin/stub.ts`, o `PHASE5_STUB` e o `notImplemented` saem na integração).
+
+### A — Asaas: subcontas, KYC e split (branch `saas-f5a`)
+
+- **Arquivos:** `apps/api/src/payments/asaas.ts`, novo `apps/api/src/payments/asaas-accounts.ts` (corpo de `/accounts`, mapeamento de status e documentos), testes novos `apps/api/test/asaas-accounts.test.ts` e respostas gravadas em `apps/api/test/fixtures/asaas/**` (montadas a partir da documentação; nenhum valor real). Pode acrescentar casos de split em `apps/api/test/asaas.test.ts`.
+- **Entregas:** `createSubaccount`, `forAccount`, `getAccountStatus`, `parseAccountWebhook`, `split` em `createPix`/`createCardCheckout` e `ChargeSnapshot.split`.
+- **Testes:** corpo enviado (sem CPF em log/erro; `incomeValue` em reais; PF × PJ), `apiKey` só em `SubaccountCreated`, `forAccount` manda o header com a chave da subconta (e nunca a principal), mapeamento de status (todas as combinações) e documentos com link/validade, split no corpo só com taxa > 0, erro do Asaas sem dados enviados.
+
+### B — Simulado e cobranças roteadas por conta (branch `saas-f5b`)
+
+- **Arquivos:** `apps/api/src/payments/simulado.ts`, `apps/api/src/payments/index.ts`, `apps/api/src/payment-accounts/resolve.ts`, `apps/api/src/orders/**`, `apps/api/src/routes/orders.ts`, `apps/api/src/routes/account-webhooks.ts`; site `apps/web/src/lib/api/gifts.ts`, `apps/web/src/components/presentes/**`, `apps/web/src/app/[host]/(site)/presentes/**`; testes novos `apps/api/test/orders-accounts.test.ts` e `apps/api/test/simulado-accounts.test.ts`.
+- **Entregas:** simulado com subcontas/KYC/split (§2); `resolveEventReceiver`/`providerForOrder` (usando `loadEventReceiverAccount`/`receiverState`/`accountCredentials`); `createOrder`/`startCardCheckout` com a conta e o split e gravando `payment_account_id`/`platform_fee_bps`; `applyCharge` grava `platform_fee_cents` do split; `getCharge`/expiração/conciliação/reembolso/`checkOrderCharges` pela conta do pedido; `paymentsAvailable` e 409 sem conta pronta; webhook por conta (token por hash, pedido de outra conta ignorado); site com o aviso de presentes indisponíveis. Não mexer em `app.ts` (a rota de "simular pagamento" usa `provider.approve` da conta principal: o simulado compartilha as cobranças).
+- **Testes:** evento `organization` com conta aprovada → cobrança na subconta com split da taxa; `platform` → conta principal sem split (casamento igual a antes); conta pendente/ausente → 409 e `paymentsAvailable: false`; webhook da conta A com pedido da conta B ignorado; token errado 401; reembolso e conciliação pela conta do pedido; auditor estrito.
+
+### C — Painel de recebimentos, recebedor do evento e permissões (branch `saas-f5c`)
+
+- **Arquivos:** `apps/api/src/admin/payments.ts`, `apps/api/src/admin/org/payment-accounts.ts`, novo `apps/api/src/payment-accounts/service.ts` (criar: `public_id`, token do webhook, `createSubaccount`, `sealAccountApiKey`, insert sem segredo em claro; desativar; listar; view do evento; trocar recebedor), `apps/api/src/admin/orders.ts` (`AdminOrder.split`); painel `pages/Recebimento.tsx`, `pages/org/Recebimentos.tsx`, `pages/Pedidos.tsx` (conta e taxa no detalhe), `pages/org/Permissoes.tsx` (ações opt-in com `allow`), `pages/Dashboard.tsx` (aviso de recebimento pendente); testes novos `apps/api/test/payment-accounts.test.ts`.
+- **Consome:** `PaymentAccountInput`, `store.ts`, `SituacaoConta` (D), provedor injetado nos testes (`testApp({ provider })` com um falso que implementa `createSubaccount`, até o simulado da B chegar).
+- **Testes:** apiKey/token/documento nunca aparecem em nenhuma resposta (varrer o JSON); conta já ativa → 409; membro 403 no POST; anfitrião 403 no `/receiver` e no `/my-account` sem `allow`, 200 com; `host` com conta de quem não é anfitrião do evento → 422; `platform` só platform admin; desativar conta em uso → 409; conta de outra org → 404; auditor estrito.
+
+### D — Situação cadastral, onboarding e avisos (branch `saas-f5d`)
+
+- **Arquivos:** `apps/api/src/payment-accounts/status.ts`, `apps/api/src/admin/payment-account-status.ts`, `apps/api/src/jobs.ts` e `apps/api/src/server.ts` (rotina `startAccountStatusJob`, 6 h), novo `apps/api/src/payment-account-email.ts`; painel `pages/recebimentos/**` (`SituacaoConta`: status, etapas, documentos pendentes com link e validade, recusa, "Atualizar situação"); testes novos `apps/api/test/payment-account-status.test.ts`.
+- **Entregas:** `refreshAccountStatus` (grava `status`, `kyc`, `status_checked_at`, `approved_at` na primeira aprovação; desativada não muda), `handleAccountWebhook` (idempotente por `webhook_events`), `refreshPendingAccounts` (crossEvent, uma falha não para as outras), e-mail de mudança de situação, rotas de refresh com `sensitiveLimit`.
+- **Testes:** transições com provedor falso; aprovada não volta a pendente sem o provedor dizer; e-mail só quando muda; refresh de conta de outra org 404; rotina com relógio fixo; nada de segredo no `kyc`.
+
+### Arquivos só da integração
+
+`packages/db/src/schema/**`, `packages/db/migrations/**`, `packages/db/src/{index,seed,tenancy-admin,cli}.ts`, `packages/shared/src/{payment-accounts,permissions,admin,gifts,index}.ts`, `apps/api/src/{app.ts,env.ts,crypto/**,payments/provider.ts,payment-accounts/store.ts,admin/index.ts,admin/org/index.ts,admin/org/host-permissions.ts,admin/stub.ts,tenancy/**}`, `apps/api/test/{admin-isolation.test.ts,sql-audit.ts,helpers.ts,tenancy.test.ts,host-permissions.test.ts,secret-box.test.ts}`, `apps/api/painel/src/{App.tsx,org.tsx}`, `.env.example`, `.env.production.example`, `docker-compose.prod.yml`, `deploy/**`, `CLAUDE.md`, `docs/**`.
+
+### Integração (depois das 4)
+
+Merge A → B → C → D; apagar `admin/stub.ts`, `notImplemented` e o `PHASE5_STUB` do `admin-isolation.test.ts`; e2e: o setup do `multi` cria `ana-bruno` com `organization` — dar a ele uma subconta simulada aprovada (ou `platform`) para os testes de presente; e2e novo do fluxo (dono cadastra conta → aprovada no simulado → evento recebe → pedido com split no painel; anfitrião liberado cadastra a própria); `pnpm build`, screenshots em `.screenshots/saas-fase5/`; `CLAUDE.md`, `docs/PERSONALIZAR.md` §6 (subcontas, split, liberação do split no Asaas), `docs/DEPLOY.md` (`PAYMENT_SECRETS_KEY`) e `STATUS.md`.
+
+## 5. Decisões que dependem do usuário (padrões em vigor)
+
+| Decisão                                                 | Padrão                                                                                        |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Percentual da plataforma                                | `PLATFORM_FEE_PERCENT` = 0 (sem split) até definir; Fase 6 leva aos planos. `TODO(conteudo)`. |
+| Evento sem conta aprovada                               | Presentes em dinheiro indisponíveis (aviso), em vez de cair na conta da plataforma.           |
+| Casamento e eventos já existentes                       | Continuam na conta principal (`platform`), sem taxa.                                          |
+| Quem cadastra a conta da organização                    | Só o dono (e o platform admin); membros só veem.                                              |
+| Anfitrião com conta própria                             | Opt-in por evento, liberado pela organização; o anfitrião nunca escolhe o recebedor.          |
+| Taxa do Asaas                                           | Paga pelo recebedor; a plataforma recebe o percentual sobre o líquido (regra do Asaas).       |
+| Liberação do split e subcontas na conta Asaas principal | Pedir ao Asaas antes de produção; validar tudo no sandbox (`$aact_hmlg_`) antes de publicar.  |
