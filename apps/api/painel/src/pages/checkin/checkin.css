@@ -1,0 +1,203 @@
+/* Fase 7, frente A: check-in (painel e portaria). Tokens de cor de styles.css. */
+
+.checkin-totals {
+  display: grid;
+  gap: 8px;
+}
+.checkin-totals__big {
+  margin: 0;
+  color: var(--suave);
+}
+.checkin-totals__big strong {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--marinho);
+  font-variant-numeric: tabular-nums;
+  margin-right: 6px;
+}
+
+.checkin-search {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.checkin-search .field {
+  flex: 1;
+}
+
+.scanner__frame {
+  position: relative;
+  border-radius: var(--raio);
+  overflow: hidden;
+  background: var(--marinho);
+  aspect-ratio: 1;
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+}
+.scanner__frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.scanner__target {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid var(--branco);
+  border-radius: 12px;
+  box-shadow: 0 0 0 999px rgb(20 33 61 / 0.35);
+}
+
+.checkin-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.checkin-inv {
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  background: var(--branco);
+}
+.checkin-inv__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.checkin-inv__head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--marinho);
+  overflow-wrap: anywhere;
+}
+.checkin-inv__head .badge {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.checkin-inv__note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--aviso-fundo);
+  color: var(--aviso);
+}
+.checkin-warn {
+  margin: 0;
+  color: var(--aviso);
+}
+
+.checkin-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.checkin-people li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--linha);
+}
+.checkin-people li:first-child {
+  border-top: 0;
+}
+
+.checkin-mark {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.checkin-mark__go {
+  flex: 1;
+  min-width: 160px;
+}
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stepper .button {
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 1.3rem;
+  padding: 0;
+}
+.stepper output {
+  min-width: 2.5ch;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 650;
+  color: var(--marinho);
+  font-variant-numeric: tabular-nums;
+}
+
+.checkin-arrivals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.checkin-arrivals li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--suave);
+}
+.checkin-arrivals .button,
+.checkin-recent .button {
+  min-height: 44px;
+}
+.checkin-recent .row--off .row__title {
+  text-decoration: line-through;
+  color: var(--suave);
+}
+
+.checkin-secret {
+  display: grid;
+  gap: 8px;
+}
+.checkin-pin {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--marinho);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Portaria: tela cheia no celular, sem o menu do painel. */
+.portaria {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+  display: grid;
+  gap: 16px;
+}
+.portaria__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.portaria__top h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--marinho);
+}
+.portaria-pin input {
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

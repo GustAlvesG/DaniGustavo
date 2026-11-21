@@ -339,6 +339,11 @@ export function ConviteDetalhe({ id }: { id: number }) {
             </tbody>
           </table>
         </div>
+        {inv.accessNote && (
+          <p className="small">
+            <strong>Aviso para a portaria:</strong> {inv.accessNote}
+          </p>
+        )}
         {(inv.contactEmail || inv.contactPhone) && (
           <p className="muted small">
             Contato: {[inv.contactEmail, inv.contactPhone].filter(Boolean).join(" · ")}
@@ -447,6 +452,7 @@ export function ConviteForm({ id }: { id?: number }) {
   const [allowPlusOne, setAllowPlusOne] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [accessNote, setAccessNote] = useState("");
   const [guests, setGuests] = useState<GuestDraft[]>(() => [emptyGuest()]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -460,6 +466,7 @@ export function ConviteForm({ id }: { id?: number }) {
     setAllowPlusOne(inv.allowPlusOne);
     setContactEmail(inv.contactEmail ?? "");
     setContactPhone(inv.contactPhone ?? "");
+    setAccessNote(inv.accessNote ?? "");
     setGuests(
       inv.guests.map((g) => ({
         key: `g${g.id}`,
@@ -488,6 +495,7 @@ export function ConviteForm({ id }: { id?: number }) {
       allowPlusOne,
       contactEmail,
       contactPhone,
+      accessNote,
       guests: guests.map((g) => ({
         ...(g.id ? { id: g.id } : {}),
         name: g.name,
@@ -499,7 +507,7 @@ export function ConviteForm({ id }: { id?: number }) {
         email: g.email,
       })),
     }),
-    [label, sideValue, maxGuests, allowPlusOne, contactEmail, contactPhone, guests],
+    [label, sideValue, maxGuests, allowPlusOne, contactEmail, contactPhone, accessNote, guests],
   );
 
   async function onSubmit(e: FormEvent) {
@@ -597,6 +605,17 @@ export function ConviteForm({ id }: { id?: number }) {
           />
           Pode levar acompanhante (o convidado informa o nome ao confirmar)
         </label>
+        <Field
+          label="Aviso para a portaria"
+          hint="Aparece no check-in (ex.: só cerimônia, entrada pela lateral). Nada de saúde aqui."
+          className="span-2"
+        >
+          <input
+            value={accessNote}
+            onChange={(e) => setAccessNote(e.target.value)}
+            maxLength={191}
+          />
+        </Field>
       </section>
 
       <section className="stack" aria-labelledby="f-conv">
