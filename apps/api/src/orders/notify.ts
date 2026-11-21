@@ -19,11 +19,6 @@ import { eventBaseUrl } from "../tenancy/urls.ts";
 type OrderRow = typeof giftOrders.$inferSelect;
 type GiftRow = typeof gifts.$inferSelect;
 
-/** Envio ao Telegram, injetável para os testes. */
-export interface Notifier {
-  telegram(text: string): Promise<void>;
-}
-
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 export const formatBRL = (cents: number) => brl.format(cents / 100).replace(/\s/g, " ");
 
@@ -33,29 +28,6 @@ const escapeHtml = (v: string) =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-
-/**
- * Telegram via Bot API com `fetch` (sem dependência). Sem token/chat no .env, não faz nada.
- * É o canal de operação da plataforma: recebe os avisos de todos os eventos (quem envia
- * prefixa a mensagem com o nome do evento).
- */
-export function createTelegramNotifier(env: Env, doFetch: typeof fetch = fetch): Notifier {
-  return {
-    async telegram(text) {
-      if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-      const res = await doFetch(
-        `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text }),
-          signal: AbortSignal.timeout(10_000),
-        },
-      );
-      if (!res.ok) throw new Error(`Telegram respondeu ${res.status}: ${await res.text()}`);
-    },
-  };
-}
 
 function describeGift(order: OrderRow, gift: GiftRow): string {
   if (gift.openAmount) return gift.title;
@@ -163,13 +135,12 @@ export async function eventNotifyRecipients(ev: EventCtx, db: Database): Promise
   return emails;
 }
 
-/** Pedido pago: agradece o convidado, avisa os anfitriões do evento e o Telegram da plataforma. */
+/** Pedido pago: agradece o convidado e avisa os anfitriões do evento, só por e-mail. */
 export async function notifyPaid(
   deps: {
     env: Env;
     db: Database;
     mailer: Mailer;
-    notifier?: Notifier;
     eventResolver?: EventResolver;
   },
   ev: EventCtx,
@@ -177,7 +148,6 @@ export async function notifyPaid(
   gift: GiftRow,
 ): Promise<void> {
   const { env, db, mailer } = deps;
-  const notifier = deps.notifier ?? createTelegramNotifier(env);
   const baseUrl = await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) });
   const hosts = await eventNotifyRecipients(ev, db).catch((err: unknown) => {
     console.error("[avisos] Falha ao buscar os destinatários do evento:", err);
@@ -186,13 +156,6 @@ export async function notifyPaid(
   const tasks: Promise<void>[] = [
     mailer.send(buildThanksEmail(order, gift, baseUrl, ev)),
     ...hosts.map((to) => mailer.send(buildCoupleEmail(to, order, gift, ev))),
-    notifier.telegram(
-      `[${ev.name}] Presente recebido: ${describeGift(order, gift)}, ${formatBRL(order.amountCents + order.feeCents)}, de ${order.buyerName}.` +
-        (order.message
-          ? `
-Recado: ${order.message}`
-          : ""),
-    ),
   ];
   const results = await Promise.allSettled(tasks);
   for (const r of results) {

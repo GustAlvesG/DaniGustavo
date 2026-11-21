@@ -1,18 +1,19 @@
-import { and, byEvent, eq, giftOrders, type Database } from "@casamento/db";
-import { ERROR_CODES } from "@casamento/shared";
+import { and, byEvent, eq, giftOrders, sql, type Database } from "@casamento/db";
+import { ERROR_CODES, type HealthResponse } from "@casamento/shared";
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import type { Auth } from "./auth.ts";
 import type { Env } from "./env.ts";
 import { apiError, routeNotFound } from "./errors.ts";
 import { createMailer, type Mailer } from "./mailer.ts";
+import { createAlerter, type Alerter } from "./alerts.ts";
+import { describeError, loggerFromEnv, requestLog, type Logger } from "./log.ts";
 import { createRateLimiter, type RateLimiter } from "./rate-limit.ts";
 import { hostRoutes } from "./routes/hosts.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
 import { messageRoutes } from "./routes/messages.ts";
 import { teamInviteRoutes } from "./routes/team-invites.ts";
 import { giftRoutes, orderRoutes, webhookRoutes } from "./routes/orders.ts";
-import type { Notifier } from "./orders/notify.ts";
 import type { OrderDeps } from "./orders/service.ts";
 import { createPaymentProvider, isSimulated, type PaymentProvider } from "./payments/index.ts";
 import { loadSiteContent } from "./site-content.ts";
@@ -52,8 +53,10 @@ export interface AppDeps {
   now?: () => Date;
   /** Provedor de pagamento (padrão: pelo .env, PAYMENT_PROVIDER; simulado se vazio). */
   provider?: PaymentProvider;
-  /** Avisos no Telegram (padrão: Bot API, se configurado no .env). */
-  notifier?: Notifier;
+  /** Fase 6: logs estruturados (padrão: JSON em produção, texto fora; LOG_FORMAT muda). */
+  logger?: Logger;
+  /** Fase 6: alertas por e-mail para PLATFORM_ALERT_EMAIL (padrão: pelo mailer, com intervalo). */
+  alerts?: Alerter;
   /** Invalida o cache do site depois de uma mudança no painel (padrão: POST no /api/revalidar do Next). */
   revalidate?: Revalidate;
   /** Slug/id/host → evento, com cache em memória (padrão: LRU de 60 s). */
@@ -74,7 +77,8 @@ export function createApp({
   rateLimiter = createRateLimiter(),
   now = () => new Date(),
   provider = createPaymentProvider(env),
-  notifier,
+  logger = loggerFromEnv(env),
+  alerts = createAlerter({ env, mailer, logger }),
   revalidate = createWebRevalidator(env),
   eventResolver = createEventResolver(db),
   secrets = secretBoxFromEnv(env),
@@ -82,12 +86,79 @@ export function createApp({
 }: AppDeps) {
   const app = new Hono();
 
-  app.use("*", secureHeaders());
+  // Uma linha de log por requisição; 5xx também vira alerta da plataforma (com intervalo).
+  app.use(
+    "*",
+    requestLog(logger, ({ method, path, status, error }) => {
+      void alerts.notify({
+        key: `http:${status}:${method} ${path}`,
+        title: `Erro ${status} em ${method} ${path}`,
+        error,
+      });
+    }),
+  );
+  // HSTS, nosniff e Referrer-Policy também vêm do snippet `seguranca` do edge em produção;
+  // HSTS fica só lá (aqui valeria até em http://localhost).
+  app.use(
+    "*",
+    secureHeaders({
+      strictTransportSecurity: false,
+      xFrameOptions: "DENY",
+      permissionsPolicy: {
+        camera: [],
+        microphone: [],
+        geolocation: [],
+        payment: [],
+        usb: [],
+      },
+    }),
+  );
+  // Respostas da API (JSON, fotos) não carregam nada nem abrem em iframe; o painel define a dele.
+  app.use("*", async (c, next) => {
+    await next();
+    if (!c.res.headers.has("content-security-policy")) {
+      c.res.headers.set(
+        "Content-Security-Policy",
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      );
+    }
+  });
   app.use("/api/*", webKey(env.WEB_KEY));
 
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-  app.get("/api/health", (c) => c.json({ status: "ok" }));
+  // Saúde. Sem parâmetro: só o processo (healthcheck do Docker e HEALTH_URLS do deploy; não
+  // depende do banco nem das migrations). `?db=1`: também `SELECT 1` (503 se o banco falhar),
+  // com o resultado guardado por alguns segundos para a rota não virar carga no banco.
+  let dbCheck: { at: number; ok: boolean } | null = null;
+  app.get("/api/health", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const wantDb = ["1", "true"].includes(c.req.query("db") ?? "");
+    if (!wantDb) return c.json({ status: "ok" } satisfies HealthResponse);
+    const t = now().getTime();
+    if (!dbCheck || t - dbCheck.at > 5_000) {
+      let ok = true;
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        await Promise.race([
+          db.execute(sql`select 1`),
+          new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error("tempo esgotado")), 3_000);
+          }),
+        ]);
+      } catch (err) {
+        ok = false;
+        logger.error("health: banco indisponível", describeError(err));
+      } finally {
+        clearTimeout(timer);
+      }
+      dbCheck = { at: t, ok };
+    }
+    const body: HealthResponse = dbCheck.ok
+      ? { status: "ok", db: "ok" }
+      : { status: "error", db: "error" };
+    return c.json(body, dbCheck.ok ? 200 : 503);
+  });
 
   app.route("/api/hosts", hostRoutes(eventResolver, db, env));
   // Fase 6, frente A: planos da página de preços (público).
@@ -98,7 +169,6 @@ export function createApp({
     db,
     provider,
     mailer,
-    notifier,
     now,
     eventResolver,
     revalidate,
@@ -186,8 +256,8 @@ export function createApp({
 
   app.notFound(routeNotFound);
 
-  app.onError((err, c) => {
-    console.error(err);
+  // O erro vai para o log (e o alerta) pelo requestLog, que vê o 500 e o `c.error`.
+  app.onError((_err, c) => {
     return apiError(
       c,
       500,

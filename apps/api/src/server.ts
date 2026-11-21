@@ -17,6 +17,8 @@ import { startSubscriptionJob } from "./plans/jobs.ts";
 import { startRetentionJob } from "./privacy/retention.ts";
 import { startTaskReminderJob } from "./tasks/reminder-job.ts";
 import { createLocalStorage } from "./storage/index.ts";
+import { createAlerter } from "./alerts.ts";
+import { describeError, loggerFromEnv } from "./log.ts";
 
 loadRootEnv();
 
@@ -35,8 +37,33 @@ const db = getDb();
 const provider = createPaymentProvider(env);
 const mailer = createMailer(env);
 const secrets = secretBoxFromEnv(env);
-const app = createApp({ env, db, auth: createAuth(env, db), provider, mailer, secrets });
+// Fase 6: logs JSON em produção (LOG_FORMAT muda) e alertas por e-mail (PLATFORM_ALERT_EMAIL).
+const logger = loggerFromEnv(env);
+const alerts = createAlerter({ env, mailer, logger });
+const app = createApp({
+  env,
+  db,
+  auth: createAuth(env, db),
+  provider,
+  mailer,
+  secrets,
+  logger,
+  alerts,
+});
+
+// Erro que escapou de tudo (promessa sem catch): log e alerta, sem derrubar o processo.
+process.on("unhandledRejection", (reason) => {
+  logger.error("promessa rejeitada sem tratamento", describeError(reason));
+  void alerts.notify({
+    key: "processo:unhandledRejection",
+    title: "Promessa rejeitada sem tratamento na API",
+    error: reason,
+  });
+});
+
 const jobDeps = {
+  logger,
+  alerts,
   env,
   db,
   provider,
@@ -58,14 +85,14 @@ const stopRetentionJob = startRetentionJob({
 const stopTaskReminderJob = startTaskReminderJob(jobDeps);
 
 if (env.PAYMENT_PROVIDER === "asaas" && !env.ASAAS_PLATFORM_WALLET_ID) {
-  console.warn(
+  logger.warn(
     "[pagamentos] ASAAS_PLATFORM_WALLET_ID vazio: eventos que recebem em subconta com taxa da plataforma ficam sem presentes em dinheiro.",
   );
 }
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  console.log(`API em http://localhost:${info.port} (painel em /painel)`);
-  console.log(`Pagamentos: provedor "${provider.name}".`);
+  logger.info(`API em http://localhost:${info.port} (painel em /painel)`, { port: info.port });
+  logger.info(`Pagamentos: provedor "${provider.name}".`, { provider: provider.name });
 });
 
 const shutdown = () => {

@@ -45,7 +45,6 @@ const { app, db } = testApp(
   {
     mailer,
     provider,
-    notifier: { telegram: () => Promise.resolve() },
     revalidate: (eventId, tags) => {
       revalidated.push({ eventId, tags });
       return Promise.resolve();

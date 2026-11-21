@@ -48,7 +48,7 @@ import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx } from "../tenancy/types.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import type { CacheTag, Revalidate } from "../admin/revalidate.ts";
-import { notifyPaid, type Notifier } from "./notify.ts";
+import { notifyPaid } from "./notify.ts";
 
 /*
  * Regras dos pedidos de presente. As rotas só traduzem HTTP ↔ estas funções.
@@ -69,7 +69,6 @@ export interface OrderDeps {
   db: Database;
   provider: PaymentProvider;
   mailer: Mailer;
-  notifier?: Notifier;
   now: () => Date;
   /** Id → evento (padrão: um resolver por conexão, ver resolverFor). */
   eventResolver?: EventResolver;
@@ -774,7 +773,7 @@ export async function applyCharge(
   if (result.changedTo === "paid" && result.order) {
     const loaded = await loadOrder(ev, db, result.order.publicId);
     if (loaded) {
-      // Sem await: e-mail e Telegram não seguram a resposta (falha vai para o log).
+      // Sem await: os e-mails não seguram a resposta (falha vai para o log).
       void notifyPaid(deps, ev, loaded.order, loaded.gift).catch((err: unknown) => {
         console.error("[pedidos] Falha ao avisar sobre o presente:", err);
       });

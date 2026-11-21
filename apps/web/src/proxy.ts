@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { EVENT_HOST_HEADER, normalizeHost } from "@/lib/host";
+import {
+  EVENT_HOST_HEADER,
+  createHostVerifier,
+  normalizeHost,
+  resolvePublicHost,
+} from "@/lib/host";
 
 /** Fase 6: segmento interno do site da plataforma (`app/plataforma`). */
 const PLATFORM_SEGMENT = "/plataforma";
@@ -8,22 +13,17 @@ const PLATFORM_SEGMENT = "/plataforma";
  * Proxy (o antigo "middleware" do Next; roda antes de qualquer rota, como um middleware
  * global do Laravel). Cada evento da plataforma é um host: aqui o Host vira o primeiro
  * segmento da URL (`/evento1.localhost%3A3000/presentes`), que o App Router entrega como o
- * root param `host` de `app/[host]`. Sem I/O: quem descobre o evento é `getEvent()`, com cache.
+ * root param `host` de `app/[host]`. Quem descobre o evento é `getEvent()`, com cache; o único
+ * I/O daqui é conferir um `X-Forwarded-Host` diferente do Host (também com cache).
  */
 
-/**
- * Host público da requisição. O `X-Forwarded-Host` vem primeiro: é o que o Caddy repassa e é
- * o que o próprio Next manda quando segue o `redirect()` de uma Server Action (ele busca a
- * página nova em `localhost:<porta>` com os headers originais; só pelo Host, o pedido feito em
- * outro evento abria a página do evento padrão).
- */
-function publicHost(request: NextRequest): string | null {
-  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  return forwarded || request.headers.get("host");
-}
+/** Consulta (com cache) se um host é de evento cadastrado e verificado. */
+const knownHost = createHostVerifier();
 
-export function proxy(request: NextRequest) {
-  const host = normalizeHost(publicHost(request));
+export async function proxy(request: NextRequest) {
+  const platformHost = normalizeHost(process.env.PLATFORM_HOST ?? null);
+  // X-Forwarded-Host só de host cadastrado (ou o da plataforma); ver resolvePublicHost.
+  const host = await resolvePublicHost(request.headers, { platformHost, verify: knownHost });
   if (!host) {
     return new NextResponse("Endereço inválido.", {
       status: 400,
@@ -45,7 +45,6 @@ export function proxy(request: NextRequest) {
   // Fase 6: o host da plataforma (landing, preços e cadastro) vai para `app/plataforma`, que é
   // um segmento estático ao lado de `app/[host]` (com root layout próprio). Os eventos nunca
   // chegam lá: o caminho deles sempre ganha o prefixo do host.
-  const platformHost = normalizeHost(process.env.PLATFORM_HOST ?? null);
   if (platformHost && host === platformHost) {
     const inside = path === PLATFORM_SEGMENT || path.startsWith(`${PLATFORM_SEGMENT}/`);
     url.pathname = inside ? path : `${PLATFORM_SEGMENT}${path === "/" ? "" : path}`;
