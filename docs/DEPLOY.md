@@ -142,7 +142,11 @@ Preencha:
   diferente do `openssl`; hex evita `@ / : #`, que quebram a `DATABASE_URL`);
 - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
 - SMTP (`MAIL_*`): sem ele os e-mails de confirmação e lembretes não saem (só aparecem no log);
-- pagamentos: comece com `PAYMENT_PROVIDER=simulado` e ligue o Asaas no passo 10.
+- pagamentos: comece com `PAYMENT_PROVIDER=simulado` e ligue o Asaas no passo 10;
+- `PAYMENT_SECRETS_KEY` (plataforma, Fase 5): mais um valor do `openssl rand -hex 32`,
+  **obrigatório em produção** (a API não sobe sem ele). Cifra as chaves de API das subcontas
+  Asaas; trocá-lo depois invalida as chaves gravadas. `PLATFORM_FEE_PERCENT` (taxa da plataforma,
+  padrão 0) e `ASAAS_PLATFORM_WALLET_ID` ficam para o passo 10.
 
 `SITE_URL`, `BETTER_AUTH_URL`, `API_URL`, `DATABASE_URL` e `NEXT_PUBLIC_SITE_URL` **não** vão no
 `.env`: o `docker-compose.prod.yml` monta a partir de `DOMAIN`, `API_DOMAIN` e `MYSQL_*`. A linha
@@ -255,6 +259,12 @@ Siga `docs/PERSONALIZAR.md` §6 (conta, chave Pix, chave de API). Em produção:
 - Aplique: `docker compose up -d api` (o `restart` **não** relê o `.env`; o `up -d` recria o
   container com os valores novos). O log deve mostrar `Pagamentos: provedor "asaas"`.
 - Teste com um Pix de R$ 5 e estorne pelo painel (Pedidos).
+- **Subcontas e split (plataforma, Fase 5)**: peça ao Asaas a liberação de subcontas e split e
+  valide no sandbox antes (`docs/PERSONALIZAR.md` §6, "Recebimentos por subconta"). Com taxa,
+  preencha `PLATFORM_FEE_PERCENT` e `ASAAS_PLATFORM_WALLET_ID` (o `walletId` da conta principal).
+  O webhook de cada subconta é registrado pela API ao criar a subconta, em
+  `https://API_DOMAIN/api/webhooks/payments/accounts/<id público>` (já liberado pelo
+  `/api/webhooks/*` do `site.caddy` e pela regra do Cloudflare do §9); não há cadastro manual.
 
 ## 11. Backup
 
@@ -367,6 +377,11 @@ do `main`). Nada de infraestrutura nova: mesmo compose, mesmas imagens, mesmo `s
   Sem o `setup` depois das migrations, o site responde 404 (nenhum domínio cadastrado) e o painel
   não mostra o evento (ninguém vinculado). O `pos_subida` do `deploy.conf` roda só o `migrate`.
   O `uploads:migrate` move as fotos dos presentes para `uploads/1/`.
+- **Migration 0011 (recebimentos, Fase 5)**: cria `payment_accounts` e põe todos os eventos
+  existentes em `payment_receiver = platform` (continuam na conta principal, sem taxa). Exige
+  `PAYMENT_SECRETS_KEY` no `.env` (ver §5) antes de subir a API nova.
+- **Host público**: o site lê o `X-Forwarded-Host` antes do `Host` (o Caddy manda o host
+  original nele; o próprio Next também, ao seguir o `redirect()` de uma Server Action).
 - **CLI de plataforma no container** (mesma imagem da API):
   `docker compose run --rm --entrypoint node api /app/packages/db/src/cli.ts <comando>`
   (`event:list`, `org:create`, `event:create`, `domain:add`, `user:add`; sem argumentos lista as

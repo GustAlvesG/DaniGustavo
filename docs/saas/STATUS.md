@@ -2,7 +2,7 @@
 
 ## Feito (branch `saas`)
 
-- Fase 5 (recebimentos: subcontas Asaas e split): **fundação feita** (`fase-5.md`) — migration 0011 (`payment_accounts`, recebedor do evento, conta e taxa no pedido; aplicada no `casamento`, dump antes em scratchpad `casamento-antes-0011.sql`; eventos existentes ficaram em `platform`), contratos em `packages/shared` › `payment-accounts.ts`, permissões novas (`payments.*`, opt-in `allow` do anfitrião), cifra AES-256-GCM das apiKeys (`crypto/secret-box.ts`), interface do provedor estendida com stubs, rotas reservadas (501) e páginas reservadas no painel. **Próximo:** frentes A–D em paralelo (`fase-5.md` §4), depois a integração.
+- Fase 5 (recebimentos: subcontas Asaas e split): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-5.md` §6). Conta de recebimento da organização (só o dono cadastra) e, opt-in, do anfitrião; recebedor por evento; cobrança pela subconta com split da taxa (`PLATFORM_FEE_PERCENT`); situação cadastral por webhook da subconta, botão e rotina de 6 h; sem conta aprovada, "Disponível em breve" no site. Casamento e eventos anteriores seguem em `platform`. Nada novo a aplicar no `casamento` (0011 já estava). Screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Falta validar no sandbox do Asaas e pedir a liberação de subcontas/split.
 
 - Fase 4 (gestão do evento): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-4.md` §6). Tarefas e modelos, fornecedores com contratos privados, orçamentos/parcelas/planejado × realizado e cronograma do dia; data do evento nas Configurações recalcula os prazos das tarefas. Nada novo a aplicar no `casamento` (0010 já estava). Screenshots em `.screenshots/saas-fase4/`.
 - Fase 1 multi-evento: concluída (ver `fase-1.md`).
@@ -16,8 +16,8 @@
 3. ~~Integração da Fase 2~~ — **feito** (merges, conteúdo fixo apagado, legado importado, e2e e screenshots; frentes limpas).
 4. ~~**Fase 3**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 5. ~~**Fase 4**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
-6. **Fase 5** (subcontas Asaas: recebedor dos presentes por organização/anfitrião, split da taxa da plataforma): fundação **feita**; **próximo:** frentes A–D (`saas-f5a`…`saas-f5d`) e integração.
-7. Fases 6 e 7, no mesmo fluxo.
+6. ~~**Fase 5**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
+7. **Próximo: Fase 6** (comercial: cadastro self-service, planos com a taxa da plataforma, assinatura via Asaas, LGPD), no mesmo fluxo; depois a Fase 7.
 
 ## Decisões ainda abertas com o usuário
 

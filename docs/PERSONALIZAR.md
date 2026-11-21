@@ -201,6 +201,49 @@ uma cobrança real (a API avisa no log). Para testar, use a chave do sandbox.
 A integração usa a API v3 do Asaas com `fetch` (sem SDK). Código em `apps/api/src/payments/`
 (`asaas.ts`, `simulado.ts`, `provider.ts`).
 
+### Recebimentos por subconta (plataforma, Fase 5)
+
+Na plataforma, o dinheiro de cada evento cai numa **subconta Asaas** de quem recebe, e a
+plataforma fica com a taxa dela por **split** na própria cobrança (ela nunca guarda o dinheiro).
+
+- **Quem recebe** (painel do evento → **Recebimento**, só a organização escolhe): a **conta da
+  organização** (padrão) ou a **conta de um anfitrião** do evento. A **conta da plataforma**
+  (conta principal, sem taxa) é o modo do casamento e dos eventos anteriores à Fase 5; só o
+  administrador da plataforma escolhe.
+- **Conta da organização**: o dono cadastra em **Organização → Recebimentos** (PF ou PJ: nome,
+  CPF/CNPJ, e-mail, celular, endereço, renda ou faturamento, nascimento na PF, tipo de empresa na
+  PJ). Os dados vão direto ao Asaas, que cria a subconta e analisa o cadastro; o painel guarda só
+  nome, e-mail e o final do documento. Os documentos de identidade são enviados pelo **link de
+  envio** do Asaas que aparece em "Situação cadastral".
+- **Conta do anfitrião**: a organização libera "Cadastrar a própria conta de recebimento" nas
+  permissões do anfitrião (vem desligada); aí ele cadastra em **Recebimento**.
+- **Situação cadastral** (pendente, em análise, aprovada, recusada): atualizada pelo webhook da
+  subconta, pelo botão "Atualizar situação" e por uma rotina a cada 6 horas; quem cadastrou e os
+  donos recebem e-mail quando ela muda.
+- **Sem conta aprovada**, a lista de presentes aparece com "Disponível em breve" no lugar do
+  botão, e a API recusa o pedido (409). Os pedidos já criados continuam na conta deles.
+- **Taxa**: `PLATFORM_FEE_PERCENT` no `.env` (0 a 50; 0 = sem split). O Asaas calcula o
+  percentual sobre o valor líquido (depois da taxa dele); cada pedido mostra no painel a conta
+  que recebeu e a taxa (informada pelo Asaas ou estimada).
+- **No modo simulado**: e-mail do cadastro com `+pendente`, `+analise` ou `+recusada` escolhe a
+  situação inicial (qualquer outro nasce aprovado), e o cartão "Situação cadastral" tem os botões
+  "Simular aprovação/pendência/recusa" (só fora de produção).
+
+Antes de usar em produção:
+
+1. **Peça ao Asaas a liberação de subcontas e do split** na conta principal (em conta nova o
+   split vem desabilitado e a cobrança falha com `invalid_action`).
+2. Valide tudo no **sandbox** (`$aact_hmlg_...`): criar subconta, enviar documentos pelo link,
+   aprovação, Pix e fatura de cartão com split, webhook da subconta, reembolso.
+3. No `.env`: `PAYMENT_SECRETS_KEY` (64 hex, `openssl rand -hex 32`; **obrigatória em
+   produção**: cifra as chaves de API das subcontas, e trocá-la invalida as chaves gravadas),
+   `PLATFORM_FEE_PERCENT` e `ASAAS_PLATFORM_WALLET_ID` (o `walletId` da conta principal, em
+   **Minha conta → Integrações**; obrigatório com Asaas e taxa maior que 0).
+4. O **webhook de cada subconta** é criado pela API junto com a subconta
+   (`https://SEU-DOMINIO-DA-API/api/webhooks/payments/accounts/<id público>`, com token próprio
+   guardado só como hash); não há nada a cadastrar à mão. O webhook global (passo 3 acima)
+   continua para a conta principal.
+
 ## 7. Administrar pelo painel
 
 O painel é o "admin" dos noivos: fica em **http://localhost:3333/painel/** em desenvolvimento
