@@ -47,3 +47,14 @@ Leia antes de qualquer coisa: `CLAUDE.md`, este arquivo e o `docs/saas/fase-N.md
 - Fase 4: anfitrião vê financeiro e contratos, mas não cadastra fornecedor no catálogo; categorias personalizadas por organização; lembrete semanal de tarefas por e-mail; modelos de tarefas da plataforma por tipo de evento; reabrir orçamento contratado sem parcela paga (Fase 6).
 - Ajustes da Fase 6: remover `gsap`/`@gsap/react`; tela para `couple.monogram_art` e `calendar.uid`; esconder botões de gravar sem permissão (`useCan`); editar data e fuso pela lista de eventos da organização.
 - Arquivos continuam em disco local atrás de uma interface `Storage` (S3 exige dependência: fica para quando o usuário aprovar). Miniaturas geradas no navegador (canvas) antes do upload.
+
+## Decisões do usuário para a Fase 7 (21/11/2026)
+
+- Escopo: check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp e "app" (`docs/saas/fase-7.md`).
+- WhatsApp: links prontos (`wa.me`) com modelos por evento (convite, lembrete de RSVP, agradecimento, aviso do dia) e envio em lote assistido pelo WhatsApp do próprio organizador; sem API da Meta e sem custo; "enviado" marcado pelo organizador.
+- App do organizador: "site, não app" — nada de app nativo nem PWA instalável; o painel responsivo resolve, com as telas do dia (check-in, cronograma, tarefas, mesas) boas no celular.
+- Check-in: portaria por link + PIN, sem conta; a organização gera e revoga; a portaria vê só nome do convite, pessoas e aviso de acesso (sem dado de saúde), lê o QR pela câmera (`BarcodeDetector`; sem ele, digitação/busca; sem dependência nova) e marca chegada, inclusive parcial, com contagem por polling e desfazer. PIN com rate limit e hash; token só em hash; `camera` liberada só na rota da portaria.
+- Portal do fornecedor: link mágico por e-mail por fornecedor do evento (token em hash, expira, revogável, uso repetido na validade); vê cronograma do dia e os itens dele, tarefas atribuídas, envia orçamento ("recebido") e documentos (área privada, mesmas regras); não vê convidados nem valores de outros fornecedores.
+- Mapa de mesas: lista de mesas (nome, lugares, ordem), distribuição por pessoa respeitando quem confirmou, aviso de lotação, mesa por lado/grupo, impressão por mesa, plaquinhas e lista do cerimonial; mesa aparece no check-in.
+- Acompanhantes contam no limite de convidados do plano, mas o RSVP nunca é recusado: passou do limite, e-mail e aviso no painel para a organização.
+- Retenção do casamento: manter 365 dias (anonimiza a partir de 09/04/2028); só deixar a data visível na Privacidade do evento.
