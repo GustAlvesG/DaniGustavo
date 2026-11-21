@@ -1,3 +1,4 @@
+import { withDeadlockRetry } from "../db-retry.ts";
 import { secretsOf, type SecretBox } from "../crypto/secret-box.ts";
 import {
   and,
@@ -319,42 +320,44 @@ export async function createOrder(
   const created = now();
   const expiresAt = new Date(created.getTime() + ORDER_HOLD_MINUTES * 60_000);
 
-  const reserved = await db.transaction(async (tx) => {
-    // Trava a linha do presente até o fim da transação: a próxima compra espera aqui.
-    const [locked] = await tx
-      .select()
-      .from(gifts)
-      .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)))
-      .for("update");
-    if (!locked) return false;
-    if (!locked.openAmount) {
-      if (locked.quotaTotal - locked.quotaSold < quantity) return false;
-      await tx
-        .update(gifts)
-        .set({ quotaSold: sql`${gifts.quotaSold} + ${quantity}` })
-        .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)));
-    }
-    await tx.insert(giftOrders).values({
-      eventId: ev.id,
-      publicId,
-      giftId: gift.id,
-      quantity,
-      amountCents,
-      buyerName: req.buyerName,
-      buyerEmail: req.buyerEmail.toLowerCase(),
-      message: req.message ?? null,
-      showOnWall: req.showOnWall,
-      status: "pending",
-      method: "pix",
-      provider: provider.name,
-      paymentAccountId: accountId,
-      platformFeeBps: feeBps,
-      expiresAt,
-      createdAt: created,
-      updatedAt: created,
-    });
-    return true;
-  });
+  const reserved = await withDeadlockRetry(() =>
+    db.transaction(async (tx) => {
+      // Trava a linha do presente até o fim da transação: a próxima compra espera aqui.
+      const [locked] = await tx
+        .select()
+        .from(gifts)
+        .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)))
+        .for("update");
+      if (!locked) return false;
+      if (!locked.openAmount) {
+        if (locked.quotaTotal - locked.quotaSold < quantity) return false;
+        await tx
+          .update(gifts)
+          .set({ quotaSold: sql`${gifts.quotaSold} + ${quantity}` })
+          .where(and(eq(gifts.id, gift.id), byEvent(gifts, ev)));
+      }
+      await tx.insert(giftOrders).values({
+        eventId: ev.id,
+        publicId,
+        giftId: gift.id,
+        quantity,
+        amountCents,
+        buyerName: req.buyerName,
+        buyerEmail: req.buyerEmail.toLowerCase(),
+        message: req.message ?? null,
+        showOnWall: req.showOnWall,
+        status: "pending",
+        method: "pix",
+        provider: provider.name,
+        paymentAccountId: accountId,
+        platformFeeBps: feeBps,
+        expiresAt,
+        createdAt: created,
+        updatedAt: created,
+      });
+      return true;
+    }),
+  );
 
   if (!reserved) {
     const [fresh] = await db
@@ -402,19 +405,21 @@ export async function createOrder(
       .where(and(eq(giftOrders.id, loaded.order.id), byEvent(giftOrders, ev)));
   } catch (err) {
     console.error(`[pedidos] Falha ao gerar o Pix do pedido ${publicId}:`, describeError(err));
-    await db.transaction(async (tx) => {
-      const [o] = await tx
-        .select()
-        .from(giftOrders)
-        .where(and(eq(giftOrders.id, loaded.order.id), byEvent(giftOrders, ev)))
-        .for("update");
-      if (o?.status !== "pending") return;
-      await tx
-        .update(giftOrders)
-        .set({ status: "failed", statusDetail: "pix_creation_failed" })
-        .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
-      await releaseQuota(tx, o);
-    });
+    await withDeadlockRetry(() =>
+      db.transaction(async (tx) => {
+        const [o] = await tx
+          .select()
+          .from(giftOrders)
+          .where(and(eq(giftOrders.id, loaded.order.id), byEvent(giftOrders, ev)))
+          .for("update");
+        if (o?.status !== "pending") return;
+        await tx
+          .update(giftOrders)
+          .set({ status: "failed", statusDetail: "pix_creation_failed" })
+          .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
+        await releaseQuota(tx, o);
+      }),
+    );
     return fail(
       502,
       ERROR_CODES.paymentFailed,
@@ -635,111 +640,114 @@ export async function applyCharge(
   const where = and(chargeOrderFilter(charge), byEvent(giftOrders, ev));
   const platformFeeCents = splitTotalCents(charge.split);
 
-  const result = await db.transaction(async (tx) => {
-    const [order] = await tx.select().from(giftOrders).where(where).for("update");
-    if (!order) return { order: null, changedTo: null, previousCharge: null };
-    const isActiveCharge = order.providerOrderId === charge.providerOrderId;
-    let changedTo: OrderStatus | null = null;
+  const result = await withDeadlockRetry(() =>
+    db.transaction(async (tx) => {
+      const [order] = await tx.select().from(giftOrders).where(where).for("update");
+      if (!order) return { order: null, changedTo: null, previousCharge: null };
+      const isActiveCharge = order.providerOrderId === charge.providerOrderId;
+      let changedTo: OrderStatus | null = null;
 
-    if (charge.status === "approved") {
-      if (order.status !== "paid" && order.status !== "refunded") {
-        if (order.status !== "pending") {
-          // Pago depois de expirar (Pix no último segundo): reserva as cotas de novo.
-          const [g] = await tx
-            .select()
-            .from(gifts)
-            .where(and(eq(gifts.id, order.giftId), byEvent(gifts, ev)))
-            .for("update");
-          if (g && !g.openAmount) {
-            if (g.quotaTotal - g.quotaSold < order.quantity) {
-              console.warn(
-                `[pedidos] Pedido ${order.publicId} pago depois de expirar e sem cotas livres: a cota fica acima do total.`,
-              );
+      if (charge.status === "approved") {
+        if (order.status !== "paid" && order.status !== "refunded") {
+          if (order.status !== "pending") {
+            // Pago depois de expirar (Pix no último segundo): reserva as cotas de novo.
+            const [g] = await tx
+              .select()
+              .from(gifts)
+              .where(and(eq(gifts.id, order.giftId), byEvent(gifts, ev)))
+              .for("update");
+            if (g && !g.openAmount) {
+              if (g.quotaTotal - g.quotaSold < order.quantity) {
+                console.warn(
+                  `[pedidos] Pedido ${order.publicId} pago depois de expirar e sem cotas livres: a cota fica acima do total.`,
+                );
+              }
+              await tx
+                .update(gifts)
+                .set({ quotaSold: sql`${gifts.quotaSold} + ${order.quantity}` })
+                .where(and(eq(gifts.id, g.id), byEvent(gifts, ev)));
             }
-            await tx
-              .update(gifts)
-              .set({ quotaSold: sql`${gifts.quotaSold} + ${order.quantity}` })
-              .where(and(eq(gifts.id, g.id), byEvent(gifts, ev)));
           }
+          await tx
+            .update(giftOrders)
+            .set({
+              status: "paid",
+              paidAt: now(),
+              method: charge.method,
+              // A taxa é só do cartão: escolheu no cartão e pagou no Pix, não há taxa.
+              ...(charge.method === "pix" ? { feeCents: 0, feeCovered: false } : {}),
+              providerOrderId: charge.providerOrderId,
+              statusDetail: charge.statusDetail,
+              // Fase 5: o repasse à plataforma, como o provedor informou (null = sem split).
+              ...(platformFeeCents !== null ? { platformFeeCents } : {}),
+              pixCode: null,
+              pixQrBase64: null,
+              pixTicketUrl: null,
+            })
+            .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
+          const gross =
+            charge.amountCents ||
+            order.amountCents + (charge.method === "pix" ? 0 : order.feeCents);
+          await tx
+            .insert(payments)
+            .ignore()
+            .values({
+              eventId: order.eventId,
+              orderId: order.id,
+              gateway: order.provider,
+              gatewayId: charge.paymentId ?? charge.providerOrderId,
+              method: charge.method,
+              gatewayStatus: charge.statusDetail,
+              grossCents: gross,
+              feeCents: 0,
+              netCents: gross,
+              raw: charge.raw,
+            });
+          if (order.message && order.showOnWall) {
+            await tx.insert(messages).ignore().values({
+              eventId: order.eventId,
+              author: order.buyerName,
+              body: order.message,
+              giftOrderId: order.id,
+            });
+          }
+          changedTo = "paid";
         }
+      } else if (charge.status === "refunded") {
+        if (order.status === "paid") {
+          await tx
+            .update(giftOrders)
+            .set({ status: "refunded", statusDetail: charge.statusDetail })
+            .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
+          await releaseQuota(tx, order);
+          changedTo = "refunded";
+        }
+      } else if (charge.status === "pending") {
+        if (order.status === "pending" && isActiveCharge) {
+          await tx
+            .update(giftOrders)
+            .set({ statusDetail: charge.statusDetail })
+            .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
+        }
+      } else if (order.status === "pending" && isActiveCharge) {
+        // Pix vencido/cancelado no provedor. Cartão recusado não mexe no pedido: dá para
+        // tentar outro cartão ou o Pix, que continua valendo.
+        const status: OrderStatus = charge.status === "rejected" ? "failed" : "expired";
         await tx
           .update(giftOrders)
-          .set({
-            status: "paid",
-            paidAt: now(),
-            method: charge.method,
-            // A taxa é só do cartão: escolheu no cartão e pagou no Pix, não há taxa.
-            ...(charge.method === "pix" ? { feeCents: 0, feeCovered: false } : {}),
-            providerOrderId: charge.providerOrderId,
-            statusDetail: charge.statusDetail,
-            // Fase 5: o repasse à plataforma, como o provedor informou (null = sem split).
-            ...(platformFeeCents !== null ? { platformFeeCents } : {}),
-            pixCode: null,
-            pixQrBase64: null,
-            pixTicketUrl: null,
-          })
-          .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
-        const gross =
-          charge.amountCents || order.amountCents + (charge.method === "pix" ? 0 : order.feeCents);
-        await tx
-          .insert(payments)
-          .ignore()
-          .values({
-            eventId: order.eventId,
-            orderId: order.id,
-            gateway: order.provider,
-            gatewayId: charge.paymentId ?? charge.providerOrderId,
-            method: charge.method,
-            gatewayStatus: charge.statusDetail,
-            grossCents: gross,
-            feeCents: 0,
-            netCents: gross,
-            raw: charge.raw,
-          });
-        if (order.message && order.showOnWall) {
-          await tx.insert(messages).ignore().values({
-            eventId: order.eventId,
-            author: order.buyerName,
-            body: order.message,
-            giftOrderId: order.id,
-          });
-        }
-        changedTo = "paid";
-      }
-    } else if (charge.status === "refunded") {
-      if (order.status === "paid") {
-        await tx
-          .update(giftOrders)
-          .set({ status: "refunded", statusDetail: charge.statusDetail })
+          .set({ status, statusDetail: charge.statusDetail })
           .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
         await releaseQuota(tx, order);
-        changedTo = "refunded";
+        changedTo = status;
       }
-    } else if (charge.status === "pending") {
-      if (order.status === "pending" && isActiveCharge) {
-        await tx
-          .update(giftOrders)
-          .set({ statusDetail: charge.statusDetail })
-          .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
-      }
-    } else if (order.status === "pending" && isActiveCharge) {
-      // Pix vencido/cancelado no provedor. Cartão recusado não mexe no pedido: dá para
-      // tentar outro cartão ou o Pix, que continua valendo.
-      const status: OrderStatus = charge.status === "rejected" ? "failed" : "expired";
-      await tx
-        .update(giftOrders)
-        .set({ status, statusDetail: charge.statusDetail })
-        .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)));
-      await releaseQuota(tx, order);
-      changedTo = status;
-    }
 
-    const previousCharge =
-      changedTo === "paid" && order.providerOrderId && !isActiveCharge
-        ? order.providerOrderId
-        : null;
-    return { order, changedTo, previousCharge };
-  });
+      const previousCharge =
+        changedTo === "paid" && order.providerOrderId && !isActiveCharge
+          ? order.providerOrderId
+          : null;
+      return { order, changedTo, previousCharge };
+    }),
+  );
 
   // As outras cobranças do pedido estão na mesma conta dele (principal ou subconta).
   const provider =
@@ -919,26 +927,28 @@ export async function expireOrder(
 }
 
 function expireLocally(ev: EventCtx, deps: OrderDeps, order: OrderRow): Promise<OrderStatus> {
-  return deps.db.transaction(async (tx) => {
-    const [o] = await tx
-      .select()
-      .from(giftOrders)
-      .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)))
-      .for("update");
-    if (!o || o.status !== "pending") return o?.status ?? "expired";
-    await tx
-      .update(giftOrders)
-      .set({
-        status: "expired",
-        statusDetail: "expired",
-        pixCode: null,
-        pixQrBase64: null,
-        pixTicketUrl: null,
-      })
-      .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
-    await releaseQuota(tx, o);
-    return "expired";
-  });
+  return withDeadlockRetry(() =>
+    deps.db.transaction(async (tx) => {
+      const [o] = await tx
+        .select()
+        .from(giftOrders)
+        .where(and(eq(giftOrders.id, order.id), byEvent(giftOrders, ev)))
+        .for("update");
+      if (!o || o.status !== "pending") return o?.status ?? "expired";
+      await tx
+        .update(giftOrders)
+        .set({
+          status: "expired",
+          statusDetail: "expired",
+          pixCode: null,
+          pixQrBase64: null,
+          pixTicketUrl: null,
+        })
+        .where(and(eq(giftOrders.id, o.id), byEvent(giftOrders, ev)));
+      await releaseQuota(tx, o);
+      return "expired";
+    }),
+  );
 }
 
 /**

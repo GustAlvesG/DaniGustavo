@@ -72,10 +72,14 @@ export function describeError(err: unknown): LogFields {
     .slice(1, 6)
     .map((l) => l.trim());
   const code = (err as Error & { code?: unknown }).code;
+  // O Drizzle embrulha o erro do mysql2 ("Failed query"): o código do banco (ex.:
+  // ER_LOCK_DEADLOCK) fica no `cause` e é o que diz o que aconteceu.
+  const causeCode = (err as Error & { cause?: { code?: unknown } }).cause?.code;
   return {
     error: err.name,
     message: scrubText(err.message),
     ...(typeof code === "string" ? { code } : {}),
+    ...(typeof causeCode === "string" ? { causeCode } : {}),
     ...(stack?.length ? { stack } : {}),
   };
 }
