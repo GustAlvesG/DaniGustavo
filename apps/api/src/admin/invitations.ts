@@ -69,6 +69,7 @@ function invitationDto(siteUrl: string, inv: InvitationRow, list: GuestRow[]): A
     allowPlusOne: inv.allowPlusOne,
     contactEmail: inv.contactEmail,
     contactPhone: inv.contactPhone,
+    accessNote: inv.accessNote,
     sentAt: iso(inv.sentAt),
     status: invitationStatus(list),
     link: invitationLink(siteUrl, inv.token),
@@ -285,6 +286,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
         allowPlusOne: input.allowPlusOne,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
+        accessNote: input.accessNote ?? null,
         createdAt: moment,
         updatedAt: moment,
       });
@@ -344,6 +346,7 @@ export function adminInvitationRoutes(deps: AdminDeps) {
           allowPlusOne: input.allowPlusOne,
           contactEmail: input.contactEmail,
           contactPhone: input.contactPhone,
+          ...(input.accessNote !== undefined ? { accessNote: input.accessNote } : {}),
         })
         .where(and(eq(invitations.id, id), byEvent(invitations, ev)));
       const keep = new Set<number>();

@@ -88,6 +88,19 @@ export const AdminInvitationInput = z
       z.email({ error: "E-mail de contato inválido." }).max(191).nullable().default(null),
     ),
     contactPhone: optionalText(32, "Telefone de contato"),
+    /**
+     * Fase 7 (check-in): aviso para a portaria ("só cerimônia"). Nunca dado de saúde. Ausente =
+     * não muda (a importação de planilha não manda); vazio apaga.
+     */
+    accessNote: z.preprocess(
+      blankToNull,
+      z
+        .string()
+        .trim()
+        .max(191, { error: "Aviso para a portaria: use até 191 caracteres." })
+        .nullable()
+        .optional(),
+    ),
     guests: z
       .array(AdminGuestInput)
       .min(1, { error: "Adicione pelo menos um convidado." })
@@ -131,6 +144,8 @@ export interface AdminInvitation {
   allowPlusOne: boolean;
   contactEmail: string | null;
   contactPhone: string | null;
+  /** Fase 7: aviso para a portaria (aparece no check-in). */
+  accessNote: string | null;
   sentAt: string | null;
   status: InvitationStatus;
   /** Link público do convite (SITE_URL/c/token). */

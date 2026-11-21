@@ -71,11 +71,26 @@ export interface CheckinTotals {
   arrivedInvitations: number;
 }
 
+/** Marcação recente na lista do painel (sem contato nem saúde). */
+export interface CheckinRecentArrival extends CheckinArrivalView {
+  /** Referência opaca do convite (para desfazer ou abrir de novo). */
+  ref: string;
+  invitationLabel: string;
+}
+
 /** GET /checkin */
 export interface CheckinOverview {
   totals: CheckinTotals;
   links: CheckinLinkView[];
+  /** Últimas marcações (as desfeitas também, com `undoneAt`), da mais nova para a mais antiga. */
+  recent: CheckinRecentArrival[];
 }
+
+/** Quantas marcações recentes o painel recebe. */
+export const CHECKIN_RECENT_LIMIT = 50;
+/** Busca por nome: mínimo de letras e máximo de convites devolvidos. */
+export const CHECKIN_SEARCH_MIN = 2;
+export const CHECKIN_SEARCH_MAX_RESULTS = 20;
 
 /** Uma marcação de chegada (lista do painel e "desfazer" da portaria). */
 export interface CheckinArrivalView {
