@@ -1,4 +1,5 @@
-import type { DashboardData } from "@casamento/shared";
+import type { DashboardData, EventPaymentView } from "@casamento/shared";
+import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { daysUntil, formatBRL, formatDate, formatDateTime, plural } from "../format.ts";
 import { ErrorBox, Loading, PageHeader, useLoad } from "../ui.tsx";
@@ -41,6 +42,29 @@ function StatusRow({
   );
 }
 
+/** Aviso quando o evento não tem onde receber os presentes (Fase 5). Sem permissão: some. */
+function AvisoRecebimento() {
+  const [state, setState] = useState<EventPaymentView["state"] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api<EventPaymentView>("/payments")
+      .then((v) => alive && setState(v.state))
+      .catch(() => alive && setState(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (state !== "no_account" && state !== "not_approved") return null;
+  return (
+    <p className="alert alert--info" data-testid="aviso-recebimento">
+      {state === "no_account"
+        ? "Este evento ainda não tem conta para receber os presentes: os presentes em dinheiro ficam indisponíveis no site. "
+        : "A conta que recebe os presentes ainda não foi aprovada: os presentes em dinheiro ficam indisponíveis no site até lá. "}
+      <a href={eh("/recebimento")}>Ver recebimento</a>
+    </p>
+  );
+}
+
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad(() => api<DashboardData>("/dashboard"), []);
   if (loading && !data) return <Loading />;
@@ -52,6 +76,7 @@ export function Dashboard() {
   return (
     <div className="stack stack--lg">
       <PageHeader title="Início" subtitle="Resumo das confirmações e dos presentes." />
+      <AvisoRecebimento />
 
       <div className="grid grid--3">
         <section className="card" aria-labelledby="d-conv">
