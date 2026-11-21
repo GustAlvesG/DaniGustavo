@@ -28,6 +28,12 @@
   font-size: 0.95rem;
   color: var(--suave);
 }
+/* Lista do cronograma sem o recuo padrão do <ul> (o cartão do item já marca a linha). */
+.portal__main ul.stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .portal-item {
   display: grid;
   grid-template-columns: 4.5rem minmax(0, 1fr);

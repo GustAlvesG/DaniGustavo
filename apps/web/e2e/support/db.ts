@@ -147,3 +147,22 @@ export function fase6Admin(runId: string, password: string): { email: string } {
 export function fase6Cleanup(runId: string): void {
   run("fase6-cleanup", runId);
 }
+
+export type Fase7Setup = {
+  orgId: number;
+  eventId: number;
+  email: string;
+  familyId: number;
+  limitToken: string;
+  eventVendorId: number;
+};
+
+/** Fase 7: org (plano Essencial), dona, evento no host dado com convites, fornecedor e cronograma. */
+export function fase7Setup(runId: string, password: string, host: string): Fase7Setup {
+  return run("fase7-setup", JSON.stringify({ run: runId, password, host }));
+}
+
+/** Fase 7: apaga o evento (tudo em cascata), a org e a dona do e2e. */
+export function fase7Cleanup(runId: string): void {
+  run("fase7-cleanup", runId);
+}

@@ -54,6 +54,7 @@
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .mesas__person {
@@ -89,9 +90,17 @@
   margin-top: auto;
 }
 
+/* Selects com nomes longos de mesa não podem alargar a coluna (rolagem lateral no celular). */
+.mesas__person select,
+.mesas__move select,
+.mesas__group-head select,
+.mesas__move {
+  min-width: 0;
+}
+
 @media (max-width: 899px) {
   .mesas__board {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 599px) {
@@ -113,7 +122,7 @@
     min-height: 44px;
   }
   .mesas__tables {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

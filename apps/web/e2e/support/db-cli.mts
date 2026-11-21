@@ -9,6 +9,7 @@ import {
   budgetLines,
   createEventRecord,
   db,
+  ensureOrgSubscription,
   eq,
   eventMembers,
   eventSettings,
@@ -74,6 +75,13 @@ async function cleanupFase5(run: string) {
   }
   await cleanupE2eOrg(db, org, [email]);
 }
+
+/** Fase 7: nomes do e2e do dia do evento (org, dona, evento) a partir do `run`. */
+const f7 = (run: string) => ({
+  org: `e2e-f7-org-${run}`,
+  email: `dona-f7-${run}@exemplo.com`,
+  slug: `e2e-f7-${run}`,
+});
 
 /** Fase 6: e-mails do e2e (a dona entra pelo cadastro self-service; o admin é da plataforma). */
 const f6 = (run: string) => ({
@@ -535,6 +543,115 @@ async function main(): Promise<unknown> {
     }
     case "fase6-cleanup": {
       await cleanupFase6(String(arg));
+      return { ok: true };
+    }
+    case "fase7-setup": {
+      // Organização própria (plano Essencial em teste: 300 pessoas por evento) com dona de senha
+      // dada e um evento ativo no host dado. Convites: "Família" com 2 confirmados e telefone
+      // (check-in, mesas, WhatsApp); "Limite" com 1 pendente e acompanhante liberado (RSVP que
+      // passa do limite); "Lote" com pendentes até completar as 300 pessoas do plano. No
+      // catálogo da org, um fornecedor ligado ao evento (portal); no cronograma, um item.
+      const input = JSON.parse(arg ?? "{}") as { run: string; password: string; host: string };
+      const names = f7(input.run);
+      await cleanupE2eOrg(db, names.org, [names.email]);
+      const { orgId } = await ensureE2eOrg(db, {
+        slug: names.org,
+        name: `Organização F7 ${input.run}`,
+        email: names.email,
+        password: input.password,
+      });
+      await ensureOrgSubscription(db, orgId, "essencial");
+      const ev = await createEventRecord(db, {
+        organizationId: orgId,
+        slug: names.slug,
+        name: `Lia & Caio F7 ${input.run}`,
+        type: "wedding",
+        startsAt: "2027-03-20T16:00:00-03:00",
+        status: "active",
+        host: input.host,
+      });
+      const invite = async (
+        label: string,
+        people: { name: string; confirmed?: boolean }[],
+        extra: Partial<typeof invitations.$inferInsert> = {},
+      ) => {
+        const token = newPublicId();
+        await db.insert(invitations).values({
+          eventId: ev.id,
+          token,
+          label,
+          side: "noivos",
+          maxGuests: people.length,
+          ...extra,
+        });
+        const [inv] = await db.select().from(invitations).where(eq(invitations.token, token));
+        const now = new Date();
+        for (let i = 0; i < people.length; i += 100) {
+          await db.insert(guests).values(
+            people.slice(i, i + 100).map((p) => ({
+              eventId: ev.id,
+              invitationId: inv!.id,
+              name: p.name,
+              rsvpStatus: p.confirmed ? ("confirmed" as const) : ("pending" as const),
+              respondedAt: p.confirmed ? now : null,
+            })),
+          );
+        }
+        return { id: inv!.id, token };
+      };
+      const family = await invite(
+        `Família Chegada ${input.run}`,
+        [
+          { name: `Rita Chegada ${input.run}`, confirmed: true },
+          { name: `Davi Chegada ${input.run}`, confirmed: true },
+        ],
+        { contactPhone: "(11) 98765-4321", accessNote: "Só a festa" },
+      );
+      const limit = await invite(
+        `Convite Limite ${input.run}`,
+        [{ name: `Nina Limite ${input.run}` }],
+        {
+          maxGuests: 2,
+          allowPlusOne: true,
+        },
+      );
+      await invite(
+        `Lote ${input.run}`,
+        Array.from({ length: 297 }, (_, i) => ({ name: `Pessoa ${i + 1} ${input.run}` })),
+      );
+      const [vres] = await db.insert(vendors).values({
+        organizationId: orgId,
+        name: `Buffet Sabor ${input.run}`,
+        category: "buffet",
+        email: `buffet-f7-${input.run}@exemplo.com`,
+      });
+      const [evres] = await db.insert(eventVendors).values({
+        eventId: ev.id,
+        organizationId: orgId,
+        vendorId: vres.insertId,
+        category: "buffet",
+      });
+      await db.insert(scheduleItems).values({
+        eventId: ev.id,
+        startsAt: new Date("2027-03-20T19:00:00Z"),
+        title: `Cerimônia ${input.run}`,
+        location: "Jardim",
+        eventVendorId: evres.insertId,
+      });
+      return {
+        orgId,
+        eventId: ev.id,
+        email: names.email,
+        familyId: family.id,
+        limitToken: limit.token,
+        eventVendorId: evres.insertId,
+      };
+    }
+    case "fase7-cleanup": {
+      // O evento leva convites, check-in, mesas, links, WhatsApp, fornecedores do evento e
+      // orçamentos (cascata); a org leva o catálogo e a assinatura; depois, a conta da dona.
+      const { org, email } = f7(String(arg));
+      await cleanupE2eOrg(db, org, [email]);
       return { ok: true };
     }
     default:
