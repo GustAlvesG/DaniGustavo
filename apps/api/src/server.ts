@@ -4,7 +4,12 @@ import { createApp } from "./app.ts";
 import { createAuth } from "./auth.ts";
 import { EnvError, parseEnv } from "./env.ts";
 import { createWebRevalidator } from "./admin/revalidate.ts";
-import { startExpiryJob, startReconcileJob, startReminderJob } from "./jobs.ts";
+import {
+  startAccountStatusJob,
+  startExpiryJob,
+  startReconcileJob,
+  startReminderJob,
+} from "./jobs.ts";
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
 import { secretBoxFromEnv } from "./crypto/secret-box.ts";
@@ -39,6 +44,7 @@ const jobDeps = {
 const stopExpiryJob = startExpiryJob(jobDeps);
 const stopReconcileJob = startReconcileJob(jobDeps);
 const stopReminderJob = startReminderJob(jobDeps);
+const stopAccountStatusJob = startAccountStatusJob(jobDeps);
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`API em http://localhost:${info.port} (painel em /painel)`);
@@ -49,6 +55,7 @@ const shutdown = () => {
   stopExpiryJob();
   stopReconcileJob();
   stopReminderJob();
+  stopAccountStatusJob();
   server.close();
   void db.$client.end();
 };
