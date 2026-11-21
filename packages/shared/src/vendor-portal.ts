@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Email } from "./org.ts";
+import { optionalText } from "./planning.ts";
 
 /*
  * Fase 7, frente C: portal do fornecedor (docs/saas/fase-7.md).
@@ -14,6 +15,11 @@ import { Email } from "./org.ts";
  */
 
 export const VENDOR_PORTAL_DEFAULT_DAYS = 30;
+/** De onde veio o orçamento/documento: a equipe (painel) ou o fornecedor (portal). */
+export const PORTAL_SOURCES = ["panel", "portal"] as const;
+export type PortalSource = (typeof PORTAL_SOURCES)[number];
+/** Selo do painel para o que o fornecedor enviou pelo portal. */
+export const PORTAL_SOURCE_LABEL = "Enviado pelo fornecedor";
 export const VENDOR_PORTAL_MAX_DAYS = 180;
 
 /** POST /vendors/:eventVendorId/portal-links */
@@ -32,6 +38,16 @@ export interface VendorPortalLinkView {
   lastUsedAt: string | null;
   createdAt: string;
   status: "active" | "expired" | "revoked";
+}
+
+/**
+ * Resposta do POST: o link (o endereço com o token sai só aqui, uma vez, para a equipe poder
+ * copiar e mandar por outro meio) e se o e-mail saiu.
+ */
+export interface VendorPortalLinkCreated {
+  link: VendorPortalLinkView;
+  url: string;
+  emailSent: boolean;
 }
 
 /** GET /vendors/:eventVendorId/portal-links */
@@ -101,9 +117,16 @@ export interface VendorPortalQuote {
   title: string;
   status: "draft" | "received" | "approved" | "contracted" | "declined";
   totalCents: number;
-  source: "panel" | "portal";
+  source: PortalSource;
   createdAt: string;
 }
+
+/** POST /api/vendor-portal/documents (multipart: `file` + estes campos). */
+export const VendorPortalDocumentInput = z.object({
+  title: z.string().trim().min(1, { error: "Dê um nome ao documento." }).max(191),
+  notes: optionalText(2000),
+});
+export type VendorPortalDocumentInput = z.infer<typeof VendorPortalDocumentInput>;
 
 /** Documento do fornecedor (área privada do Storage; mesmas regras do contrato). */
 export interface VendorPortalDocument {
@@ -112,6 +135,6 @@ export interface VendorPortalDocument {
   originalName: string;
   mime: string;
   bytes: number;
-  source: "panel" | "portal";
+  source: PortalSource;
   createdAt: string;
 }

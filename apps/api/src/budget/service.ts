@@ -116,6 +116,7 @@ const quoteColumns = {
   validUntil: quotes.validUntil,
   notes: quotes.notes,
   updatedAt: quotes.updatedAt,
+  source: quotes.source,
 };
 
 /** quotes ⨝ event_vendors ⨝ vendors, sempre com as colunas de escopo das três. */
@@ -170,6 +171,7 @@ function toSummary(q: QuoteRecord, paid: Map<number, number>): QuoteSummary {
     paidCents: paid.get(q.id) ?? 0,
     validUntil: q.validUntil,
     updatedAt: q.updatedAt.toISOString(),
+    source: q.source,
   };
 }
 
@@ -304,7 +306,20 @@ async function writeItems(tx: Tx, ev: EventCtx, quoteId: number, input: QuoteInp
   );
 }
 
-export async function createQuote(deps: BudgetDeps, ev: EventCtx, input: QuoteInput) {
+/**
+ * Fase 7: orçamento enviado pelo fornecedor no portal. Entra direto como "recebido", com a
+ * procedência (`source = portal` e o link usado); a equipe aprova/contrata como os outros.
+ */
+export interface PortalQuoteOrigin {
+  portalLinkId: number;
+}
+
+export async function createQuote(
+  deps: BudgetDeps,
+  ev: EventCtx,
+  input: QuoteInput,
+  portal?: PortalQuoteOrigin,
+) {
   const totalCents = computeQuoteTotal(input);
   if (input.validUntil && !isCalendarDate(input.validUntil)) {
     throw unprocessable("Data de validade inválida.", "validUntil");
@@ -322,6 +337,14 @@ export async function createQuote(deps: BudgetDeps, ev: EventCtx, input: QuoteIn
       totalCents,
       validUntil: input.validUntil,
       notes: input.notes,
+      ...(portal
+        ? {
+            status: "received" as const,
+            receivedAt: now,
+            source: "portal" as const,
+            portalLinkId: portal.portalLinkId,
+          }
+        : {}),
       createdAt: now,
       updatedAt: now,
     });

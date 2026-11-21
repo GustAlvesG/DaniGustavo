@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Email, LocalDate } from "./org.ts";
 import { EventVendorStatus, optionalText, VendorCategoryKey } from "./planning.ts";
+import type { PortalSource } from "./vendor-portal.ts";
 
 /*
  * Fase 4, frente B: catálogo de fornecedores da organização, fornecedores do evento e
@@ -110,4 +111,6 @@ export interface ContractRow {
   createdAt: string;
   /** GET autenticado do painel; nunca /uploads. */
   downloadUrl: string;
+  /** Fase 7: enviado pela equipe (`panel`) ou pelo fornecedor no portal (`portal`). */
+  source: PortalSource;
 }

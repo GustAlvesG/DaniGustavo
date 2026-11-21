@@ -27,6 +27,7 @@ import {
   todayLocal,
 } from "./financeiro/Orcamento.tsx";
 import { useCategories, type Categories } from "./fornecedores/categorias.ts";
+import { SourceBadge } from "./fornecedores/PortalLinks.tsx";
 
 /**
  * Fase 4, frente C: orçamentos, parcelas e planejado × realizado (#/financeiro e
@@ -116,6 +117,7 @@ function Resumo() {
                 <div className="row__side row__side--stack">
                   <strong>{formatBRL(q.totalCents)}</strong>
                   <Badge tone={QUOTE_TONE[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>
+                  <SourceBadge source={q.source} />
                 </div>
               </li>
             ))}

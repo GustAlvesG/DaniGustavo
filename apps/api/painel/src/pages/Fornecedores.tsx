@@ -32,6 +32,7 @@ import {
   type VendorDraft,
 } from "./fornecedores/VendorForm.tsx";
 import { useCategories } from "./fornecedores/categorias.ts";
+import { PortalLinks, SourceBadge } from "./fornecedores/PortalLinks.tsx";
 
 /* Fase 4, frente B: fornecedores do evento e contratos (#/fornecedores, #/fornecedores/:id). */
 
@@ -350,6 +351,7 @@ function Detalhe({ id }: { id: number }) {
             />
           </section>
           <Contratos eventVendorId={id} canWrite={canWrite} onChange={reload} />
+          <PortalLinks eventVendorId={id} catalogEmail={row.vendor.email} />
           <Confirm
             open={removing}
             title="Remover do evento"
@@ -361,8 +363,9 @@ function Detalhe({ id }: { id: number }) {
           >
             <p>
               <strong>{row.vendor.name}</strong> sai deste evento; os contratos anexados e os
-              orçamentos não contratados são apagados e o cronograma perde o vínculo. O cadastro no
-              catálogo continua. Com orçamento contratado, a remoção é recusada.
+              orçamentos não contratados são apagados, o cronograma e as tarefas perdem o vínculo e
+              os links do portal deixam de valer. O cadastro no catálogo continua. Com orçamento
+              contratado, a remoção é recusada.
             </p>
           </Confirm>
         </>
@@ -499,6 +502,7 @@ function Contratos({
                   {c.originalName} · {sizeLabel(c.bytes)}
                   {c.signedOn ? ` · assinado em ${formatDate(c.signedOn)}` : ""}
                 </span>
+                <SourceBadge source={c.source} />
               </div>
               {canWrite ? (
                 <div className="row__side">

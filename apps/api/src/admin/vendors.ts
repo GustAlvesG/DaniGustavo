@@ -4,6 +4,7 @@ import {
   byEvent,
   count,
   eq,
+  eventTasks,
   eventVendors,
   isNull,
   isUniqueViolation,
@@ -106,6 +107,7 @@ const contractRow = (ev: EventCtx, r: ContractRecord): ContractRow => ({
   notes: r.notes,
   createdAt: r.createdAt.toISOString(),
   downloadUrl: `/api/admin/events/${ev.id}/vendors/${r.eventVendorId}/contracts/${r.id}/file`,
+  source: r.source,
 });
 
 /** Linhas do evento com os dados do catálogo (join pelas duas colunas de escopo). */
@@ -292,6 +294,11 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
         .update(scheduleItems)
         .set({ eventVendorId: null })
         .where(and(byEvent(scheduleItems, ev), eq(scheduleItems.eventVendorId, id)));
+      // Fase 7: a tarefa também (sem FK); os links do portal saem em cascata.
+      await tx
+        .update(eventTasks)
+        .set({ eventVendorId: null })
+        .where(and(byEvent(eventTasks, ev), eq(eventTasks.eventVendorId, id)));
       await tx.delete(eventVendors).where(and(eq(eventVendors.id, id), byEvent(eventVendors, ev)));
     });
     await Promise.all(files.map((f) => storage.deletePrivate(ev.id, f.file)));
