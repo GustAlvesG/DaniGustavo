@@ -6,7 +6,6 @@ import { createApp } from "../src/app.ts";
 import { createAuth } from "../src/auth.ts";
 import {
   createAsaasBilling,
-  setSubscriptionProvider,
   SubscriptionProviderError,
   SubscriptionWebhookTokenError,
   type SubscriptionProvider,
@@ -196,7 +195,6 @@ describe("assinatura pelo Asaas, de ponta a ponta (respostas gravadas)", () => {
   const env = testEnv();
   const m = mockFetch(asaasResponder);
   const billing = billingWith(m.fetch);
-  setSubscriptionProvider(env, billing);
   const db = testDb(env.DATABASE_URL);
   const mailer: Mailer = { send: () => Promise.resolve() };
   const app = createApp({

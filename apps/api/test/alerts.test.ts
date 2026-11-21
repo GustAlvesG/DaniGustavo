@@ -119,3 +119,34 @@ describe("rotinas", () => {
     expect(alerts).toEqual(["rotina:teste"]);
   });
 });
+
+describe("rotinas (startIntervalJob)", () => {
+  it("firstRunDelayMs adia a primeira rodada; parar antes cancela", async () => {
+    let runs = 0;
+    const job = (firstRunDelayMs: number) =>
+      startIntervalJob(
+        {
+          name: "atrasada",
+          intervalMs: 60_000,
+          runAtStart: true,
+          firstRunDelayMs,
+          run: () => {
+            runs += 1;
+            return Promise.resolve(null);
+          },
+        },
+        { logger: createLogger({ format: "json", write: () => {} }) },
+      );
+    const stop = job(60);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(runs).toBe(0);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(runs).toBe(1);
+    stop();
+
+    const cancelled = job(60);
+    cancelled();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(runs).toBe(1);
+  });
+});

@@ -167,7 +167,7 @@ function splitTotalCents(split: SplitSnapshot[] | null | undefined): number | nu
 
 export async function listGifts(
   ev: EventCtx,
-  deps: Pick<OrderDeps, "db" | "provider">,
+  deps: Pick<OrderDeps, "db" | "provider" | "env">,
 ): Promise<Omit<GiftsResponse, "requiresCpf">> {
   const { db } = deps;
   const [rows, categories, feePercent, paymentState] = await Promise.all([
@@ -178,7 +178,8 @@ export async function listGifts(
       .orderBy(asc(gifts.sort), asc(gifts.id)),
     setting<GiftCategory[]>(ev, db, "gifts.categories", []),
     cardFeePercent(ev, db),
-    eventPaymentState(ev, deps),
+    // Com o env: taxa do plano sem carteira da plataforma também tira os presentes em dinheiro.
+    eventPaymentState(ev, { db: deps.db, provider: deps.provider, env: deps.env }),
   ]);
   return {
     gifts: rows.map((g) => ({

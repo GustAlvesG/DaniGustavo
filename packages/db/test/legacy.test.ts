@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, asc, count, eq } from "drizzle-orm";
+import { DEFAULT_RETENTION_DAYS, PrivacySettings } from "@casamento/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "../src/client.ts";
 import { importLegacyContent, LEGACY_FOTOS_DIR, legacyFileName } from "../src/legacy/import.ts";
@@ -93,6 +94,29 @@ describe("content:import-legacy", () => {
   it("grava a arte do monograma e o UID da agenda como dados do evento", async () => {
     expect(await setting("couple.monogram_art")).toBe("dg");
     expect(await setting("calendar.uid")).toBe("casamento-20270410@dani-e-gustavo");
+  });
+
+  it("casamento sem exigir consentimento no RSVP/mural (só se a chave não existir)", async () => {
+    expect(await setting("privacy.settings")).toEqual({
+      requireConsent: false,
+      contactEmail: null,
+      retentionDays: DEFAULT_RETENTION_DAYS,
+    });
+    const edited = { requireConsent: true, contactEmail: null, retentionDays: 400 };
+    await db
+      .update(eventSettings)
+      .set({ value: edited })
+      .where(
+        and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "privacy.settings")),
+      );
+    await importLegacyContent(db, { uploadDir });
+    expect(await setting("privacy.settings")).toEqual(edited);
+    await db
+      .update(eventSettings)
+      .set({ value: PrivacySettings.parse({ requireConsent: false }) })
+      .where(
+        and(eq(eventSettings.eventId, LEGACY_EVENT_ID), eq(eventSettings.key, "privacy.settings")),
+      );
   });
 
   it("rodar de novo não duplica nada nem apaga o que o anfitrião editou", async () => {

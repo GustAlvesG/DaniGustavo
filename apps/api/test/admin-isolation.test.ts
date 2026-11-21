@@ -24,12 +24,6 @@ const PLATFORM_PREFIX = "/api/admin/platform";
 /** Fase 6: dados da própria conta (LGPD). */
 const ME_PREFIX = "/api/admin/me";
 
-/**
- * Fase 6: rotas reservadas pela fundação que ainda respondem 501 (cada frente implementa as
- * suas). Sai na integração da Fase 6.
- */
-const PHASE6_STUB =
-  /\/(privacy|tasks\/reminders|subscription|usage|vendor-categories|platform-task-templates|domains|deletion|platform|export)(\/|$)|^\/api\/admin\/me$/;
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 interface RouteCase {
@@ -133,6 +127,35 @@ describe("enumeração das rotas", () => {
     expect(routes.length).toBeGreaterThan(30);
   });
 
+  it("Fase 6: as rotas novas das frentes entram na enumeração", () => {
+    const enumerated = [
+      ...routes,
+      ...enumerateOrgRoutes(),
+      ...enumeratePrefixed(PLATFORM_PREFIX),
+      ...enumeratePrefixed(ME_PREFIX),
+    ].map((r) => `${r.method} ${r.pattern.replace(/\{[^}]*\}/g, "")}`);
+    const has = (method: string, re: RegExp) =>
+      enumerated.some((k) => k.startsWith(`${method} `) && re.test(k.slice(method.length + 1)));
+    for (const [method, re] of [
+      ["PATCH", /^\/api\/admin\/orgs\/:orgId\/events\/:\w+\/schedule$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/vendor-categories$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/platform-task-templates$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/subscription$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/usage$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/events\/:eventId\/domains$/],
+      ["GET", /^\/api\/admin\/orgs\/:orgId\/events\/:eventId\/deletion\/export$/],
+      ["GET", /\/events\/:eventId\/tasks\/reminders$/],
+      ["POST", /\/events\/:eventId\/tasks\/apply-platform-template$/],
+      ["POST", /\/events\/:eventId\/quotes\/:\w+\/reopen$/],
+      ["GET", /\/events\/:eventId\/privacy/],
+      ["GET", /^\/api\/admin\/platform\/overview$/],
+      ["GET", /^\/api\/admin\/platform\/task-templates$/],
+      ["GET", /^\/api\/admin\/me\/export$/],
+    ] as const) {
+      expect(has(method, re), `${method} ${re}`).toBe(true);
+    }
+  });
+
   it("não sobrou rota do painel fora de /events/:eventId, /orgs/:orgId, /platform e /me", () => {
     const outside = app.routes
       .filter((r) => METHODS.has(r.method) && r.path.startsWith("/api/admin/"))
@@ -197,10 +220,8 @@ describe("quem tem acesso ao evento A", () => {
           continue;
         }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501), salvo as da Fase 6 ainda nas frentes.
-        if (!PHASE6_STUB.test(r.pattern.slice(PREFIX.length))) {
-          expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
-        }
+        // Nenhuma rota reservada (501).
+        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
       }
     },
   );
@@ -482,9 +503,7 @@ describe("organização: barreira de acesso", () => {
         expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
         expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
         if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
-        if (!PHASE6_STUB.test(r.pattern.slice(ORG_PREFIX.length))) {
-          expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
-        }
+        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
       }
     }
   });
@@ -598,7 +617,7 @@ describe("Fase 6: painel da plataforma", () => {
     for (const r of platformRoutes) {
       const p = await probe({ ...r, pattern: fillAny(r.pattern) }, 0, cookies.platformAdmin);
       expect(p.routeNotFound, platformLabel(r)).toBe(false);
-      expect([401, 403], platformLabel(r)).not.toContain(p.status);
+      expect([401, 403, 501], platformLabel(r)).not.toContain(p.status);
     }
   });
 });
@@ -613,6 +632,7 @@ describe("Fase 6: /me (dados da própria conta)", () => {
       const p = await probe(r, 0, cookies.host);
       expect(p.routeNotFound, platformLabel(r)).toBe(false);
       expect(p.status, platformLabel(r)).not.toBe(401);
+      expect(p.status, platformLabel(r)).not.toBe(501);
     }
   });
 });

@@ -43,12 +43,6 @@ export const envSchema = z
     ADMIN_EMAIL_1: z.email({ error: "deve ser um e-mail válido" }).optional(),
     ADMIN_EMAIL_2: z.email({ error: "deve ser um e-mail válido" }).optional(),
     /**
-     * Telegram: DESLIGADO por decisão do usuário (21/11/2026). A frente D da Fase 6 remove o
-     * canal do código; estas duas saem daqui na integração (já não estão nos exemplos de .env).
-     */
-    TELEGRAM_BOT_TOKEN: z.string().optional(),
-    TELEGRAM_CHAT_ID: z.string().optional(),
-    /**
      * Provedor de pagamento: "simulado" (padrão; Pix e cartão de mentira, sem conta) ou
      * "asaas". Escolha explícita: ter a chave no .env não liga o Asaas sozinho.
      */

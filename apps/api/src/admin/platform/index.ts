@@ -23,7 +23,6 @@ import {
   type SubscriptionStatus,
 } from "@casamento/shared";
 import { Hono, type Context } from "hono";
-import { billingOf, type SubscriptionProvider } from "../../billing/index.ts";
 import { apiError, ERROR_CODES, errorBody } from "../../errors.ts";
 import {
   computeUsage,
@@ -121,12 +120,12 @@ function adminPlan(row: typeof plans.$inferSelect) {
   return { ...planView(row), active: row.active, sort: row.sort };
 }
 
-export function platformRoutes(deps: AdminDeps & { billing?: SubscriptionProvider }) {
+export function platformRoutes(deps: AdminDeps) {
   const { db } = deps;
   const sdeps: SubscriptionDeps = {
     env: deps.env,
     db,
-    billing: billingOf(deps),
+    billing: deps.billing,
     mailer: deps.mailer,
     now: deps.now,
   };

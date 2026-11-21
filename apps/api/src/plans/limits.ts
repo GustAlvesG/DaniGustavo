@@ -11,7 +11,14 @@ import {
   teamInvites,
   type Database,
 } from "@casamento/db";
-import { ERROR_CODES, limitMessage, type LimitKind } from "@casamento/shared";
+import {
+  ERROR_CODES,
+  limitMessage,
+  MODULES,
+  modulesFor,
+  type EventModulesInput,
+  type LimitKind,
+} from "@casamento/shared";
 import type { Context } from "hono";
 import { errorBody } from "../errors.ts";
 import { countMembers, loadSubscription, parseLimits, storageUsage } from "./service.ts";
@@ -114,6 +121,27 @@ export async function checkPlanLimit(
       return check.modules.every((m) => allowed.has(m)) ? OK : fail(null);
     }
   }
+}
+
+/**
+ * Módulos de um evento NOVO que o plano não inclui, já desligados (para gravar em
+ * `event.modules`): o padrão do tipo liga tudo, e criar o evento não pode ligar o que o plano
+ * não tem. null = nada a desligar (sem assinatura, plano interno ou sem restrição de módulos).
+ */
+export async function modulesOffForNewEvent(
+  db: Database,
+  organizationId: number,
+  type: string,
+): Promise<EventModulesInput | null> {
+  const current = await loadSubscription(db, organizationId);
+  if (!current || current.sub.status === "internal") return null;
+  const { modules } = parseLimits(current.plan.limits);
+  if (modules === null) return null;
+  const allowed = new Set<string>(modules);
+  const on = modulesFor(type, null);
+  const off: EventModulesInput = {};
+  for (const m of MODULES) if (on[m] && !allowed.has(m)) off[m] = false;
+  return Object.keys(off).length > 0 ? off : null;
 }
 
 /** Resposta padrão do limite estourado: 409 `plan_limit` com a mensagem em pt-BR. */

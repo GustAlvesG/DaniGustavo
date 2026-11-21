@@ -9,7 +9,8 @@ import { orgGateState } from "./service.ts";
 /*
  * Fase 6, frente A: inadimplência. Depois da carência (`PAST_DUE_GRACE_DAYS`) o painel da
  * organização e dos eventos dela fica só leitura: escritas → 402 `subscription_inactive`,
- * exceto a própria assinatura (para conseguir pagar/trocar de plano) e o platform admin. Org
+ * exceto a própria assinatura (para conseguir pagar/trocar de plano), o que protege convidados
+ * e titulares (`GUEST_PROTECTION_PATH`) e o platform admin. Org
  * suspensa pelo platform admin: o mesmo. O site dos convidados (rotas públicas, pedidos, RSVP,
  * webhooks) nunca passa por aqui.
  */
@@ -17,6 +18,14 @@ import { orgGateState } from "./service.ts";
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Rotas da organização liberadas mesmo só leitura (é por onde se paga ou troca o plano). */
 const BILLING_PATH = /^\/api\/admin\/orgs\/\d+\/(subscription|usage)(\/|$)/;
+/**
+ * Escritas do evento que protegem terceiros e por isso passam mesmo com a organização
+ * inadimplente ou suspensa: reembolso e conciliação de pedidos (o dinheiro dos convidados;
+ * a consulta já passa por ser GET) e tudo de `/privacy` (atender o titular e anonimizar
+ * dados é obrigação da LGPD, não serviço do plano).
+ */
+export const GUEST_PROTECTION_PATH =
+  /^\/api\/admin\/events\/\d+\/(orders\/(reconcile|[^/]+\/refund)|privacy)(\/|$)/;
 
 export const READ_ONLY_MESSAGE =
   `A assinatura está com pagamento em atraso há mais de ${PAST_DUE_GRACE_DAYS} dias (ou foi encerrada): ` +
@@ -46,7 +55,9 @@ async function blocked(
 /** Painel de evento: a organização vem de `c.get("event").orgId`. */
 export function eventSubscriptionGate(db: Database): MiddlewareHandler<EventAdminEnv> {
   return async (c, next) => {
-    const res = await blocked(c, c.get("user"), db, c.get("event").orgId);
+    const res = GUEST_PROTECTION_PATH.test(c.req.path)
+      ? null
+      : await blocked(c, c.get("user"), db, c.get("event").orgId);
     if (res) return res;
     await next();
   };

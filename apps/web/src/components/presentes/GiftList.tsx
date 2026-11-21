@@ -495,6 +495,13 @@ function OrderForm({
           minutos. Usamos seu nome e e-mail só para o comprovante e para os noivos agradecerem.
           {requiresCpf ? " O CPF vai só para o processador de pagamento." : ""}
         </p>
+        <p className="text-sm text-ink-soft" data-testid="presente-privacidade">
+          Seus dados são usados só para este pedido e para quem recebe o presente. Saiba mais no{" "}
+          <a href="/privacidade" target="_blank" className="underline underline-offset-4">
+            aviso de privacidade
+          </a>
+          .
+        </p>
       </form>
     </div>
   );

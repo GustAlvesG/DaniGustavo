@@ -179,7 +179,7 @@ describe("avisos por evento", () => {
     expect(await eventNotifyRecipients(T.eventB, db)).toEqual([]);
   });
 
-  it("e-mails com o nome e o host do evento (só e-mail: sem Telegram)", async () => {
+  it("e-mails com o nome e o host do evento", async () => {
     await setting(T.eventA.id, "notify.org_owners", true);
     sent.length = 0;
     await notifyPaid({ env, db, mailer }, T.eventA, order, gift);

@@ -3,7 +3,7 @@ import { copyFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { and, eq, inArray } from "drizzle-orm";
-import { imageSize } from "@casamento/shared";
+import { imageSize, PrivacySettings } from "@casamento/shared";
 import type { Database } from "../client.ts";
 import { eventMedia, eventSettings } from "../schema/app.ts";
 import { events } from "../schema/tenancy.ts";
@@ -70,7 +70,8 @@ export interface LegacyImportResult {
  * Storage local), `site.sections` com os textos de content/home.ts e paginas.ts, galeria pela
  * ordem de content/galeria.ts. Remove as chaves `story.items` e `gallery.items`.
  *
- * Grava também `couple.monogram_art` ("dg") e `calendar.uid` (o UID que a agenda já usava).
+ * Grava também `couple.monogram_art` ("dg"), `calendar.uid` (o UID que a agenda já usava) e
+ * `privacy.settings` com `requireConsent: false` (o RSVP do casamento não pedia consentimento).
  * Miniaturas (`thumb_file`) ficam nulas: gerá-las no servidor exigiria decodificar JPEG (sharp
  * ou similar, dependência nova); o site usa a foto inteira e o painel gera miniatura nos uploads.
  *
@@ -216,6 +217,19 @@ export async function importLegacyContent(
       { eventId: ev.id, key: "couple.monogram_art", value: LEGACY_MONOGRAM_ART, isPublic: true },
       { eventId: ev.id, key: "calendar.uid", value: LEGACY_CALENDAR_UID, isPublic: true },
     ]);
+
+  // Fase 6: o casamento já recebia RSVP e recados sem a caixa de consentimento; ele continua
+  // assim (os demais campos no padrão). Só grava se a chave não existir (o painel pode mudar).
+  // Eventos novos não passam por aqui e seguem com o padrão `requireConsent: true`.
+  await db
+    .insert(eventSettings)
+    .ignore()
+    .values({
+      eventId: ev.id,
+      key: "privacy.settings",
+      value: PrivacySettings.parse({ requireConsent: false }),
+      isPublic: false,
+    });
 
   const [removed] = await db
     .delete(eventSettings)

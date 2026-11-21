@@ -244,6 +244,7 @@ export function createApp({
     revalidate,
     uploadDir: env.UPLOAD_DIR,
     storage,
+    billing,
   };
   app.route("/api/admin", adminRoutes(adminDeps));
   // Fase 3: aceite de convite da equipe/anfitrião (sem sessão obrigatória; ver o arquivo).

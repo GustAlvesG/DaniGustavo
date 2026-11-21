@@ -13,9 +13,9 @@ export {
 } from "./simulado.ts";
 
 /*
- * Uma instância por `Env` (WeakMap): o app (webhook), o painel da organização e as rotinas
- * usam o mesmo provedor sem precisar passá-lo por dependências que não o conhecem (o simulado
- * guarda as assinaturas em memória: instâncias diferentes não se enxergariam).
+ * Uma instância por `Env` (WeakMap): o simulado guarda as assinaturas em memória, então quem
+ * cair no padrão (app, rotina) com o mesmo `Env` enxerga as mesmas assinaturas. O server.ts
+ * cria uma só e a passa ao app (webhook e `AdminDeps.billing`) e à rotina.
  */
 const byEnv = new WeakMap<Env, SubscriptionProvider>();
 
@@ -33,21 +33,4 @@ export function createSubscriptionProvider(env: Env): SubscriptionProvider {
       : createSimulatedBilling({ webhookSecret: `simulado-assinatura:${env.WEB_KEY}` });
   byEnv.set(env, provider);
   return provider;
-}
-
-/**
- * O provedor que vale para estas dependências: o injetado (`deps.billing`, testes) ou o do .env.
- * Até a integração passar `billing` no `AdminDeps`, o painel cai no do .env (mesma instância
- * do app, pela WeakMap acima).
- */
-export function billingOf(deps: {
-  env: Env;
-  billing?: SubscriptionProvider;
-}): SubscriptionProvider {
-  return deps.billing ?? createSubscriptionProvider(deps.env);
-}
-
-/** Registra o provedor de um `Env` (testes que injetam `billing` no createApp e no painel). */
-export function setSubscriptionProvider(env: Env, provider: SubscriptionProvider): void {
-  byEnv.set(env, provider);
 }

@@ -86,11 +86,6 @@ export interface SubscriptionProvider {
 /** Erro do provedor de assinatura (mesma classe dos pagamentos: rota → 502). */
 export { PaymentProviderError as SubscriptionProviderError };
 
-/** Método reservado pela fundação, ainda sem implementação. */
-export function notImplementedBilling(what: string): PaymentProviderError {
-  return new PaymentProviderError(`${what}: ainda não implementado (Fase 6, frente A).`, 501);
-}
-
 /** Token do webhook da assinatura não confere (a rota responde 401). */
 export class SubscriptionWebhookTokenError extends Error {
   constructor() {

@@ -294,6 +294,34 @@ describe("inadimplência: painel só leitura depois da carência", () => {
     expect((await eventCall("owner", "POST", "/invitations", invitation)).status).toBe(402);
   });
 
+  it("depois da carência: reembolso, conciliação e privacidade passam do gate", async () => {
+    await overdueFor(PAST_DUE_GRACE_DAYS + 1);
+    expect((await eventCall("owner", "POST", "/invitations", invitation)).status).toBe(402);
+    // Protegem convidados e titulares: chegam à rota (que responde pelo próprio motivo).
+    const reconcile = await eventCall("owner", "POST", "/orders/reconcile");
+    expect(reconcile.status).toBe(200);
+    const refund = await eventCall("owner", "POST", "/orders/nao-existe/refund");
+    expect(refund.status).not.toBe(402);
+    expect(refund.status).toBe(404);
+    // Corpos inválidos: chegam à validação da rota (422/404) sem gravar nada.
+    for (const [method, path] of [
+      ["PUT", "/privacy/settings"],
+      ["PATCH", "/privacy/requests/999999999"],
+      ["POST", "/privacy/anonymize"],
+    ] as const) {
+      const res = await eventCall("owner", method, path, { retentionDays: 1, status: "x" });
+      expect(res.status, `${method} ${path}`).not.toBe(402);
+      expect([404, 422], `${method} ${path}`).toContain(res.status);
+    }
+    // Suspensa pelo platform admin: o mesmo.
+    await db
+      .update(organizations)
+      .set({ status: "suspended" })
+      .where(eq(organizations.id, T.orgA.id));
+    expect((await eventCall("owner", "POST", "/orders/reconcile")).status).toBe(200);
+    expect((await eventCall("owner", "POST", "/invitations", invitation)).status).toBe(402);
+  });
+
   it("organização suspensa pelo platform admin: escrita 402, site no ar", async () => {
     await db
       .update(organizations)

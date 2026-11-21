@@ -18,15 +18,14 @@ import {
   CONTRACT_MAX_BYTES,
   ContractMeta,
   EventVendorInput,
-  limitMessage,
   EventVendorUpdate,
   type ContractRow,
   type EventVendorRow,
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { apiError, ERROR_CODES, errorBody } from "../errors.ts";
-import { checkPlanLimit } from "../plans/limits.ts";
+import { apiError, ERROR_CODES } from "../errors.ts";
+import { addStorageUsage, checkPlanLimit, planLimitResponse } from "../plans/limits.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import {
@@ -352,9 +351,7 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
         kind: "storageMb",
         addingBytes: bytes.byteLength,
       });
-      if (!limit.ok) {
-        return c.json(errorBody(ERROR_CODES.planLimit, limitMessage(limit.kind, limit.limit)), 409);
-      }
+      if (!limit.ok) return planLimitResponse(c, limit);
       const name = `${newPublicId()}.${ext}`;
       await storage.putPrivate(ev.id, name, bytes);
       try {
@@ -374,6 +371,8 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
           .select()
           .from(vendorContracts)
           .where(and(eq(vendorContracts.id, res.insertId), byEvent(vendorContracts, ev)));
+        // O próximo upload já vê o espaço novo (a rotina de uso recalcula pelo disco depois).
+        await addStorageUsage(db, ev.orgId, bytes.byteLength);
         return c.json({ contract: contractRow(ev, row!) }, 201);
       } catch (err) {
         await storage.deletePrivate(ev.id, name);

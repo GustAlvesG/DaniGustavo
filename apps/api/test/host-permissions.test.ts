@@ -53,6 +53,12 @@ const label = (r: RouteCase) => `${r.method} ${r.pattern.slice(PREFIX.length)}`;
 let ev!: TestEvents;
 const cookies = {} as Record<TestUserKind, string>;
 const routes = enumerateRoutes();
+/*
+ * Os testes que sondam todas as rotas do evento (mais de cem requisições em série, cada uma com
+ * sessão e consultas) levam ~0,5 s sozinhos, mas passam dos 5 s padrão quando a suíte inteira
+ * usa o mesmo MariaDB em paralelo. O limite maior vale só para eles; as asserções são as mesmas.
+ */
+const ALL_ROUTES_TIMEOUT = 60_000;
 
 async function probe(r: RouteCase, kind: TestUserKind): Promise<number> {
   const isWrite = r.method !== "GET";
@@ -120,16 +126,20 @@ describe("padrão: pode tudo", () => {
 });
 
 describe("toda rota do evento declara uma ação", () => {
-  it("anfitrião sem nenhuma ação configurável → 403 em tudo, menos o início", async () => {
-    await setDeny(HOST_CONFIGURABLE_ACTIONS);
-    const open: string[] = [];
-    for (const r of routes) {
-      const status = await probe(r, "host");
-      if (status !== 403) open.push(label(r));
-    }
-    expect(open.sort()).toEqual([...ALWAYS].sort());
-    expect(routes.length).toBeGreaterThan(30);
-  });
+  it(
+    "anfitrião sem nenhuma ação configurável → 403 em tudo, menos o início",
+    async () => {
+      await setDeny(HOST_CONFIGURABLE_ACTIONS);
+      const open: string[] = [];
+      for (const r of routes) {
+        const status = await probe(r, "host");
+        if (status !== 403) open.push(label(r));
+      }
+      expect(open.sort()).toEqual([...ALWAYS].sort());
+      expect(routes.length).toBeGreaterThan(30);
+    },
+    ALL_ROUTES_TIMEOUT,
+  );
 
   it.each(["owner", "member", "platformAdmin"] as const)(
     "%s não é afetado pela lista do anfitrião",
@@ -138,6 +148,7 @@ describe("toda rota do evento declara uma ação", () => {
         expect(await probe(r, kind), `${kind} ${label(r)}`).not.toBe(403);
       }
     },
+    ALL_ROUTES_TIMEOUT,
   );
 
   it("/access do anfitrião só traz o início; o dono continua com tudo", async () => {

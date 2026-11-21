@@ -1,6 +1,7 @@
 import { events, organizations, organizationUsage, type Database } from "@casamento/db";
 import { createSubscriptionProvider, type SubscriptionProvider } from "../billing/index.ts";
 import type { Env } from "../env.ts";
+import { startIntervalJob, type JobOps } from "../jobs.ts";
 import type { Mailer } from "../mailer.ts";
 import { createLocalStorage, type Storage } from "../storage/index.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
@@ -24,6 +25,7 @@ export interface SubscriptionJobDeps {
 
 export const SUBSCRIPTION_INTERVAL_MS = 60 * 60_000;
 const STORAGE_EVERY = 6;
+const FIRST_RUN_DELAY_MS = 60_000;
 
 /** Recalcula o espaço em disco de todas as organizações pelos arquivos de cada evento. */
 export async function refreshStorageUsage(
@@ -53,38 +55,31 @@ export async function refreshStorageUsage(
 }
 
 export function startSubscriptionJob(
-  deps: SubscriptionJobDeps,
+  deps: SubscriptionJobDeps & JobOps,
   intervalMs = SUBSCRIPTION_INTERVAL_MS,
 ): () => void {
   const billing = deps.billing ?? createSubscriptionProvider(deps.env);
   const storage = deps.storage ?? createLocalStorage(deps.env.UPLOAD_DIR);
-  let running = false;
   let ticks = 0;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      const r = await runSubscriptionRound({ ...deps, billing });
-      if (r.synced || r.trialsEnded || r.errors) {
-        console.log(
-          `[assinaturas] ${r.synced} conferida(s) no provedor, ${r.trialsEnded} teste(s) encerrado(s), ${r.errors} falha(s).`,
-        );
-      }
-      if (ticks % STORAGE_EVERY === 0) await refreshStorageUsage(deps.db, storage, deps.now());
-    } catch (err) {
-      console.error("[assinaturas] Falha na rotina:", err);
-    } finally {
-      ticks += 1;
-      running = false;
-    }
-  };
-  // Primeira rodada um pouco depois de subir (não a cada reinício do `node --watch` em dev).
-  const first = setTimeout(() => void tick(), 60_000);
-  first.unref();
-  const timer = setInterval(() => void tick(), intervalMs);
-  timer.unref();
-  return () => {
-    clearTimeout(first);
-    clearInterval(timer);
-  };
+  return startIntervalJob(
+    {
+      name: "assinaturas",
+      intervalMs,
+      // Primeira rodada um pouco depois de subir (não a cada reinício do `node --watch` em dev).
+      runAtStart: true,
+      firstRunDelayMs: FIRST_RUN_DELAY_MS,
+      run: async () => {
+        try {
+          const r = await runSubscriptionRound({ ...deps, billing });
+          if (ticks % STORAGE_EVERY === 0) await refreshStorageUsage(deps.db, storage, deps.now());
+          return r.synced || r.trialsEnded || r.errors
+            ? `${r.synced} conferida(s) no provedor, ${r.trialsEnded} teste(s) encerrado(s), ${r.errors} falha(s).`
+            : null;
+        } finally {
+          ticks += 1;
+        }
+      },
+    },
+    deps,
+  );
 }

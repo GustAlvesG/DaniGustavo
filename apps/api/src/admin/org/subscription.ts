@@ -1,12 +1,7 @@
 import { SubscriptionChangeInput } from "@casamento/shared";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import {
-  billingOf,
-  isSimulatedBilling,
-  SubscriptionProviderError,
-  type SubscriptionProvider,
-} from "../../billing/index.ts";
+import { isSimulatedBilling, SubscriptionProviderError } from "../../billing/index.ts";
 import { apiError, ERROR_CODES, errorBody } from "../../errors.ts";
 import { PlanLimitError, planLimitResponse } from "../../plans/limits.ts";
 import {
@@ -74,9 +69,8 @@ const SimulateInput = z.object({
   outcome: z.enum(["paid", "overdue"], { error: "Escolha pago ou vencido." }),
 });
 
-export function orgSubscriptionRoutes(deps: AdminDeps & { billing?: SubscriptionProvider }) {
-  const { db } = deps;
-  const billing = billingOf(deps);
+export function orgSubscriptionRoutes(deps: AdminDeps) {
+  const { db, billing } = deps;
   const sdeps: SubscriptionDeps = {
     env: deps.env,
     db,

@@ -7,6 +7,7 @@ import {
   eventDomains,
   EventInputError,
   events,
+  eventSettings,
   giftOrders,
   guests,
   inArray,
@@ -29,7 +30,7 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { ERROR_CODES, errorBody, routeNotFound } from "../../errors.ts";
-import { checkPlanLimit } from "../../plans/limits.ts";
+import { checkPlanLimit, modulesOffForNewEvent } from "../../plans/limits.ts";
 import { afterEventDateChange, saveEventDate } from "../../tasks/event-date.ts";
 import { requireOrgPermission } from "../../tenancy/org-access.ts";
 import { resolverFor } from "../../tenancy/resolver.ts";
@@ -207,6 +208,14 @@ export function orgEventRoutes(deps: AdminDeps) {
         status: input.status,
         host: input.host || null,
       });
+      // Fase 6: o padrão do tipo liga todos os módulos; os que o plano não inclui nascem desligados.
+      const off = await modulesOffForNewEvent(db, org.id, input.type);
+      if (off) {
+        await db
+          .insert(eventSettings)
+          .values({ eventId: created.id, key: "event.modules", value: off, isPublic: true })
+          .onDuplicateKeyUpdate({ set: { value: off, updatedAt: new Date() } });
+      }
       const [summary] = await loadOrgEventSummaries(db, org.id, created.id);
       return c.json({ event: summary }, 201);
     } catch (error) {

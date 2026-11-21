@@ -44,6 +44,14 @@ const json = (method: string, path: string, body?: unknown) =>
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
+async function storageBytes(): Promise<number> {
+  const [row] = await db
+    .select({ bytes: organizationUsage.storageBytes })
+    .from(organizationUsage)
+    .where(eq(organizationUsage.organizationId, T.orgA.id));
+  return Number(row?.bytes ?? 0);
+}
+
 async function expectLimit(
   res: Response,
   kind: Parameters<typeof limitMessage>[0],
@@ -205,6 +213,76 @@ describe("espaço em disco", () => {
       .set({ storageBytes: MB })
       .where(eq(organizationUsage.organizationId, T.orgA.id));
     await expectLimit(await upload(), "storageMb", 1);
+  });
+});
+
+describe("espaço em disco: contratos", () => {
+  it("contrato também conta no espaço do plano (409 além do limite; o uso cresce)", async () => {
+    await setSubscription(db, T.orgA.id, TIGHT);
+    const vendor = await json("POST", `/api/admin/orgs/${T.orgA.id}/vendors`, {
+      name: `Buffet Limite ${run}`,
+      category: "buffet",
+    });
+    expect(vendor.status).toBe(201);
+    const { vendor: v } = (await vendor.json()) as { vendor: { id: number } };
+    const linked = await json("POST", `/api/admin/events/${T.eventA.id}/vendors`, {
+      vendorId: v.id,
+    });
+    expect(linked.status).toBe(201);
+    const { vendor: ev } = (await linked.json()) as { vendor: { id: number } };
+    const pdf = new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF");
+    const upload = () => {
+      const form = new FormData();
+      form.set("file", new File([pdf], "contrato.pdf"));
+      form.set("title", "Contrato");
+      return app.request(`/api/admin/events/${T.eventA.id}/vendors/${ev.id}/contracts`, {
+        method: "POST",
+        headers: { cookie: owner },
+        body: form,
+      });
+    };
+    await db
+      .update(organizationUsage)
+      .set({ storageBytes: 0 })
+      .where(eq(organizationUsage.organizationId, T.orgA.id));
+    const usageBefore = await storageBytes();
+    expect((await upload()).status).toBe(201);
+    expect(await storageBytes()).toBe(usageBefore + pdf.byteLength);
+
+    await db
+      .update(organizationUsage)
+      .set({ storageBytes: MB })
+      .where(eq(organizationUsage.organizationId, T.orgA.id));
+    await expectLimit(await upload(), "storageMb", 1);
+  });
+});
+
+describe("módulos: evento novo", () => {
+  it("nasce com os módulos fora do plano desligados; plano sem restrição usa o padrão", async () => {
+    const create = async (code: string) => {
+      await setSubscription(db, T.orgA.id, code);
+      const res = await json("POST", `/api/admin/orgs/${T.orgA.id}/events`, {
+        name: "Evento Módulos",
+        type: "wedding",
+        slug: `mod-${code}`.slice(0, 40),
+        date: "2030-05-10",
+      });
+      expect(res.status).toBe(201);
+      const { event } = (await res.json()) as { event: { id: number } };
+      created.push(event.id);
+      const config = await json("GET", `/api/admin/events/${event.id}/config`);
+      expect(config.status).toBe(200);
+      return ((await config.json()) as { modules: Record<string, boolean> }).modules;
+    };
+    const created: number[] = [];
+    try {
+      const tight = await create(TIGHT);
+      expect(tight).toMatchObject({ rsvp: true, gifts: true, gallery: false, messages: false });
+      const wide = await create(WIDE);
+      expect(wide).toMatchObject({ rsvp: true, gifts: true, gallery: true, messages: true });
+    } finally {
+      for (const id of created) await db.delete(events).where(eq(events.id, id));
+    }
   });
 });
 

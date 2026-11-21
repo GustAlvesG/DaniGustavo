@@ -294,7 +294,7 @@ describe("pagamento aprovado (Pix simulado → webhook)", () => {
     const hostMails = sent.filter((m) => m.to !== b.buyerEmail && m.text.includes(b.message));
     expect(hostMails.map((m) => m.to)).toEqual([T.users.host.email]);
     for (const m of hostMails) expect(m.fromName).toBe(T.eventA.name);
-    // Sem Telegram (Fase 6): os avisos são só estes e-mails.
+    // Os avisos são só estes e-mails.
     expect(sent.filter((m) => m.text.includes(b.message))).toHaveLength(hostMails.length);
   });
 

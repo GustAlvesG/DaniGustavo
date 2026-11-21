@@ -141,9 +141,15 @@ describe("seed", () => {
 describe("setup (produção)", () => {
   const prodEnv = { ...env, SITE_URL: "https://danigustavo.exemplo.com.br" };
 
-  it("cria evento 1, configurações, admins, vínculos e o domínio de SITE_URL, sem dados fictícios", async () => {
+  // Banco vazio para o setup. Fica no beforeAll (hookTimeout de 90 s): as migrations em
+  // MariaDB são DDL com fsync, ~11 s sozinhas e mais que os 30 s de um teste quando a suíte da
+  // API usa o mesmo servidor em paralelo (medido: reset ~1 s, migrations ~11 s, setup ~0,6 s).
+  beforeAll(async () => {
     await resetDatabase(db);
     await runMigrations(db);
+  });
+
+  it("cria evento 1, configurações, admins, vínculos e o domínio de SITE_URL, sem dados fictícios", async () => {
     const first = await setup(db, prodEnv);
     expect(first.adminsCreated).toBe(2);
     expect(first.membersCreated).toBe(2);

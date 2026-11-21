@@ -16,6 +16,7 @@ import {
 import { TaskReminderSettings } from "@casamento/shared";
 import { readSetting } from "../admin/event-settings.ts";
 import type { Env } from "../env.ts";
+import { startIntervalJob, type JobOps } from "../jobs.ts";
 import type { Mailer } from "../mailer.ts";
 import { buildTaskReminderEmail, tasksLink } from "../task-reminder-email.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
@@ -233,26 +234,22 @@ export async function runTaskReminderRound(
 }
 
 export function startTaskReminderJob(
-  deps: TaskReminderJobDeps,
+  deps: TaskReminderJobDeps & JobOps,
   intervalMs = TASK_REMINDER_INTERVAL_MS,
 ): () => void {
-  let running = false;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      let sent = 0;
-      for (const r of (await runTaskReminderRound(deps)).values()) {
-        if (!(r instanceof Error)) sent += r.sent;
-      }
-      if (sent > 0) console.log(`[tarefas] ${sent} resumo(s) semanal(is) enviado(s).`);
-    } catch (err) {
-      console.error("[tarefas] Falha na rotina do resumo semanal:", err);
-    } finally {
-      running = false;
-    }
-  };
-  const timer = setInterval(() => void tick(), intervalMs);
-  timer.unref();
-  return () => clearInterval(timer);
+  return startIntervalJob(
+    {
+      name: "resumo de tarefas",
+      intervalMs,
+      runAtStart: false,
+      run: async () => {
+        let sent = 0;
+        for (const r of (await runTaskReminderRound(deps)).values()) {
+          if (!(r instanceof Error)) sent += r.sent;
+        }
+        return sent > 0 ? `${sent} resumo(s) semanal(is) enviado(s).` : null;
+      },
+    },
+    deps,
+  );
 }

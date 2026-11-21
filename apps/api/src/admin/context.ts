@@ -1,6 +1,7 @@
 import type { Database } from "@casamento/db";
 import type { Context, MiddlewareHandler } from "hono";
 import type { Auth } from "../auth.ts";
+import type { SubscriptionProvider } from "../billing/index.ts";
 import type { Env } from "../env.ts";
 import { apiError, ERROR_CODES } from "../errors.ts";
 import type { OrderDeps } from "../orders/service.ts";
@@ -19,6 +20,8 @@ export interface AdminDeps extends OrderDeps {
   uploadDir: string;
   /** Arquivos por evento (fotos da galeria e, depois da frente D, dos presentes). */
   storage: Storage;
+  /** Fase 6: provedor da assinatura das organizações (o mesmo do webhook e da rotina). */
+  billing: SubscriptionProvider;
 }
 
 export interface AdminUser {

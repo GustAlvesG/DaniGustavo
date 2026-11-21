@@ -23,6 +23,11 @@ export interface IntervalJob {
   intervalMs: number;
   /** Roda uma vez ao subir (além de a cada intervalo). */
   runAtStart: boolean;
+  /**
+   * Com `runAtStart`, espera este tempo antes da primeira rodada (ex.: assinaturas, 60 s,
+   * para não rodar a cada reinício do `node --watch` em dev). Padrão: na hora.
+   */
+  firstRunDelayMs?: number;
   /** Uma rodada; o texto devolvido (se houver) vai para o log como resumo. */
   run: () => Promise<string | null | undefined | void>;
 }
@@ -31,8 +36,7 @@ export interface IntervalJob {
  * Rotina no próprio processo da API (o equivalente ao Scheduler do Laravel): uma rodada
  * lenta não se sobrepõe à próxima, falha vai para o log e para o alerta da plataforma (com
  * intervalo entre e-mails iguais) e o timer não segura o processo aberto. Devolve a função
- * que para a rotina (usada no desligamento). Outras rotinas (planos, retenção, tarefas)
- * podem usar o mesmo formato.
+ * que para a rotina (usada no desligamento). Todas as rotinas da API usam este formato.
  */
 export function startIntervalJob(job: IntervalJob, ops: JobOps = {}): () => void {
   const logger = ops.logger ?? fallbackLogger;
@@ -52,10 +56,21 @@ export function startIntervalJob(job: IntervalJob, ops: JobOps = {}): () => void
       running = false;
     }
   };
-  if (job.runAtStart) void tick();
+  let first: ReturnType<typeof setTimeout> | undefined;
+  if (job.runAtStart) {
+    if (job.firstRunDelayMs && job.firstRunDelayMs > 0) {
+      first = setTimeout(() => void tick(), job.firstRunDelayMs);
+      first.unref();
+    } else {
+      void tick();
+    }
+  }
   const timer = setInterval(() => void tick(), job.intervalMs);
   timer.unref();
-  return () => clearInterval(timer);
+  return () => {
+    if (first) clearTimeout(first);
+    clearInterval(timer);
+  };
 }
 
 /** A cada 5 minutos (PROMPT §6). */

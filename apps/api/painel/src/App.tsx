@@ -54,6 +54,7 @@ import { Fornecedores } from "./pages/Fornecedores.tsx";
 import { Tarefas } from "./pages/Tarefas.tsx";
 import { Recebimento } from "./pages/Recebimento.tsx";
 import { Privacidade } from "./pages/Privacidade.tsx";
+import { AvisoAssinatura } from "./pages/plano/Situacao.tsx";
 import { ConfirmarCadastro } from "./pages/ConfirmarCadastro.tsx";
 import { Plataforma } from "./pages/plataforma/Plataforma.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
@@ -407,6 +408,7 @@ function Frame({
   const [signingOut, setSigningOut] = useState(false);
   const access = useEventAccess(event?.id ?? null);
   const section = `/${rest.split("?")[0]!.split("/")[1] ?? ""}`;
+  const avisoOrgId = org ? org.id : event && event.role !== "event_host" ? event.orgId : null;
   const navItems = NAV.filter((item) => !item.action || canDo(access, item.action));
   // Antes de renderizar a página: as rotas e links dela usam o evento atual.
   if (event) setCurrentEventId(event.id);
@@ -501,6 +503,8 @@ function Frame({
         </nav>
       )}
       <main className="content" id="conteudo" tabIndex={-1}>
+        {/* Fase 6: aviso da assinatura (teste acabando, atraso, só leitura); anfitrião não vê. */}
+        {avisoOrgId !== null && <AvisoAssinatura key={avisoOrgId} orgId={avisoOrgId} />}
         {event ? (
           // key: ao trocar de evento a página remonta e recarrega os próprios dados.
           <EventProvider key={event.id} value={event}>

@@ -13,6 +13,7 @@ import {
   createOrganization,
   listEvents,
   migrateUploads,
+  setOrganizationPlan,
 } from "./tenancy-admin.ts";
 
 const HELP = `Uso: node src/cli.ts <comando> [opções]
@@ -26,7 +27,11 @@ Banco:
   reset                        apaga tudo, migra e popula (só fora de produção)
 
 Plataforma:
-  org:create --slug <s> --name "<n>"
+  org:create --slug <s> --name "<n>" [--plan essencial|profissional|cortesia]
+               cria a organização com assinatura no plano (padrão: essencial, em teste;
+               cortesia = interno, sem limites nem cobrança)
+  org:plan <id|slug> <plano>   troca o plano da organização sem cobrança (cortesia → interno;
+                               saindo do interno → teste do plano); ajuste da cobrança no painel
   event:create --org <id|slug> --slug <s> --name "<n>" --type wedding|fifteen|birthday|other
                --starts-at <ISO com offset, ex. 2027-04-10T16:00:00-03:00>
                [--timezone America/Sao_Paulo] [--status draft|active]
@@ -72,6 +77,7 @@ function parseFlags(args: string[]): Flags {
         email: { type: "string" },
         role: { type: "string" },
         "platform-admin": { type: "boolean" },
+        plan: { type: "string" },
       },
     }).values;
   } catch (error) {
@@ -119,8 +125,19 @@ try {
     await printTokens();
   } else if (command === "org:create") {
     const f = parseFlags(rest);
-    const org = await createOrganization(db, { slug: need(f, "slug"), name: need(f, "name") });
-    console.log(`Organização criada: id ${org.id}, slug ${org.slug}.`);
+    const org = await createOrganization(db, {
+      slug: need(f, "slug"),
+      name: need(f, "name"),
+      plan: opt(f, "plan"),
+    });
+    console.log(`Organização criada: id ${org.id}, slug ${org.slug}, plano ${org.plan}.`);
+  } else if (command === "org:plan") {
+    const [orgRef, planRef, ...extra] = rest;
+    if (!orgRef || !planRef || extra.length > 0) {
+      throw new Error("Uso: org:plan <id|slug da organização> <código do plano>.");
+    }
+    const r = await setOrganizationPlan(db, orgRef, planRef);
+    console.log(`Organização ${r.organization}: plano ${r.plan} (situação ${r.status}).`);
   } else if (command === "event:create") {
     const f = parseFlags(rest);
     const ev = await createEvent(db, {

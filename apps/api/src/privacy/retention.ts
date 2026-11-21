@@ -1,5 +1,6 @@
 import { and, eq, events, inArray, isNotNull, isNull, type Database } from "@casamento/db";
 import type { Env } from "../env.ts";
+import { startIntervalJob, type JobOps } from "../jobs.ts";
 import type { Storage } from "../storage/index.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
 import type { EventCtx } from "../tenancy/types.ts";
@@ -85,28 +86,21 @@ export async function runRetention(
 }
 
 export function startRetentionJob(
-  deps: RetentionJobDeps,
+  deps: RetentionJobDeps & JobOps,
   intervalMs = RETENTION_INTERVAL_MS,
 ): () => void {
-  let running = false;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      const r = await runRetention(deps);
-      if (r.events.length > 0) {
-        console.log(
-          `[privacidade] Retenção: ${r.events.length} evento(s) anonimizado(s) (${r.invitations} convite(s), ${r.orders} pedido(s), ${r.messages} recado(s) não aprovado(s) apagado(s)).`,
-        );
-      }
-    } catch (err) {
-      console.error("[privacidade] Falha na rotina de retenção:", err);
-    } finally {
-      running = false;
-    }
-  };
-  void tick();
-  const timer = setInterval(() => void tick(), intervalMs);
-  timer.unref();
-  return () => clearInterval(timer);
+  return startIntervalJob(
+    {
+      name: "retenção",
+      intervalMs,
+      runAtStart: true,
+      run: async () => {
+        const r = await runRetention(deps);
+        return r.events.length > 0
+          ? `${r.events.length} evento(s) anonimizado(s) (${r.invitations} convite(s), ${r.orders} pedido(s), ${r.messages} recado(s) não aprovado(s) apagado(s)).`
+          : null;
+      },
+    },
+    deps,
+  );
 }

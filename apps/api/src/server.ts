@@ -12,6 +12,7 @@ import {
 } from "./jobs.ts";
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
+import { createSubscriptionProvider } from "./billing/index.ts";
 import { secretBoxFromEnv } from "./crypto/secret-box.ts";
 import { startSubscriptionJob } from "./plans/jobs.ts";
 import { startRetentionJob } from "./privacy/retention.ts";
@@ -37,6 +38,8 @@ const db = getDb();
 const provider = createPaymentProvider(env);
 const mailer = createMailer(env);
 const secrets = secretBoxFromEnv(env);
+// Uma instância só para o app (webhook, painel) e a rotina das assinaturas.
+const billing = createSubscriptionProvider(env);
 // Fase 6: logs JSON em produção (LOG_FORMAT muda) e alertas por e-mail (PLATFORM_ALERT_EMAIL).
 const logger = loggerFromEnv(env);
 const alerts = createAlerter({ env, mailer, logger });
@@ -49,6 +52,7 @@ const app = createApp({
   secrets,
   logger,
   alerts,
+  billing,
 });
 
 // Erro que escapou de tudo (promessa sem catch): log e alerta, sem derrubar o processo.
@@ -69,6 +73,7 @@ const jobDeps = {
   provider,
   mailer,
   secrets,
+  billing,
   now: () => new Date(),
   revalidate: createWebRevalidator(env),
 };
