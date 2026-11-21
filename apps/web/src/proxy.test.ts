@@ -47,6 +47,18 @@ describe("proxy", () => {
     expect(forwarded(res, "x-event-host")).toBe("evento1.localhost:3000");
   });
 
+  it("usa o X-Forwarded-Host (Caddy e o redirect interno de Server Action do Next)", () => {
+    const res = proxy(
+      req("http://localhost:3000/presentes/pagamento/X", {
+        "x-forwarded-host": "evento2.localhost:3000, outro",
+      }),
+    );
+    expect(getRewrittenUrl(res)).toBe(
+      "http://localhost:3000/evento2.localhost%3A3000/presentes/pagamento/X",
+    );
+    expect(forwarded(res, "x-event-host")).toBe("evento2.localhost:3000");
+  });
+
   it("descarta o x-event-host vindo de fora", () => {
     const res = proxy(req("http://localhost:3000/", { "x-event-host": "outro.com" }));
     expect(forwarded(res, "x-event-host")).toBe("localhost:3000");

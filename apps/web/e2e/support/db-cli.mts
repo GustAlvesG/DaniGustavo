@@ -7,6 +7,7 @@
 import {
   and,
   budgetLines,
+  createEventRecord,
   db,
   eq,
   eventMembers,
@@ -24,6 +25,7 @@ import {
   messages,
   newPublicId,
   organizationMembers,
+  paymentAccounts,
   payments,
   scheduleItems,
   sql,
@@ -37,6 +39,33 @@ import { createHash, randomBytes } from "node:crypto";
 import { rm, rmdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { cleanupE2eOrg, ensureE2eHost, ensureE2eOrg } from "@casamento/db/testing";
+
+/** Fase 5: nomes do e2e de recebimentos (org, dona, evento, host) a partir do `run`. */
+const f5 = (run: string) => ({
+  org: `e2e-f5-org-${run}`,
+  email: `dona-f5-${run}@exemplo.com`,
+  slug: `e2e-f5-${run}`,
+});
+
+/** Pedidos, pagamentos e contas de recebimento da org do e2e da Fase 5 (FK restrict). */
+async function cleanupFase5(run: string) {
+  const { org, email, slug } = f5(run);
+  const evs = await db
+    .select({ id: events.id, orgId: events.organizationId })
+    .from(events)
+    .where(eq(events.slug, slug));
+  for (const ev of evs) {
+    await db.delete(payments).where(eq(payments.eventId, ev.id));
+    await db.delete(messages).where(eq(messages.eventId, ev.id));
+    await db.delete(giftOrders).where(eq(giftOrders.eventId, ev.id));
+    await db
+      .update(events)
+      .set({ paymentReceiver: "organization", receivingAccountId: null })
+      .where(eq(events.id, ev.id));
+    await db.delete(paymentAccounts).where(eq(paymentAccounts.organizationId, ev.orgId));
+  }
+  await cleanupE2eOrg(db, org, [email]);
+}
 
 type NewInvitation = {
   label: string;
@@ -225,6 +254,12 @@ async function main(): Promise<unknown> {
         .from(events)
         .where(eq(events.slug, arg ?? ""));
       if (!ev) throw new Error(`Evento ${arg} não existe.`);
+      // Fase 5: o evento de teste recebe na conta principal, como o casamento (sem subconta,
+      // os presentes em dinheiro ficariam indisponíveis).
+      await db
+        .update(events)
+        .set({ paymentReceiver: "platform", receivingAccountId: null })
+        .where(eq(events.id, ev.id));
       const slug = "e2e-so-do-evento-2";
       const [has] = await db
         .select({ id: gifts.id })
@@ -356,6 +391,42 @@ async function main(): Promise<unknown> {
         .delete(budgetLines)
         .where(and(eq(budgetLines.eventId, ev.id), eq(budgetLines.category, input.category)));
       await db.delete(user).where(eq(user.email, `gestora-f4-${input.run}@exemplo.com`));
+      return { ok: true };
+    }
+    case "fase5-setup": {
+      // Organização com dona de senha dada e um evento ativo que recebe pela conta da
+      // organização (ainda sem conta: presentes em dinheiro indisponíveis), com um presente.
+      const input = JSON.parse(arg ?? "{}") as { run: string; password: string; host: string };
+      const names = f5(input.run);
+      await cleanupFase5(input.run);
+      const { orgId } = await ensureE2eOrg(db, {
+        slug: names.org,
+        name: `Organização E2E ${input.run}`,
+        email: names.email,
+        password: input.password,
+      });
+      const ev = await createEventRecord(db, {
+        organizationId: orgId,
+        slug: names.slug,
+        name: "Lia & Caio",
+        type: "wedding",
+        startsAt: "2029-03-10T16:00:00-03:00",
+        status: "active",
+        host: input.host,
+      });
+      await db.insert(gifts).values({
+        eventId: ev.id,
+        slug: "e2e-f5-jantar",
+        title: "Jantar da lua de mel",
+        priceCents: 20000,
+        quotaTotal: 2,
+        category: "lua-de-mel",
+        tileDesign: "flor",
+      });
+      return { orgId, eventId: ev.id, email: names.email };
+    }
+    case "fase5-cleanup": {
+      await cleanupFase5(String(arg));
       return { ok: true };
     }
     default:

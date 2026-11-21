@@ -103,3 +103,17 @@ export function fase4Member(
 export function fase4Cleanup(runId: string, slug: string, category: string): void {
   run("fase4-cleanup", JSON.stringify({ run: runId, slug, category }));
 }
+
+/** Fase 5: org com dona (senha dada) e evento que recebe pela conta da organização. */
+export function fase5Setup(
+  runId: string,
+  password: string,
+  host: string,
+): { orgId: number; eventId: number; email: string } {
+  return run("fase5-setup", JSON.stringify({ run: runId, password, host }));
+}
+
+/** Fase 5: apaga pedidos, contas de recebimento, o evento, a org e a dona do e2e. */
+export function fase5Cleanup(runId: string): void {
+  run("fase5-cleanup", runId);
+}

@@ -73,6 +73,8 @@ export default defineConfig({
       // (POST /api/revalidar) vai para o site deste e2e, não para o da porta 3000.
       env: {
         PAYMENT_PROVIDER: "simulado",
+        // Fase 5: taxa da plataforma no split (o e2e de recebimentos confere o valor no pedido).
+        PLATFORM_FEE_PERCENT: process.env.PLATFORM_FEE_PERCENT ?? "2.5",
         PORT: String(apiPort),
         WEB_INTERNAL_URL: `http://localhost:${port}`,
         // Em outra porta, o login do painel precisa da origem certa no Better Auth.
