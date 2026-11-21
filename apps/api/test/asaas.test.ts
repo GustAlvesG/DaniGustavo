@@ -17,6 +17,7 @@ import {
   testApp,
   type TestEvents,
 } from "./helpers.ts";
+import { receiveOnPlatform } from "./payment-fixtures.ts";
 
 // Respostas gravadas no formato da documentação do Asaas (API v3, docs.asaas.com).
 
@@ -471,6 +472,7 @@ describe("Asaas de ponta a ponta na API (fetch mockado)", () => {
   let T: TestEvents; // evento próprio: pedidos e expiração não esbarram em outros arquivos
   beforeAll(async () => {
     T = await createTestEvents(db);
+    await receiveOnPlatform(db, T);
     await setEventSetting(db, T.eventA.id, "payments.card_fee_percent", 4.98);
   });
 

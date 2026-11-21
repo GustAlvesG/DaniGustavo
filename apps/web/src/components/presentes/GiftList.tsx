@@ -26,11 +26,17 @@ export function GiftList({
   gifts,
   categories,
   requiresCpf = false,
+  paymentsAvailable = true,
 }: {
   gifts: Gift[];
   categories: GiftCategory[];
   /** O provedor (Asaas) exige o CPF de quem paga: o formulário pede o campo. */
   requiresCpf?: boolean;
+  /**
+   * O evento tem conta pronta para receber? Sem ela, a lista aparece com um aviso no lugar do
+   * botão (a API também recusa o pedido com 409).
+   */
+  paymentsAvailable?: boolean;
 }) {
   const [category, setCategory] = useState("todos");
   const [range, setRange] = useState("todos");
@@ -57,6 +63,12 @@ export function GiftList({
 
   return (
     <>
+      {paymentsAvailable ? null : (
+        <p className={styles.indisponivel} role="status" data-testid="presentes-indisponiveis">
+          Os presentes ainda não podem ser enviados por aqui: o recebimento está sendo preparado.
+          Volte em breve, vai ser uma alegria receber o seu carinho!
+        </p>
+      )}
       <div className={styles.filtros}>
         <ChipGroup
           legend="Categoria"
@@ -89,12 +101,12 @@ export function GiftList({
         <ul className={styles.grade} data-testid="gift-grid">
           {items.map((g) => (
             <li key={g.slug} className={styles.item}>
-              <GiftCard gift={g} onChoose={() => choose(g)} />
+              <GiftCard gift={g} available={paymentsAvailable} onChoose={() => choose(g)} />
             </li>
           ))}
           {open.map((g) => (
             <li key={g.slug} className={cx(styles.item, styles.livre)}>
-              <OpenAmountCard gift={g} onChoose={() => choose(g)} />
+              <OpenAmountCard gift={g} available={paymentsAvailable} onChoose={() => choose(g)} />
             </li>
           ))}
         </ul>
@@ -155,7 +167,20 @@ function ChipGroup({
   );
 }
 
-function GiftCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }) {
+/** No lugar do botão, quando o evento ainda não recebe presentes. */
+function EmBreve() {
+  return <p className={styles.emBreve}>Disponível em breve</p>;
+}
+
+function GiftCard({
+  gift,
+  available,
+  onChoose,
+}: {
+  gift: Gift;
+  available: boolean;
+  onChoose: () => void;
+}) {
   const soldOut = gift.quotaLeft === 0;
   const titleId = useId();
   return (
@@ -184,21 +209,33 @@ function GiftCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }) {
           {gift.quotaTotal > 1 ? <span>por cota</span> : null}
         </p>
         <p className={styles.cota}>{quotaText(gift)}</p>
-        <Button
-          variant={soldOut ? "secondary" : "primary"}
-          block
-          disabled={soldOut}
-          onClick={onChoose}
-          aria-label={soldOut ? `${gift.title}: já presenteado` : `Presentear: ${gift.title}`}
-        >
-          {soldOut ? "Já presenteado" : "Presentear"}
-        </Button>
+        {available || soldOut ? (
+          <Button
+            variant={soldOut ? "secondary" : "primary"}
+            block
+            disabled={soldOut}
+            onClick={onChoose}
+            aria-label={soldOut ? `${gift.title}: já presenteado` : `Presentear: ${gift.title}`}
+          >
+            {soldOut ? "Já presenteado" : "Presentear"}
+          </Button>
+        ) : (
+          <EmBreve />
+        )}
       </div>
     </article>
   );
 }
 
-function OpenAmountCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }) {
+function OpenAmountCard({
+  gift,
+  available,
+  onChoose,
+}: {
+  gift: Gift;
+  available: boolean;
+  onChoose: () => void;
+}) {
   return (
     <article className={cx("surface-marinho", styles.livreCard)} data-gift={gift.slug}>
       <div className={styles.selo}>
@@ -211,9 +248,13 @@ function OpenAmountCard({ gift, onChoose }: { gift: Gift; onChoose: () => void }
           {formatBRL(OPEN_AMOUNT_MIN_CENTS)}, no Pix ou no cartão.
         </p>
       </div>
-      <Button onClick={onChoose} aria-label={`Presentear: ${gift.title}`}>
-        Presentear
-      </Button>
+      {available ? (
+        <Button onClick={onChoose} aria-label={`Presentear: ${gift.title}`}>
+          Presentear
+        </Button>
+      ) : (
+        <EmBreve />
+      )}
     </article>
   );
 }

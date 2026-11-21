@@ -1,4 +1,4 @@
-import type { SecretBox } from "../crypto/secret-box.ts";
+import { secretsOf, type SecretBox } from "../crypto/secret-box.ts";
 import {
   and,
   asc,
@@ -30,9 +30,19 @@ import type { Env } from "../env.ts";
 import type { Mailer } from "../mailer.ts";
 import {
   PaymentProviderError,
+  type CardChargeInput,
   type ChargeSnapshot,
   type PaymentProvider,
+  type SplitRule,
+  type SplitSnapshot,
 } from "../payments/index.ts";
+import {
+  eventPaymentState,
+  platformSplit,
+  providerForOrder,
+  resolveEventReceiver,
+  type ReceiverDeps,
+} from "../payment-accounts/resolve.ts";
 import { crossEvent } from "../tenancy/cross-event.ts";
 import { resolverFor, type EventResolver } from "../tenancy/resolver.ts";
 import type { EventCtx } from "../tenancy/types.ts";
@@ -113,14 +123,55 @@ export const cardFeePercent = (ev: EventCtx, db: Database) =>
   setting<number>(ev, db, "payments.card_fee_percent", 0).then((v) => Number(v) || 0);
 
 /* ------------------------------------------------------------------------ */
+/* Conta do pedido (Fase 5)                                                  */
+/* ------------------------------------------------------------------------ */
+
+/** Mensagem do site quando o evento ainda não tem conta pronta para receber (409). */
+export const PAYMENTS_UNAVAILABLE_MESSAGE =
+  "Os presentes em dinheiro ainda não estão disponíveis: o recebimento deste evento está sendo preparado. Volte em breve, vai ser uma alegria receber o seu carinho!";
+
+export function receiverDepsOf(
+  deps: Pick<OrderDeps, "env" | "db" | "provider" | "secrets">,
+): ReceiverDeps {
+  return { env: deps.env, db: deps.db, provider: deps.provider, secrets: secretsOf(deps) };
+}
+
+/**
+ * Provedor da conta em que o pedido foi cobrado: a principal (pedidos sem subconta, como todos
+ * os anteriores à Fase 5) ou a subconta (`forAccount`). Consulta, cancelamento, expiração,
+ * conciliação e reembolso passam por aqui.
+ */
+export function orderProvider(
+  ev: EventCtx,
+  deps: OrderDeps,
+  order: Pick<OrderRow, "paymentAccountId">,
+): Promise<PaymentProvider> {
+  if (order.paymentAccountId === null) return Promise.resolve(deps.provider);
+  return providerForOrder(ev, receiverDepsOf(deps), order);
+}
+
+/** O split gravado no pedido (taxa do momento da compra), para as cobranças seguintes dele. */
+function orderSplit(deps: OrderDeps, order: OrderRow): SplitRule[] {
+  if (order.paymentAccountId === null) return [];
+  return platformSplit(deps, order.platformFeeBps ?? 0);
+}
+
+/** Valor que o provedor repassou à plataforma (null se a cobrança não tem split). */
+function splitTotalCents(split: SplitSnapshot[] | null | undefined): number | null {
+  if (!split?.length) return null;
+  return split.reduce((sum, s) => sum + (s.totalCents ?? 0), 0);
+}
+
+/* ------------------------------------------------------------------------ */
 /* Lista de presentes                                                        */
 /* ------------------------------------------------------------------------ */
 
 export async function listGifts(
   ev: EventCtx,
-  db: Database,
+  deps: Pick<OrderDeps, "db" | "provider">,
 ): Promise<Omit<GiftsResponse, "requiresCpf">> {
-  const [rows, categories, feePercent] = await Promise.all([
+  const { db } = deps;
+  const [rows, categories, feePercent, paymentState] = await Promise.all([
     db
       .select()
       .from(gifts)
@@ -128,6 +179,7 @@ export async function listGifts(
       .orderBy(asc(gifts.sort), asc(gifts.id)),
     setting<GiftCategory[]>(ev, db, "gifts.categories", []),
     cardFeePercent(ev, db),
+    eventPaymentState(ev, deps),
   ]);
   return {
     gifts: rows.map((g) => ({
@@ -141,8 +193,8 @@ export async function listGifts(
       quotaLeft: g.openAmount ? g.quotaTotal : Math.max(0, g.quotaTotal - g.quotaSold),
       category: g.category,
     })),
-    // Fase 5, frente B: false quando o evento não tem conta recebedora pronta.
-    paymentsAvailable: true,
+    // Sem conta recebedora pronta: o site mostra a lista com um aviso no lugar do botão.
+    paymentsAvailable: paymentState === "ready" || paymentState === "platform",
     categories,
     cardFeePercent: feePercent,
   };
@@ -224,7 +276,7 @@ export async function createOrder(
   deps: OrderDeps,
   req: ParsedCreate,
 ): Promise<Result<{ order: OrderView; outcome?: CardOutcome }>> {
-  const { db, provider, now } = deps;
+  const { db, now } = deps;
   const [gift] = await db
     .select()
     .from(gifts)
@@ -236,6 +288,10 @@ export async function createOrder(
       "Presente não encontrado. Volte à lista e escolha de novo.",
     );
   }
+  // A conta que recebe: sem conta pronta, nada é reservado nem cobrado.
+  const receiver = await resolveEventReceiver(ev, receiverDepsOf(deps));
+  if (!receiver.ok) return fail(409, ERROR_CODES.conflict, PAYMENTS_UNAVAILABLE_MESSAGE);
+  const { provider, accountId, split, feeBps } = receiver.charge;
   if (req.method === "card" && !req.card) {
     return fail(422, ERROR_CODES.invalidRequest, "Envie os dados do cartão para pagar com cartão.");
   }
@@ -291,6 +347,8 @@ export async function createOrder(
       status: "pending",
       method: "pix",
       provider: provider.name,
+      paymentAccountId: accountId,
+      platformFeeBps: feeBps,
       expiresAt,
       createdAt: created,
       updatedAt: created,
@@ -330,6 +388,7 @@ export async function createOrder(
       // Só repassado ao provedor: o CPF não é gravado no pedido.
       payerCpf: req.buyerCpf,
       expiresInMinutes: ORDER_HOLD_MINUTES,
+      ...(split.length ? { split } : {}),
     });
     await db
       .update(giftOrders)
@@ -398,7 +457,7 @@ export async function payWithCard(
   publicId: string,
   card: z.output<typeof CardPayment>,
 ): Promise<Result<{ order: OrderView; outcome: CardOutcome; message: string }>> {
-  const { db, provider, now } = deps;
+  const { db, now } = deps;
   const loaded = await loadOrder(ev, db, publicId);
   if (!loaded) return fail(404, ERROR_CODES.notFound, "Pedido não encontrado.");
   let { order } = loaded;
@@ -423,7 +482,11 @@ export async function payWithCard(
 
   let charge: ChargeSnapshot;
   try {
-    charge = await provider.createCard({
+    const provider = await orderProvider(ev, deps, order);
+    const split = orderSplit(deps, order);
+    // TODO(integração): `split` ainda não está em CardChargeInput (só o simulado usa o
+    // formulário de cartão); vai como campo extra.
+    const input: CardChargeInput & { split?: SplitRule[] } = {
       publicId,
       amountCents: order.amountCents + feeCents,
       description: `Presente: ${gift.title}`,
@@ -432,7 +495,9 @@ export async function payWithCard(
       paymentMethodId: card.paymentMethodId,
       paymentType: card.paymentType,
       installments: card.installments,
-    });
+      ...(split.length ? { split } : {}),
+    };
+    charge = await provider.createCard(input);
   } catch (err) {
     console.error(`[pedidos] Falha no cartão do pedido ${publicId}:`, describeError(err));
     return fail(
@@ -484,8 +549,8 @@ export async function startCardCheckout(
   publicId: string,
   coverFee: boolean,
 ): Promise<Result<{ url: string }>> {
-  const { db, provider, now, env } = deps;
-  if (!provider.createCardCheckout) {
+  const { db, now, env } = deps;
+  if (!deps.provider.createCardCheckout) {
     return fail(422, ERROR_CODES.invalidRequest, "Este pagamento usa o formulário de cartão.");
   }
   const loaded = await loadOrder(ev, db, publicId);
@@ -506,6 +571,9 @@ export async function startCardCheckout(
   }
   const feeCents = coverFee ? cardFeeCents(order.amountCents, await cardFeePercent(ev, db)) : 0;
   try {
+    const provider = await orderProvider(ev, deps, order);
+    if (!provider.createCardCheckout) throw new Error("Conta do pedido sem fatura hospedada.");
+    const split = orderSplit(deps, order);
     const charge = await provider.createCardCheckout({
       publicId,
       amountCents: order.amountCents + feeCents,
@@ -515,6 +583,7 @@ export async function startCardCheckout(
         await eventBaseUrl(ev, { env, resolver: resolverFor(db, deps.eventResolver) }),
         publicId,
       ),
+      ...(split.length ? { split } : {}),
     });
     await db
       .update(giftOrders)
@@ -566,6 +635,7 @@ export async function applyCharge(
 ): Promise<{ order: OrderRow | null; changedTo: OrderStatus | null }> {
   const { db, now } = deps;
   const where = and(chargeOrderFilter(charge), byEvent(giftOrders, ev));
+  const platformFeeCents = splitTotalCents(charge.split);
 
   const result = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(giftOrders).where(where).for("update");
@@ -604,6 +674,8 @@ export async function applyCharge(
             ...(charge.method === "pix" ? { feeCents: 0, feeCovered: false } : {}),
             providerOrderId: charge.providerOrderId,
             statusDetail: charge.statusDetail,
+            // Fase 5: o repasse à plataforma, como o provedor informou (null = sem split).
+            ...(platformFeeCents !== null ? { platformFeeCents } : {}),
             pixCode: null,
             pixQrBase64: null,
             pixTicketUrl: null,
@@ -671,24 +743,32 @@ export async function applyCharge(
     return { order, changedTo, previousCharge };
   });
 
-  if (result.changedTo === "paid" && result.order && deps.provider.listCharges) {
+  // As outras cobranças do pedido estão na mesma conta dele (principal ou subconta).
+  const provider =
+    result.changedTo === "paid" && result.order
+      ? await orderProvider(ev, deps, result.order).catch((err: unknown) => {
+          console.warn("[pedidos] Conta do pedido indisponível:", describeError(err));
+          return null;
+        })
+      : null;
+  if (provider?.listCharges && result.order) {
     // Pago por um caminho: apaga as outras cobranças abertas do pedido (o Pix, ou a fatura
     // do cartão), para ninguém pagar duas vezes.
-    const others = await deps.provider
+    const others = await provider
       .listCharges(result.order.publicId)
       .catch(() => [] as ChargeSnapshot[]);
     for (const other of others) {
       if (other.providerOrderId === charge.providerOrderId || other.status !== "pending") continue;
-      await deps.provider.cancel(other.providerOrderId).catch((err: unknown) => {
+      await provider.cancel(other.providerOrderId).catch((err: unknown) => {
         console.warn(
           `[pedidos] Não deu para cancelar a cobrança ${other.providerOrderId}:`,
           describeError(err),
         );
       });
     }
-  } else if (result.previousCharge) {
+  } else if (provider && result.previousCharge) {
     // Pagou com cartão: cancela o Pix que ainda estava aberto.
-    await deps.provider.cancel(result.previousCharge).catch((err: unknown) => {
+    await provider.cancel(result.previousCharge).catch((err: unknown) => {
       console.warn(`[pedidos] Não deu para cancelar o Pix ${result.previousCharge}:`, err);
     });
   }
@@ -741,6 +821,19 @@ export async function findChargeEvent(
   return row ? eventOfOrder(deps, row) : null;
 }
 
+/** O pedido do evento que a cobrança aponta (null se nenhum). */
+export async function loadChargeOrder(
+  ev: EventCtx,
+  db: Database,
+  charge: ChargeSnapshot,
+): Promise<OrderRow | null> {
+  const [row] = await db
+    .select()
+    .from(giftOrders)
+    .where(and(chargeOrderFilter(charge), byEvent(giftOrders, ev)));
+  return row ?? null;
+}
+
 /* ------------------------------------------------------------------------ */
 /* Expiração                                                                 */
 /* ------------------------------------------------------------------------ */
@@ -754,9 +847,15 @@ export async function checkOrderCharges(
   ev: EventCtx,
   deps: OrderDeps,
   publicId: string,
+  /** O pedido, se quem chama já o tem (senão é carregado: a conta dele decide o provedor). */
+  known?: OrderRow,
 ): Promise<{ paid: boolean; pending: string[] } | null> {
   if (!deps.provider.listCharges) return null;
-  const charges = await deps.provider.listCharges(publicId);
+  const order = known ?? (await loadOrder(ev, deps.db, publicId))?.order;
+  if (!order) return null;
+  const provider = await orderProvider(ev, deps, order);
+  if (!provider.listCharges) return null;
+  const charges = await provider.listCharges(publicId);
   const approved = charges.find((c) => c.status === "approved");
   if (approved) {
     await applyCharge(ev, deps, { ...approved, externalReference: publicId });
@@ -774,10 +873,18 @@ export async function expireOrder(
   deps: OrderDeps,
   order: OrderRow,
 ): Promise<OrderStatus> {
-  if (deps.provider.listCharges) {
+  let provider: PaymentProvider;
+  try {
+    provider = await orderProvider(ev, deps, order);
+  } catch (err) {
+    // Conta do pedido ilegível (chave trocada, provedor diferente): não expira às cegas.
+    console.warn(`[pedidos] Conta do pedido ${order.publicId} indisponível:`, describeError(err));
+    return "pending";
+  }
+  if (provider.listCharges) {
     let pending: string[];
     try {
-      const checked = await checkOrderCharges(ev, deps, order.publicId);
+      const checked = await checkOrderCharges(ev, deps, order.publicId, order);
       if (checked?.paid) return "paid";
       pending = checked?.pending ?? [];
     } catch (err) {
@@ -791,7 +898,7 @@ export async function expireOrder(
     const status = await expireLocally(ev, deps, order);
     // O QR do Asaas valeria por meses: apaga as cobranças abertas para ninguém pagar depois.
     for (const id of pending) {
-      await deps.provider.cancel(id).catch((err: unknown) => {
+      await provider.cancel(id).catch((err: unknown) => {
         console.warn(`[pedidos] Não deu para cancelar a cobrança ${id}:`, describeError(err));
       });
     }
@@ -799,7 +906,7 @@ export async function expireOrder(
   }
   if (order.providerOrderId) {
     try {
-      const charge = await deps.provider.getCharge(order.providerOrderId);
+      const charge = await provider.getCharge(order.providerOrderId);
       if (charge.status === "approved") {
         await applyCharge(ev, deps, charge);
         return "paid";

@@ -24,6 +24,7 @@ import {
   testApp,
   type TestEvents,
 } from "./helpers.ts";
+import { receiveOnPlatform } from "./payment-fixtures.ts";
 
 // Lacunas do plano (seção 7) além de isolation/admin-isolation: webhook de pedido de B, painel de
 // A mexendo em configurações, recados, pedidos e lembretes de B, e o envio de lembretes por evento.
@@ -63,6 +64,7 @@ const json = (v: unknown) => JSON.stringify(v);
 
 beforeAll(async () => {
   T = await createTestEvents(db);
+  await receiveOnPlatform(db, T);
   cookieHost = await T.login(app, "host");
   cookieStranger = await T.login(app, "stranger");
 

@@ -21,6 +21,7 @@ import {
   testApp,
   type TestEvents,
 } from "./helpers.ts";
+import { receiveOnPlatform } from "./payment-fixtures.ts";
 
 // Usa o banco de testes da API (global-setup: migrado e com seed). Cria presentes próprios (slugs únicos)
 // e apaga tudo o que criou no fim; os presentes do seed só são lidos.
@@ -61,6 +62,7 @@ const run = Date.now().toString(36);
 let T: TestEvents; // evento próprio (anfitrião e presentes só deste arquivo)
 beforeAll(async () => {
   T = await createTestEvents(db);
+  await receiveOnPlatform(db, T);
   await setEventSetting(db, T.eventA.id, "payments.card_fee_percent", 4.98);
 });
 const createdGifts: number[] = [];

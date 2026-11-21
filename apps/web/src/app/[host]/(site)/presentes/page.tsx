@@ -53,6 +53,7 @@ export default async function PresentesPage() {
               gifts={list.gifts}
               categories={list.categories}
               requiresCpf={list.requiresCpf}
+              paymentsAvailable={list.paymentsAvailable}
             />
           ) : (
             <div

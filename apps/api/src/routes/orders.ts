@@ -14,14 +14,21 @@ import {
   expireOrder,
   findChargeEvent,
   listGifts,
+  loadChargeOrder,
   loadOrder,
+  orderProvider,
   orderView,
   payWithCard,
   startCardCheckout,
   type Failure,
   type OrderDeps,
 } from "../orders/service.ts";
-import { PaymentProviderError, type WebhookRequest } from "../payments/index.ts";
+import {
+  PaymentProviderError,
+  type PaymentProvider,
+  type WebhookNotice,
+  type WebhookRequest,
+} from "../payments/index.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import type { PublicEventEnv } from "../tenancy/types.ts";
 import { clientIp } from "./invitations.ts";
@@ -31,7 +38,7 @@ const MINUTE = 60_000;
 export const PROVIDER_CHECK_MS = 15_000;
 export const ORDER_LIMIT = 10;
 
-async function readJson(c: Context): Promise<unknown> {
+export async function readJson(c: Context): Promise<unknown> {
   try {
     return await c.req.json();
   } catch {
@@ -58,7 +65,7 @@ export function giftRoutes(deps: OrderDeps) {
   const app = new Hono<PublicEventEnv>();
   app.get("/", async (c) => {
     c.header("Cache-Control", "public, max-age=15");
-    const gifts = await listGifts(c.get("event"), deps.db);
+    const gifts = await listGifts(c.get("event"), deps);
     return c.json({ ...gifts, requiresCpf: !!deps.provider.requiresCpf });
   });
   return app;
@@ -160,6 +167,75 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
   return app;
 }
 
+/** O que o webhook respondeu (o provedor só olha o status HTTP; o corpo ajuda nos testes). */
+export type ChargeNoticeResult =
+  | { ok: true; ignored: true }
+  | { ok: true; duplicate: true }
+  | { ok: true; order: string | null; changedTo: string | null };
+
+/**
+ * Aviso de cobrança (webhook global ou de uma subconta), já com o token conferido. Registra o
+ * evento (idempotente pelo id do evento), consulta o status na conta que avisou e aplica.
+ *
+ * - `accountId` null (webhook global, conta principal): pedido de subconta tem o status
+ *   consultado de novo na própria subconta (no simulado, o "Simular pagamento aprovado"
+ *   avisa sempre pelo global; no Asaas a principal nem enxerga a cobrança da subconta).
+ * - `accountId` da subconta: pedido de outra conta (ou da principal) é ignorado.
+ */
+export async function handleChargeNotice(
+  deps: OrderDeps,
+  notice: WebhookNotice,
+  body: unknown,
+  source: { provider: PaymentProvider; accountId: number | null },
+): Promise<ChargeNoticeResult> {
+  const { db, now } = deps;
+  await db
+    .insert(webhookEvents)
+    .ignore()
+    .values({ gateway: source.provider.name, eventId: notice.eventId, payload: body ?? {} });
+  const [event] = await db
+    .select()
+    .from(webhookEvents)
+    .where(eq(webhookEvents.eventId, notice.eventId));
+  if (event?.processedAt) return { ok: true, duplicate: true };
+
+  const fetchCharge = async (provider: PaymentProvider) => {
+    try {
+      return await provider.getCharge(notice.providerOrderId);
+    } catch (err) {
+      // Cobrança que a conta não conhece (de outra integração, de outra conta, de um teste).
+      if (err instanceof PaymentProviderError && err.status === 404) return null;
+      throw err;
+    }
+  };
+  let charge = await fetchCharge(source.provider);
+  if (!charge) return { ok: true, ignored: true };
+
+  const ev = await findChargeEvent(deps, charge);
+  const order = ev ? await loadChargeOrder(ev, db, charge) : null;
+  let applied: { order: { publicId: string } | null; changedTo: string | null } = {
+    order: null,
+    changedTo: null,
+  };
+  if (ev && order) {
+    if (source.accountId === null && order.paymentAccountId !== null) {
+      charge = await fetchCharge(await orderProvider(ev, deps, order));
+    } else if (source.accountId !== null && order.paymentAccountId !== source.accountId) {
+      console.warn(
+        `[webhook] Aviso da subconta ${source.accountId} sobre o pedido ${order.publicId}, que é de outra conta: ignorado.`,
+      );
+      charge = null;
+    }
+    if (charge) applied = await applyCharge(ev, deps, charge);
+  }
+  await db
+    .update(webhookEvents)
+    .set({ processedAt: now(), ...(ev ? { appEventId: ev.id } : {}) })
+    .where(eq(webhookEvents.eventId, notice.eventId));
+  if (!charge) return { ok: true, ignored: true };
+  return { ok: true, order: applied.order?.publicId ?? null, changedTo: applied.changedTo };
+}
+
 /**
  * POST /api/webhooks/payments. Confere o token do header `asaas-access-token` (401 se não
  * bater), registra o evento (idempotente pelo id do evento) e consulta o status no
@@ -170,7 +246,7 @@ export function orderRoutes(deps: OrderDeps & { limiter: RateLimiter }) {
  * (findChargeEvent) e fica gravado em webhook_events.app_event_id.
  */
 export function webhookRoutes(deps: OrderDeps) {
-  const { db, provider, now } = deps;
+  const { provider } = deps;
   const app = new Hono();
 
   app.post("/payments", async (c) => {
@@ -185,36 +261,7 @@ export function webhookRoutes(deps: OrderDeps) {
     }
     const notice = provider.parseWebhook(req);
     if (!notice) return c.json({ ok: true, ignored: true });
-
-    await db
-      .insert(webhookEvents)
-      .ignore()
-      .values({ gateway: provider.name, eventId: notice.eventId, payload: body ?? {} });
-    const [event] = await db
-      .select()
-      .from(webhookEvents)
-      .where(eq(webhookEvents.eventId, notice.eventId));
-    if (event?.processedAt) return c.json({ ok: true, duplicate: true });
-
-    let charge;
-    try {
-      charge = await provider.getCharge(notice.providerOrderId);
-    } catch (err) {
-      // Cobrança que não existe (ex.: de outra integração ou de um teste do painel).
-      if (err instanceof PaymentProviderError && err.status === 404) {
-        return c.json({ ok: true, ignored: true });
-      }
-      throw err;
-    }
-    const ev = await findChargeEvent(deps, charge);
-    const { order, changedTo } = ev
-      ? await applyCharge(ev, deps, charge)
-      : { order: null, changedTo: null };
-    await db
-      .update(webhookEvents)
-      .set({ processedAt: now(), ...(ev ? { appEventId: ev.id } : {}) })
-      .where(eq(webhookEvents.eventId, notice.eventId));
-    return c.json({ ok: true, order: order?.publicId ?? null, changedTo });
+    return c.json(await handleChargeNotice(deps, notice, body, { provider, accountId: null }));
   });
 
   return app;
