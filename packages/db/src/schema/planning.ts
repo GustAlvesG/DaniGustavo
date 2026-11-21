@@ -28,6 +28,9 @@ import { events, organizations } from "./tenancy.ts";
 export const TASK_STATUSES = ["todo", "doing", "done"] as const;
 export const EVENT_VENDOR_STATUSES = ["prospect", "hired", "dismissed"] as const;
 export const QUOTE_STATUSES = ["draft", "received", "approved", "contracted", "declined"] as const;
+/** Fase 7: quem lançou o orçamento/documento — a equipe pelo painel ou o fornecedor pelo portal. */
+export const PLANNING_SOURCES = ["panel", "portal"] as const;
+export type PlanningSource = (typeof PLANNING_SOURCES)[number];
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type EventVendorStatus = (typeof EVENT_VENDOR_STATUSES)[number];
@@ -142,6 +145,11 @@ export const eventTasks = mysqlTable(
     dueOffsetDays: int("due_offset_days"),
     /** Item de modelo que gerou a tarefa (só procedência; sem FK). */
     templateItemId: fk("template_item_id"),
+    /**
+     * Fase 7: fornecedor do evento responsável pela tarefa (aparece no portal dele). Sem FK, como
+     * em `schedule_items`: a aplicação confere que é do evento e anula ao desligar o fornecedor.
+     */
+    eventVendorId: fk("event_vendor_id"),
     completedAt: utcDatetime("completed_at"),
     completedBy: varchar("completed_by", { length: 36 }).references(() => user.id, {
       onDelete: "set null",
@@ -152,6 +160,7 @@ export const eventTasks = mysqlTable(
   (t) => [
     uniqueIndex("event_tasks_event_id_id_idx").on(t.eventId, t.id),
     index("event_tasks_event_status_due_idx").on(t.eventId, t.status, t.dueOn),
+    index("event_tasks_event_vendor_idx").on(t.eventId, t.eventVendorId),
   ],
 );
 
@@ -212,6 +221,10 @@ export const vendorContracts = mysqlTable(
     uploadedBy: varchar("uploaded_by", { length: 36 }).references(() => user.id, {
       onDelete: "set null",
     }),
+    /** Fase 7: enviado pela equipe (painel) ou pelo fornecedor (portal). */
+    source: mysqlEnum("source", PLANNING_SOURCES).notNull().default("panel"),
+    /** Fase 7: link do portal usado no envio (sem FK; só procedência). */
+    portalLinkId: fk("portal_link_id"),
     ...timestamps(),
   },
   (t) => [
@@ -246,6 +259,10 @@ export const quotes = mysqlTable(
     contractedAt: utcDatetime("contracted_at"),
     declinedAt: utcDatetime("declined_at"),
     notes: text("notes"),
+    /** Fase 7: lançado pela equipe (painel) ou enviado pelo fornecedor (portal, entra "received"). */
+    source: mysqlEnum("source", PLANNING_SOURCES).notNull().default("panel"),
+    /** Fase 7: link do portal usado no envio (sem FK; só procedência). */
+    portalLinkId: fk("portal_link_id"),
     ...timestamps(),
   },
   (t) => [

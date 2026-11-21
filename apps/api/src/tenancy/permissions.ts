@@ -64,6 +64,14 @@ export const PERMISSIONS: Record<Action, readonly EventAccessRole[]> = {
   "privacy.read": ALL,
   "privacy.manage": ALL,
   "vendors.catalog": ["platform_admin", "org_owner", "org_member"],
+  // Fase 7: dia do evento (check-in, mesas, portal do fornecedor e WhatsApp). O anfitrião pode
+  // tudo por padrão; a organização tira por evento.
+  "checkin.read": ALL,
+  "checkin.manage": ALL,
+  "seating.read": ALL,
+  "seating.write": ALL,
+  "vendors.portal": ALL,
+  "whatsapp.send": ALL,
 };
 
 /** Chave em `event_settings` das ações negadas ao anfitrião (privada). */

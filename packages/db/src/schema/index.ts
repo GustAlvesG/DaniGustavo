@@ -4,3 +4,4 @@ export * from "./tenancy.ts";
 export * from "./planning.ts";
 export * from "./platform.ts";
 export * from "./privacy.ts";
+export * from "./event-day.ts";

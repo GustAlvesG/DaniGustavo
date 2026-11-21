@@ -92,6 +92,13 @@
       "when": 1795272720259,
       "tag": "0012_comercial_lgpd",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1795282027705,
+      "tag": "0013_dia_do_evento",
+      "breakpoints": true
     }
   ]
 }

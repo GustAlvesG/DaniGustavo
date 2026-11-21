@@ -55,6 +55,18 @@ export const EVENT_ACTIONS = [
    * existe continua em `vendors.write`). Nunca o anfitrião (HOST_NEVER_ACTIONS).
    */
   "vendors.catalog",
+  /** Fase 7: ver as chegadas e a contagem do check-in. */
+  "checkin.read",
+  /** Fase 7: gerar/revogar links da portaria e marcar/desfazer chegadas pelo painel. */
+  "checkin.manage",
+  /** Fase 7: ver o mapa de mesas. */
+  "seating.read",
+  /** Fase 7: criar mesas e distribuir as pessoas. */
+  "seating.write",
+  /** Fase 7: gerar e revogar o link do portal do fornecedor. */
+  "vendors.portal",
+  /** Fase 7: modelos de mensagem, links do WhatsApp e marcar "enviado". */
+  "whatsapp.send",
 ] as const;
 export const EventAction = z.enum(EVENT_ACTIONS);
 export type EventAction = z.infer<typeof EventAction>;
@@ -92,6 +104,12 @@ export const EVENT_ACTION_LABELS: Record<EventAction, string> = {
   "privacy.read": "Ver pedidos de privacidade e a retenção de dados",
   "privacy.manage": "Atender pedidos de privacidade, exportar e anonimizar dados",
   "vendors.catalog": "Cadastrar fornecedor novo no catálogo da organização",
+  "checkin.read": "Ver as chegadas do check-in",
+  "checkin.manage": "Gerar links da portaria e marcar chegadas",
+  "seating.read": "Ver o mapa de mesas",
+  "seating.write": "Montar as mesas e distribuir os convidados",
+  "vendors.portal": "Enviar o link do portal aos fornecedores",
+  "whatsapp.send": "Enviar mensagens pelo WhatsApp",
 };
 
 /**
@@ -168,6 +186,11 @@ export const ACTION_REQUIRES: Partial<Record<EventAction, HostConfigurableAction
   "budget.write": "budget.read",
   "schedule.write": "schedule.read",
   "privacy.manage": "privacy.read",
+  // Fase 7.
+  "checkin.manage": "checkin.read",
+  "seating.write": "seating.read",
+  "vendors.portal": "vendors.read",
+  "whatsapp.send": "invitations.read",
 };
 
 /**

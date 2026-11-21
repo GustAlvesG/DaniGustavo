@@ -66,6 +66,11 @@ export const invitations = mysqlTable(
     consentVersion: varchar("consent_version", { length: 16 }),
     /** Fase 6 (LGPD): dados pessoais do convite trocados por marcadores (retenção ou pedido). */
     anonymizedAt: utcDatetime("anonymized_at"),
+    /**
+     * Fase 7: aviso para a portaria (ex.: "só cerimônia", "entrada pela lateral"). Aparece no
+     * check-in; nunca dado de saúde (restrição alimentar fica em `guests.dietary_notes`).
+     */
+    accessNote: varchar("access_note", { length: 191 }),
     ...timestamps(),
   },
   // (event_id, id) único: alvo das FKs compostas das tabelas filhas.
@@ -93,6 +98,8 @@ export const guests = mysqlTable(
     ...timestamps(),
   },
   (t) => [
+    // Fase 7: (event_id, id) único, alvo da FK composta de seat_assignments.
+    uniqueIndex("guests_event_id_id_idx").on(t.eventId, t.id),
     index("guests_event_invitation_idx").on(t.eventId, t.invitationId),
     // Convidado e convite sempre do mesmo evento.
     foreignKey({

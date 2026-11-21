@@ -30,8 +30,10 @@ ${API_DOMAIN} {
 	}
 
 	# Só o que precisa ser público neste host. As rotas do site (/api/site, /api/invitations,
-	# /api/orders...) o Next acessa pela rede interna e ficam fechadas aqui.
-	@publico path /painel /painel/* /api/auth/* /api/admin/* /api/webhooks/* /api/health /uploads/*
+	# /api/orders...) o Next acessa pela rede interna e ficam fechadas aqui. Aceite de convite da
+	# equipe e confirmação do cadastro vêm do painel; portaria e portal do fornecedor (Fase 7) são
+	# páginas sem conta do mesmo build do painel, com API própria.
+	@publico path /painel /painel/* /api/auth/* /api/admin/* /api/webhooks/* /api/health /uploads/* /api/team-invites/* /api/signup/* /portaria /portaria/* /api/checkin/* /fornecedor /fornecedor/* /api/vendor-portal/*
 	handle @publico {
 		reverse_proxy casamento-api:3333 {
 			import ip_real

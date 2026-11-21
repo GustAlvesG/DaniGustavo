@@ -20,8 +20,11 @@ const { app, db } = testApp({ mailer, revalidate: () => Promise.resolve() });
 
 const PREFIX = "/api/admin/events/:eventId";
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
-/** Rotas de `dashboard.read` (o anfitrião sempre pode: sem elas nem entra no evento). */
-const ALWAYS = ["GET /dashboard", "GET /config", "GET /access"];
+/**
+ * Rotas de `dashboard.read` (o anfitrião sempre pode: sem elas nem entra no evento). Fase 7: o
+ * aviso de limite de convidados (`/guest-limit`) é do início do painel.
+ */
+const ALWAYS = ["GET /dashboard", "GET /config", "GET /access", "GET /guest-limit"];
 /** Fase 5: ações que o anfitrião só tem se liberadas (opt-in) ou nunca tem. */
 const HOST_ONLY_IF_ALLOWED: readonly EventAction[] = [
   ...HOST_OPT_IN_ACTIONS,

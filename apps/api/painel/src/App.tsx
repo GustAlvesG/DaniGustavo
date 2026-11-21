@@ -57,6 +57,12 @@ import { Privacidade } from "./pages/Privacidade.tsx";
 import { AvisoAssinatura } from "./pages/plano/Situacao.tsx";
 import { ConfirmarCadastro } from "./pages/ConfirmarCadastro.tsx";
 import { Plataforma } from "./pages/plataforma/Plataforma.tsx";
+import { Checkin } from "./pages/checkin/Checkin.tsx";
+import { Dia } from "./pages/dia/Dia.tsx";
+import { Mesas } from "./pages/mesas/Mesas.tsx";
+import { Portal } from "./pages/portal/Portal.tsx";
+import { Portaria } from "./pages/portaria/Portaria.tsx";
+import { WhatsApp } from "./pages/whatsapp/WhatsApp.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
@@ -90,11 +96,17 @@ const NAV: { href: string; label: string; action?: EventAction; group?: string }
   { href: "/recebimento", label: "Recebimento", action: "payments.read" },
   { href: "/recados", label: "Recados", action: "messages.read" },
   { href: "/lembretes", label: "Lembretes", action: "reminders.read" },
+  // Fase 7 (frente D): mensagens prontas pelo WhatsApp do próprio organizador.
+  { href: "/whatsapp", label: "WhatsApp", action: "whatsapp.send" },
   // Fase 4: grupo "Gestão" do evento; cada item some sem a respectiva permissão de leitura.
   { href: "/tarefas", label: "Tarefas", action: "tasks.read", group: "Gestão" },
   { href: "/fornecedores", label: "Fornecedores", action: "vendors.read", group: "Gestão" },
   { href: "/financeiro", label: "Financeiro", action: "budget.read", group: "Gestão" },
   { href: "/cronograma", label: "Cronograma", action: "schedule.read", group: "Gestão" },
+  // Fase 7: grupo "Dia do evento" (D = resumo do dia; A = check-in; B = mesas).
+  { href: "/dia", label: "Hoje", group: "Dia do evento" },
+  { href: "/checkin", label: "Check-in", action: "checkin.read", group: "Dia do evento" },
+  { href: "/mesas", label: "Mesas", action: "seating.read", group: "Dia do evento" },
   { href: "/site", label: "Site", action: "content.read", group: "Site e ajustes" },
   { href: "/galeria", label: "Galeria", action: "content.read", group: "Site e ajustes" },
   { href: "/aparencia", label: "Aparência", action: "content.read", group: "Site e ajustes" },
@@ -174,6 +186,15 @@ function PageRoutes({ path }: { path: string }) {
       return <Recebimento />;
     case "privacidade":
       return <Privacidade />;
+    // Fase 7.
+    case "dia":
+      return <Dia />;
+    case "checkin":
+      return <Checkin />;
+    case "mesas":
+      return <Mesas />;
+    case "whatsapp":
+      return <WhatsApp />;
     case "conta":
       return <Conta />;
     default:
@@ -192,6 +213,23 @@ function PageRoutes({ path }: { path: string }) {
 
 export function App() {
   const path = useHashPath();
+  // Fase 7: páginas sem conta servidas pelo mesmo build em outro caminho (o token vem no hash):
+  // portaria (frente A) e portal do fornecedor (frente C). Nunca abrem a sessão do painel.
+  const page = window.location.pathname.replace(/\/+$/, "");
+  if (page === "/portaria") {
+    return (
+      <ToastProvider>
+        <Portaria />
+      </ToastProvider>
+    );
+  }
+  if (page === "/fornecedor") {
+    return (
+      <ToastProvider>
+        <Portal />
+      </ToastProvider>
+    );
+  }
   // Fase 3: aceite de convite abre com ou sem sessão (quem ainda não tem conta cria aqui).
   const invite = /^\/aceitar\/([^/?]+)/.exec(path);
   if (invite) {

@@ -24,6 +24,15 @@ const PLATFORM_PREFIX = "/api/admin/platform";
 /** Fase 6: dados da própria conta (LGPD). */
 const ME_PREFIX = "/api/admin/me";
 
+/**
+ * Fase 7: rotas reservadas pela fundação que ainda respondem 501 (cada frente implementa as
+ * suas). Sai na integração da Fase 7, junto com `admin/stub.ts`.
+ */
+const PHASE7_STUB =
+  /^\/(checkin|seating|whatsapp|guest-limit)(\/|$)|^\/vendors\/[^/]+\/portal-links/;
+/** Fase 7: APIs públicas sem conta (portaria e portal do fornecedor), fora de /api/admin. */
+const PUBLIC_PHASE7_PREFIXES = ["/api/checkin", "/api/vendor-portal"] as const;
+
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 interface RouteCase {
@@ -121,6 +130,11 @@ describe("enumeração das rotas", () => {
       "payments",
       // Fase 6.
       "privacy",
+      // Fase 7.
+      "checkin",
+      "seating",
+      "whatsapp",
+      "guest-limit",
     ]) {
       expect(areas, `área ${area}`).toContain(area);
     }
@@ -151,6 +165,17 @@ describe("enumeração das rotas", () => {
       ["GET", /^\/api\/admin\/platform\/overview$/],
       ["GET", /^\/api\/admin\/platform\/task-templates$/],
       ["GET", /^\/api\/admin\/me\/export$/],
+      // Fase 7.
+      ["GET", /\/events\/:eventId\/checkin$/],
+      ["POST", /\/events\/:eventId\/checkin\/links$/],
+      ["POST", /\/events\/:eventId\/checkin\/arrivals$/],
+      ["GET", /\/events\/:eventId\/seating$/],
+      ["PUT", /\/events\/:eventId\/seating\/assignments$/],
+      ["GET", /\/events\/:eventId\/vendors\/:eventVendorId\/portal-links$/],
+      ["POST", /\/events\/:eventId\/vendors\/:eventVendorId\/portal-links$/],
+      ["GET", /\/events\/:eventId\/whatsapp\/queue$/],
+      ["POST", /\/events\/:eventId\/whatsapp\/sends$/],
+      ["GET", /\/events\/:eventId\/guest-limit$/],
     ] as const) {
       expect(has(method, re), `${method} ${re}`).toBe(true);
     }
@@ -220,8 +245,10 @@ describe("quem tem acesso ao evento A", () => {
           continue;
         }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501).
-        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        // Nenhuma rota reservada (501), salvo as da Fase 7 ainda nas frentes.
+        if (!PHASE7_STUB.test(r.pattern.slice(PREFIX.length))) {
+          expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        }
       }
     },
   );
@@ -633,6 +660,53 @@ describe("Fase 6: /me (dados da própria conta)", () => {
       expect(p.routeNotFound, platformLabel(r)).toBe(false);
       expect(p.status, platformLabel(r)).not.toBe(401);
       expect(p.status, platformLabel(r)).not.toBe(501);
+    }
+  });
+});
+
+/* ------------------------------------------------------------------------ */
+/* Fase 7: portaria e portal do fornecedor (públicos, sem conta)             */
+/* ------------------------------------------------------------------------ */
+
+describe("Fase 7: APIs públicas da portaria e do portal do fornecedor", () => {
+  const publicRoutes = PUBLIC_PHASE7_PREFIXES.flatMap((prefix) => enumeratePrefixed(prefix));
+
+  it("existem e ficam fora de /api/admin", () => {
+    const keys = publicRoutes.map((r) => `${r.method} ${r.pattern.replace(/\{[^}]*\}/g, "")}`);
+    for (const k of [
+      "POST /api/checkin/session",
+      "GET /api/checkin/summary",
+      "GET /api/checkin/lookup",
+      "POST /api/checkin/arrivals",
+      "GET /api/vendor-portal/me",
+      "GET /api/vendor-portal/schedule",
+      "POST /api/vendor-portal/quotes",
+      "POST /api/vendor-portal/documents",
+    ]) {
+      expect(keys, k).toContain(k);
+    }
+  });
+
+  it("escritas não exigem X-Web-Key (chamadas do navegador, com Bearer)", async () => {
+    for (const r of publicRoutes.filter((x) => x.method !== "GET")) {
+      const res = await app.request(fillAny(r.pattern), {
+        method: r.method,
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+      expect(body?.error?.message ?? "", platformLabel(r)).not.toMatch(/X-Web-Key/);
+    }
+  });
+
+  it("sessão do painel não dá acesso (as rotas não leem cookie)", async () => {
+    for (const r of publicRoutes) {
+      const res = await app.request(fillAny(r.pattern), {
+        method: r.method,
+        headers: { cookie: cookies.owner, "Content-Type": "application/json" },
+        body: r.method === "GET" ? undefined : "{}",
+      });
+      expect(res.status, platformLabel(r)).not.toBe(200);
     }
   });
 });

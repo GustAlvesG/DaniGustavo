@@ -21,12 +21,14 @@ import { createLocalStorage } from "./storage/index.ts";
 import { webKey } from "./middleware/web-key.ts";
 import { secretBoxFromEnv, type SecretBox } from "./crypto/secret-box.ts";
 import { accountWebhookRoutes } from "./routes/account-webhooks.ts";
-import { painelRoutes } from "./painel.ts";
+import { painelRoutes, PORTARIA_PERMISSIONS_POLICY } from "./painel.ts";
 import { createSubscriptionProvider, type SubscriptionProvider } from "./billing/index.ts";
 import { publicPlanRoutes } from "./routes/plans.ts";
 import { subscriptionWebhookRoutes } from "./routes/subscription-webhooks.ts";
 import { signupRoutes } from "./routes/signup.ts";
 import { privacyRequestRoutes } from "./routes/privacy-requests.ts";
+import { checkinRoutes } from "./routes/checkin.ts";
+import { vendorPortalRoutes } from "./routes/vendor-portal.ts";
 import { requireModule } from "./tenancy/modules.ts";
 import { publicEvent } from "./tenancy/public.ts";
 import { createEventResolver, type EventResolver } from "./tenancy/resolver.ts";
@@ -97,6 +99,15 @@ export function createApp({
       });
     }),
   );
+  // Fase 7: a portaria (/portaria/) lê o QR pela câmera; só ela libera `camera` para a própria
+  // origem. Registrado antes do secureHeaders porque ele grava os cabeçalhos depois do handler
+  // (o middleware de fora roda por último e sobrescreve).
+  app.use("*", async (c, next) => {
+    await next();
+    if (c.req.path === "/portaria" || c.req.path.startsWith("/portaria/")) {
+      c.res.headers.set("Permissions-Policy", PORTARIA_PERMISSIONS_POLICY);
+    }
+  });
   // HSTS, nosniff e Referrer-Policy também vêm do snippet `seguranca` do edge em produção;
   // HSTS fica só lá (aqui valeria até em http://localhost).
   app.use(
@@ -251,6 +262,10 @@ export function createApp({
   app.route("/api/team-invites", teamInviteRoutes(adminDeps));
   // Fase 6, frente B: cadastro self-service (fechado com SIGNUP_ENABLED=0).
   app.route("/api/signup", signupRoutes(adminDeps));
+  // Fase 7 (sem conta, Bearer no header; isentas de X-Web-Key): A = portaria; C = portal do
+  // fornecedor.
+  app.route("/api/checkin", checkinRoutes(adminDeps));
+  app.route("/api/vendor-portal", vendorPortalRoutes(adminDeps));
   app.route("/", uploadFileRoutes(storage));
 
   app.route("/", painelRoutes(painelDist));

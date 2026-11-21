@@ -30,6 +30,14 @@ export const SCOPED_TABLES = [
   // Fase 6: LGPD (pedidos dos titulares) e lembrete semanal de tarefas.
   "privacy_requests",
   "task_reminder_prefs",
+  // Fase 7: dia do evento (check-in, mesas, portal do fornecedor e WhatsApp).
+  "checkin_links",
+  "checkins",
+  "seating_tables",
+  "seat_assignments",
+  "vendor_portal_links",
+  "whatsapp_templates",
+  "whatsapp_sends",
 ] as const;
 
 /** Fase 3: dados da organização; a consulta precisa filtrar por `organization_id`. */

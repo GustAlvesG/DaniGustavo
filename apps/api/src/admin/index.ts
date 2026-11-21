@@ -20,6 +20,11 @@ import { eventAccountStatusRoutes } from "./payment-account-status.ts";
 import { adminPrivacyRoutes } from "./privacy.ts";
 import { adminTaskReminderRoutes } from "./task-reminders.ts";
 import { adminMeRoutes } from "./me.ts";
+import { adminCheckinRoutes } from "./checkin.ts";
+import { adminGuestLimitRoutes } from "./guest-limit.ts";
+import { adminSeatingRoutes } from "./seating.ts";
+import { adminVendorPortalRoutes } from "./vendor-portal.ts";
+import { adminWhatsappRoutes } from "./whatsapp.ts";
 import { platformRoutes } from "./platform/index.ts";
 import { platformTaskTemplateRoutes } from "./platform/task-templates.ts";
 import { eventSubscriptionGate } from "../plans/gate.ts";
@@ -93,6 +98,13 @@ export function adminRoutes(deps: AdminDeps) {
   // Fase 6 (docs/saas/fase-6.md): C = /privacy; E = /tasks/reminders.
   ev.route("/privacy", adminPrivacyRoutes(deps));
   ev.route("/tasks", adminTaskReminderRoutes(deps));
+  // Fase 7 (docs/saas/fase-7.md): A = /checkin; B = /seating;
+  // C = /vendors/:eventVendorId/portal-links; D = /whatsapp e /guest-limit.
+  ev.route("/checkin", adminCheckinRoutes(deps));
+  ev.route("/seating", adminSeatingRoutes(deps));
+  ev.route("/vendors", adminVendorPortalRoutes(deps));
+  ev.route("/whatsapp", adminWhatsappRoutes(deps));
+  ev.route("/guest-limit", adminGuestLimitRoutes(deps));
   app.route("/events/:eventId", ev);
 
   // Fase 3 (docs/saas/fase-3.md): painel da organização.
