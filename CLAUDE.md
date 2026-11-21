@@ -161,7 +161,7 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - O CI nunca rodou no GitHub (ainda sem remote).
 - Asaas real sem teste em sandbox (a chave no `.env` é de produção): com uma chave `$aact_hmlg_`, validar Pix, fatura do cartão, webhook, conciliação, reembolso, subcontas (criação, documentos, aprovação, webhook), split e assinaturas; pedir ao Asaas a liberação de subcontas e split na conta principal (a Asaas recomenda esperar ~15 s após criar a subconta). `PAYMENT_SECRETS_KEY` obrigatória em produção (trocar invalida as chaves gravadas; rotação fica para depois).
 - `TODO(conteudo)`: preços e limites dos planos, `PLATFORM_FEE_PERCENT`, textos dos termos, da política e do aviso de privacidade.
-- `PLATFORM_HOST`, `PLATFORM_BASE_DOMAIN` e o `ask` do on-demand TLS no edge ainda não existem em produção (`docs/DEPLOY.md`).
+- `PLATFORM_HOST` definido: `happy4ever.artzan.tech` (API recomendada `happy4ever-api.artzan.tech`). `PLATFORM_BASE_DOMAIN` segue pendente (não pode ser `happy4ever.artzan.tech`: dois níveis, fora do SSL da Cloudflare) e o `ask` do on-demand TLS no edge ainda não existe em produção (`docs/DEPLOY.md`).
 - Retenção do casamento mantida em 365 dias (anonimiza a partir de 09/04/2028, visível em Privacidade).
 - Fase 7: ferramentas por plano, textos padrão do WhatsApp (`TODO(conteudo)`) e validades padrão dos links (portaria 48 h, portal 30 dias) em aberto. O snippet `seguranca` do edge não pode sobrescrever o `Permissions-Policy` da portaria (`docs/DEPLOY.md`).
 - `docker build` nunca rodado (sem Docker na máquina de dev). Revisão das Fases 1 a 7 pelo usuário.

@@ -414,6 +414,21 @@ logs api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o p
   `*.artzan.tech` (um nível), então um curinga de dois níveis precisa da nuvem **cinza** (DNS only)
   e de certificado emitido pelo próprio edge; ou use uma base de um nível.
 
+### Domínio da plataforma: happy4ever.artzan.tech
+
+Decidido: a plataforma fica em **`happy4ever.artzan.tech`** (`PLATFORM_HOST`: landing, preços e
+cadastro). Contrato da VPS: só um nível de subdomínio em `artzan.tech`.
+
+- Hosts (registro **A** para o IP da VPS, TTL 300, **sem AAAA**, um para cada):
+  `happy4ever.artzan.tech` (site) e, como recomendação, `happy4ever-api.artzan.tech` (API e painel;
+  alternativa: `painel-happy4ever.artzan.tech`). Hoje o compose tem um único par `DOMAIN` /
+  `API_DOMAIN` (casamento); a API da plataforma usa o mesmo `API_DOMAIN` ou um bloco novo no
+  `site.caddy`, a decidir no deploy.
+- `PLATFORM_BASE_DOMAIN` fica **vazio**: não pode ser `happy4ever.artzan.tech` (geraria
+  `slug.happy4ever.artzan.tech`, dois níveis, sem cobertura do SSL universal da Cloudflare).
+  Alternativas: certificado avançado da Cloudflare para `*.happy4ever.artzan.tech`; um domínio
+  próprio da plataforma no futuro; ou eventos só com domínio próprio verificado (on-demand TLS).
+
 ### Domínios próprios (on-demand TLS no edge)
 
 O cliente aponta o domínio dele (registro A para o IP da VPS) e prova a posse com o registro TXT

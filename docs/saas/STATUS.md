@@ -35,7 +35,7 @@ As decisões das Fases 1–7 foram respondidas em 21/11/2026 (`AGENTES.md`, §5 
 
 - Revisão do usuário das Fases 1 a 7 (todas "aguardando revisão"); `docker build` nunca rodado (sem Docker na máquina de dev) e CI nunca rodou no GitHub (sem remote).
 - `TODO(conteudo)`: preços e limites finais dos planos, `PLATFORM_FEE_PERCENT`, textos legais (termos, política, aviso de privacidade) e textos padrão do WhatsApp.
-- `PLATFORM_HOST`, `PLATFORM_BASE_DOMAIN` de produção e o `ask` do on-demand TLS no edge (`DEPLOY.md`).
+- `PLATFORM_HOST` definido: `happy4ever.artzan.tech` (API recomendada: `happy4ever-api.artzan.tech`). Pendentes: `PLATFORM_BASE_DOMAIN` (não pode ser `happy4ever.artzan.tech`; ver `DEPLOY.md`) e o `ask` do on-demand TLS no edge (`DEPLOY.md`).
 - Asaas: chave sandbox (`$aact_hmlg_`) para validar Pix, cartão, webhooks, conciliação, reembolso, subcontas, split e assinaturas; liberação de split e subcontas na conta principal; `PAYMENT_SECRETS_KEY` obrigatória em produção (rotação fica para depois).
 - Fase 7: ferramentas por plano (hoje nenhuma é limitada), validades padrão dos links (portaria 48 h, portal 30 dias) e o cuidado com `Permissions-Policy` no edge (`DEPLOY.md`).
 - CSP do site sem nonce (hoje `'unsafe-inline'` em scripts): manter ou reverter.
