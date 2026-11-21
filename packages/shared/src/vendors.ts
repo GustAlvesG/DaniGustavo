@@ -29,6 +29,8 @@ export const VendorInput = z.object({
 export type VendorInput = z.infer<typeof VendorInput>;
 /** PATCH /vendors/:vendorId (parcial). */
 export const VendorUpdate = VendorInput.partial().extend({
+  // Sem o padrão (null) do POST: no zod 4 o `.partial()` o aplicaria e apagaria a avaliação.
+  rating: z.number().int().min(1).max(5).nullable().optional(),
   /** true arquiva (some das listas de escolha); false desarquiva. */
   archived: z.boolean().optional(),
 });

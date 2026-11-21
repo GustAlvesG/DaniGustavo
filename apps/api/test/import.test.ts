@@ -14,7 +14,7 @@ import { hashPassword } from "better-auth/crypto";
 import { ulid } from "ulid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readXlsx } from "../src/admin/spreadsheet.ts";
-import { testApp } from "./helpers.ts";
+import { retryOnDeadlock, testApp } from "./helpers.ts";
 
 // Importação de convidados e listas pelo painel, contra o banco de testes da API. Os convites
 // do teste levam o sufixo `run` no nome e são apagados no fim.
@@ -47,15 +47,21 @@ const get = (path: string) =>
   app.request(`/api/admin/events/${LEGACY_EVENT_ID}${path}`, { headers: { cookie } });
 
 beforeAll(async () => {
-  await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
-  await db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" });
-  await db.insert(account).values({
-    id: ulid(),
-    accountId: userId,
-    providerId: "credential",
-    userId,
-    password: await hashPassword(password),
-  });
+  await retryOnDeadlock(() =>
+    db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true }),
+  );
+  await retryOnDeadlock(() =>
+    db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" }),
+  );
+  await retryOnDeadlock(async () =>
+    db.insert(account).values({
+      id: ulid(),
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: await hashPassword(password),
+    }),
+  );
   const res = await app.request("/api/auth/sign-in/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Forwarded-For": "198.51.100.77" },
@@ -69,8 +75,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(invitations).where(like(invitations.label, `%Import ${run}`));
-  await db.delete(user).where(eq(user.id, userId));
+  await retryOnDeadlock(() =>
+    db.delete(invitations).where(like(invitations.label, `%Import ${run}`)),
+  );
+  await retryOnDeadlock(() => db.delete(user).where(eq(user.id, userId)));
   await db.$client.end();
 });
 

@@ -627,6 +627,17 @@ a.row__main:hover .row__title {
     color: var(--suave);
     font-size: 0.875rem;
   }
+  /* Colunas de valor sem cabeçalho no celular: o rótulo vem do data-label. */
+  .table [data-label] {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .table [data-label]::before {
+    content: attr(data-label);
+    color: var(--suave);
+  }
 }
 
 .details {

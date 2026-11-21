@@ -12,7 +12,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Mailer, MailMessage } from "../src/mailer.ts";
 import { createRateLimiter } from "../src/rate-limit.ts";
 import { hashInviteToken, maskEmail } from "../src/team-invites/token.ts";
-import { createTestEvents, testApp, type TestEvents, type TestUserKind } from "./helpers.ts";
+import {
+  createTestEvents,
+  retryOnDeadlock,
+  testApp,
+  type TestEvents,
+  type TestUserKind,
+} from "./helpers.ts";
 
 // Fase 3, frente B: equipe da organização, convites por e-mail e aceite.
 
@@ -41,7 +47,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (createdEmails.length) await db.delete(user).where(inArray(user.email, createdEmails));
+  if (createdEmails.length) {
+    await retryOnDeadlock(() => db.delete(user).where(inArray(user.email, createdEmails)));
+  }
   await ev?.cleanup();
 });
 

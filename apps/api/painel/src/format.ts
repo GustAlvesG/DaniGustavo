@@ -31,8 +31,11 @@ export function formatDateTime(iso: string | null | undefined): string {
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
+  // Data de calendário ("AAAA-MM-DD", prazos e parcelas): o JS lê como meia-noite UTC; mostrar
+  // em UTC mantém o dia (em São Paulo cairia no dia anterior).
+  const calendar = /^\d{4}-\d{2}-\d{2}$/.test(iso);
   return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: TZ,
+    timeZone: calendar ? "UTC" : TZ,
     day: "numeric",
     month: "long",
     year: "numeric",

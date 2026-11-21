@@ -89,3 +89,17 @@ export function fase3InviteToken(email: string): string {
 export function fase3Cleanup(runId: string): void {
   run("fase3-cleanup", runId);
 }
+
+/** Fase 4: membro (gestora) da organização do evento de teste, com a senha dada. */
+export function fase4Member(
+  runId: string,
+  slug: string,
+  password: string,
+): { orgId: number; eventId: number } {
+  return run("fase4-member", JSON.stringify({ run: runId, slug, password }));
+}
+
+/** Fase 4: apaga o que o e2e criou (marcado com `run`), o previsto da categoria e a gestora. */
+export function fase4Cleanup(runId: string, slug: string, category: string): void {
+  run("fase4-cleanup", JSON.stringify({ run: runId, slug, category }));
+}

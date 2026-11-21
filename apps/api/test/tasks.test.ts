@@ -105,6 +105,26 @@ describe("CRUD", () => {
     expect(((await cleared.json()) as { task: TaskRow }).task.dueOn).toBeNull();
   });
 
+  it("PATCH parcial não volta os outros campos ao padrão", async () => {
+    const t = await created("Parcial", {
+      category: "festa",
+      assigneeUserId: ev.users.owner.id,
+      due: { kind: "offset", days: -10 },
+    });
+    const res = await call("owner", `${base(ev.eventA.id)}/${t.id}`, {
+      method: "PATCH",
+      body: { status: "done" },
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { task: TaskRow }).task).toMatchObject({
+      status: "done",
+      category: "festa",
+      assignee: expect.objectContaining({ userId: ev.users.owner.id }),
+      dueOffsetDays: -10,
+      dueOn: "2029-12-22",
+    });
+  });
+
   it("concluir grava quem e quando; reabrir limpa", async () => {
     const t = await created("Concluir");
     const url = `${base(ev.eventA.id)}/${t.id}`;

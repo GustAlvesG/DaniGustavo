@@ -136,3 +136,15 @@ Merge A → B → C → D; apagar `admin/stub.ts`; ligar o recálculo de prazos 
 | Lembretes de tarefa por e-mail                          | Fora desta fase; resumo semanal opcional numa fase seguinte.                  |
 | Modelos de tarefas prontos da plataforma                | Nenhum (cada organização cria os seus); semear um modelo de casamento depois. |
 | Orçamento contratado pode ser reaberto?                 | Não nesta fase (imutável); só refazer o plano de parcelas.                    |
+
+## 6. Integração: desvios e decisões
+
+- **Merges** A → B → C → D sem conflito; `admin/stub.ts` apagado; `admin-isolation.test.ts` também confere que nenhuma rota responde 501.
+- **Data do evento:** nenhuma rota mudava `events.starts_at` (a org só muda status; `/config` só tipo/módulos/lados/vocabulário). A data que o painel edita é `wedding.datetime`/`wedding.timezone` (Configurações): o `PUT /settings` agora sincroniza `events.starts_at/timezone`, invalida o resolver e chama `recalculateTaskDues` (teste em `tasks.test.ts`). Mudar a data pela org fica para quando houver tela.
+- **Coerência:** `@casamento/db` reexporta `isNotNull` (orçamento, tarefas e conciliação sem `sql` cru); alinhamento do Financeiro em CSS (`.num`, rótulos `data-label` no celular); cartões do resumo conferidos contra `GET /tasks?view=overdue` e `GET /budget`; o Financeiro usa `GET /vendors` da frente B.
+- **Remover fornecedor do evento:** orçamentos não contratados saem em cascata (FK), o cronograma é anulado pela aplicação e contratado bloqueia (409); o aviso do painel diz isso (teste em `vendors.test.ts`).
+- **Bugs achados no e2e:** `TaskUpdate`/`VendorUpdate` eram `.partial()` de schemas com `.default()` — no zod 4 o padrão é aplicado e "marcar como feita" zerava categoria, prazo e responsável (corrigido, com teste); `formatDate` do painel mostrava datas "AAAA-MM-DD" um dia antes (lia como UTC e formatava em São Paulo).
+- **Intermitência do `reminders.test.ts`:** deadlock real do InnoDB (registrado no `SHOW ENGINE INNODB STATUS` do banco da frente A) entre o `insert into event_members` do `beforeAll` dos lembretes e o `delete from user` (cascata em `event_members`) da limpeza de `team-invites.test.ts`, rodando em paralelo. Escritas de setup/limpeza em tabelas compartilhadas (`reminders`, `admin`, `import`, `team-invites`) passam por `retryOnDeadlock`.
+- **Testes novos de integração:** isolamento da gestão entre eventos (tarefa, fornecedor, orçamento e cronograma de B invisíveis e intocáveis por A) e permissões do anfitrião por área (`host-permissions.test.ts`).
+- **E2E** `painel-fase4.spec.ts`: uma gestora (membro da org do evento de teste, criada pelo apoio de banco) monta modelo e catálogo; o anfitrião aplica o modelo, liga o fornecedor, anexa e baixa um PDF, contrata orçamento com parcelas, paga uma, confere o Financeiro e os cartões do início; cronograma. CSS de celular de Tarefas/Cronograma ajustado (título espremido, abas estourando).
+- **Banco de dev:** nada novo a aplicar (0010 já estava). Dados de demonstração das screenshots apagados.

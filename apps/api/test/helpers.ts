@@ -100,7 +100,9 @@ let loginSeq = 0;
  * um `DELETE ... WHERE event_id IN (...)` (e as cascatas) trava intervalos do índice que outro
  * arquivo está usando, e o InnoDB às vezes derruba um dos dois com deadlock (1213) ou estoura a
  * espera do lock (1205). No afterAll isso falhava o arquivo inteiro sem teste vermelho
- * (isolation*.test.ts). O InnoDB pede exatamente isto: repetir a instrução.
+ * (isolation*.test.ts). O InnoDB pede exatamente isto: repetir a instrução. Vale também para o
+ * setup (inserts em `user`, `event_members`, `organization_members` contra a limpeza de outro
+ * arquivo): foi a intermitência do reminders.test.ts e do events-jobs/vendors na Fase 4.
  */
 export async function retryOnDeadlock<T>(fn: () => Promise<T>, tries = 5): Promise<T> {
   for (let i = 1; ; i++) {
@@ -121,7 +123,9 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
 
   const org = async (suffix: string) => {
     const slug = `t-org-${suffix}-${run}`;
-    const [res] = await db.insert(organizations).values({ slug, name: `Org ${suffix} ${run}` });
+    const [res] = await retryOnDeadlock(() =>
+      db.insert(organizations).values({ slug, name: `Org ${suffix} ${run}` }),
+    );
     return { id: res.insertId, slug };
   };
   const orgA = await org("a");
@@ -141,7 +145,7 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
       timezone: "America/Sao_Paulo",
       startsAt: new Date("2030-01-01T15:00:00Z"),
     };
-    const [res] = await db.insert(events).values(values);
+    const [res] = await retryOnDeadlock(() => db.insert(events).values(values));
     return {
       id: res.insertId,
       slug: values.slug,
@@ -159,36 +163,46 @@ export async function createTestEvents(db: Database): Promise<TestEvents> {
 
   const primaryHostA = `a-${run}.teste.local:3000`;
   const secondaryHostA = `www.a-${run}.teste.local`;
-  await db.insert(eventDomains).values([
-    { eventId: eventA.id, host: primaryHostA, isPrimary: true },
-    { eventId: eventA.id, host: secondaryHostA, isPrimary: false },
-  ]);
+  await retryOnDeadlock(() =>
+    db.insert(eventDomains).values([
+      { eventId: eventA.id, host: primaryHostA, isPrimary: true },
+      { eventId: eventA.id, host: secondaryHostA, isPrimary: false },
+    ]),
+  );
 
   const passwordHash = await hashPassword(TEST_PASSWORD);
   const users = {} as Record<TestUserKind, TestUser>;
   for (const kind of TEST_USER_KINDS) {
     const id = ulid();
     const u = { id, email: `${kind.toLowerCase()}-${run}@exemplo.com`, name: `Teste ${kind}` };
-    await db.insert(user).values({
-      ...u,
-      emailVerified: true,
-      platformRole: kind === "platformAdmin" ? "admin" : null,
-    });
-    await db.insert(account).values({
-      id: ulid(),
-      accountId: id,
-      providerId: "credential",
-      userId: id,
-      password: passwordHash,
-    });
+    await retryOnDeadlock(() =>
+      db.insert(user).values({
+        ...u,
+        emailVerified: true,
+        platformRole: kind === "platformAdmin" ? "admin" : null,
+      }),
+    );
+    await retryOnDeadlock(() =>
+      db.insert(account).values({
+        id: ulid(),
+        accountId: id,
+        providerId: "credential",
+        userId: id,
+        password: passwordHash,
+      }),
+    );
     users[kind] = u;
   }
-  await db.insert(eventMembers).values({ eventId: eventA.id, userId: users.host.id, role: "host" });
-  await db.insert(organizationMembers).values([
-    { organizationId: orgA.id, userId: users.owner.id, role: "owner" },
-    { organizationId: orgA.id, userId: users.member.id, role: "member" },
-    { organizationId: orgB.id, userId: users.stranger.id, role: "owner" },
-  ]);
+  await retryOnDeadlock(() =>
+    db.insert(eventMembers).values({ eventId: eventA.id, userId: users.host.id, role: "host" }),
+  );
+  await retryOnDeadlock(() =>
+    db.insert(organizationMembers).values([
+      { organizationId: orgA.id, userId: users.owner.id, role: "owner" },
+      { organizationId: orgA.id, userId: users.member.id, role: "member" },
+      { organizationId: orgB.id, userId: users.stranger.id, role: "owner" },
+    ]),
+  );
 
   const eventIds = [eventA.id, eventB.id, draftA.id];
 

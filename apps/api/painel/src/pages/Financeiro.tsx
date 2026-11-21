@@ -187,8 +187,10 @@ function BudgetTable({ view }: { view: BudgetView }) {
                   {VENDOR_CATEGORY_LABELS[c.category] ?? c.category}
                   {c.notes && <span className="muted small"> · {c.notes}</span>}
                 </td>
-                <td className="num">{formatBRL(c.plannedCents)}</td>
-                <td className="num">
+                <td className="num" data-label="Previsto">
+                  {formatBRL(c.plannedCents)}
+                </td>
+                <td className="num" data-label="Contratado">
                   {formatBRL(c.contractedCents)}
                   {over && (
                     <>
@@ -197,15 +199,23 @@ function BudgetTable({ view }: { view: BudgetView }) {
                     </>
                   )}
                 </td>
-                <td className="num">{formatBRL(c.paidCents)}</td>
+                <td className="num" data-label="Pago">
+                  {formatBRL(c.paidCents)}
+                </td>
               </tr>
             );
           })}
           <tr>
             <th scope="row">Total</th>
-            <th className="num">{formatBRL(view.totals.plannedCents)}</th>
-            <th className="num">{formatBRL(view.totals.contractedCents)}</th>
-            <th className="num">{formatBRL(view.totals.paidCents)}</th>
+            <th className="num" data-label="Previsto">
+              {formatBRL(view.totals.plannedCents)}
+            </th>
+            <th className="num" data-label="Contratado">
+              {formatBRL(view.totals.contractedCents)}
+            </th>
+            <th className="num" data-label="Pago">
+              {formatBRL(view.totals.paidCents)}
+            </th>
           </tr>
         </tbody>
       </table>

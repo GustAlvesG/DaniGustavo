@@ -37,8 +37,20 @@ export const TaskInput = z.object({
   due: TaskDue.default(null),
 });
 export type TaskInput = z.infer<typeof TaskInput>;
-/** PATCH /tasks/:taskId (só os campos enviados mudam). */
-export const TaskUpdate = TaskInput.partial();
+/**
+ * PATCH /tasks/:taskId (só os campos enviados mudam). Sem os `.default()` do POST: no zod 4 o
+ * `.partial()` ainda aplica o padrão, e marcar como feita apagaria categoria, prazo e responsável.
+ */
+export const TaskUpdate = z
+  .object({
+    title: TaskInput.shape.title,
+    description: TaskInput.shape.description,
+    category: TaskCategory,
+    status: TaskStatus,
+    assigneeUserId: z.string().min(1).max(36).nullable(),
+    due: TaskDue,
+  })
+  .partial();
 export type TaskUpdate = z.infer<typeof TaskUpdate>;
 
 /**

@@ -28,7 +28,7 @@ import {
   sendRemindersNow,
 } from "../src/reminders.ts";
 import { resolverFor } from "../src/tenancy/resolver.ts";
-import { testApp } from "./helpers.ts";
+import { retryOnDeadlock, testApp } from "./helpers.ts";
 
 // Usa o banco de testes da API (global-setup: migrado e com seed). Cria convites próprios (e-mails
 // únicos) e restringe as rodadas a eles (`only`), sem tocar nos convites reais. A
@@ -69,12 +69,14 @@ async function invite(key: string, opts: { email?: string; status?: "pending" | 
   });
   created.push(res.insertId);
   ids[key] = res.insertId;
-  await db.insert(guests).values({
-    eventId: LEGACY_EVENT_ID,
-    invitationId: res.insertId,
-    name: `Convidado ${key}`,
-    rsvpStatus: opts.status ?? "pending",
-  });
+  await retryOnDeadlock(() =>
+    db.insert(guests).values({
+      eventId: LEGACY_EVENT_ID,
+      invitationId: res.insertId,
+      name: `Convidado ${key}`,
+      rsvpStatus: opts.status ?? "pending",
+    }),
+  );
 }
 
 const deps = () => ({ ev, env, db, mailer, now: () => clock, only: created });
@@ -96,7 +98,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(invitations).where(inArray(invitations.id, created)); // cascade nos lembretes
+  await retryOnDeadlock(() => db.delete(invitations).where(inArray(invitations.id, created))); // cascade nos lembretes
   if (originalSettings === undefined) {
     await db
       .delete(eventSettings)
@@ -137,7 +139,9 @@ describe("agenda por dias antes do prazo", () => {
   });
 
   it("3 dias antes: segundo lembrete, e quem já respondeu fica de fora", async () => {
-    await db.update(guests).set({ rsvpStatus: "declined" }).where(eq(guests.invitationId, ids.b!));
+    await retryOnDeadlock(() =>
+      db.update(guests).set({ rsvpStatus: "declined" }).where(eq(guests.invitationId, ids.b!)),
+    );
     clock = day("2027-03-08");
     const r = await runAutoReminders(deps());
     expect(r.sent).toBe(1);
@@ -157,7 +161,9 @@ describe("liga/desliga e configuração", () => {
   it("desligado, o automático não envia (e o manual ainda funciona)", async () => {
     await saveReminderSettings(ev, db, { enabled: false, daysBefore: [14, 3] });
     await clearSent();
-    await db.update(guests).set({ rsvpStatus: "pending" }).where(eq(guests.invitationId, ids.b!));
+    await retryOnDeadlock(() =>
+      db.update(guests).set({ rsvpStatus: "pending" }).where(eq(guests.invitationId, ids.b!)),
+    );
     sent.length = 0;
     clock = day("2027-03-08");
     expect(await runAutoReminders(deps())).toEqual({ sent: 0, failed: 0 });
@@ -236,15 +242,21 @@ describe("painel (/api/admin/reminders)", () => {
     });
 
   beforeAll(async () => {
-    await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
-    await db.insert(eventMembers).values({ eventId: ev.id, userId, role: "host" });
-    await db.insert(account).values({
-      id: ulid(),
-      accountId: userId,
-      providerId: "credential",
-      userId,
-      password: await hashPassword("senha-de-teste-123"),
-    });
+    await retryOnDeadlock(() =>
+      db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true }),
+    );
+    await retryOnDeadlock(() =>
+      db.insert(eventMembers).values({ eventId: ev.id, userId, role: "host" }),
+    );
+    await retryOnDeadlock(async () =>
+      db.insert(account).values({
+        id: ulid(),
+        accountId: userId,
+        providerId: "credential",
+        userId,
+        password: await hashPassword("senha-de-teste-123"),
+      }),
+    );
     const res = await app.request("/api/auth/sign-in/email", {
       method: "POST",
       headers: {
@@ -259,7 +271,7 @@ describe("painel (/api/admin/reminders)", () => {
       .join("; ");
   });
   afterAll(async () => {
-    await db.delete(user).where(eq(user.id, userId));
+    await retryOnDeadlock(() => db.delete(user).where(eq(user.id, userId)));
   });
 
   it("exige sessão", async () => {

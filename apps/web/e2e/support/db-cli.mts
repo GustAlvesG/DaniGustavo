@@ -6,23 +6,36 @@
  */
 import {
   and,
+  budgetLines,
   db,
   eq,
+  eventMembers,
   eventSettings,
+  eventTasks,
   events,
+  eventVendors,
   giftOrders,
   gifts,
   guests,
   inArray,
   invitations,
   LEGACY_EVENT_ID,
+  like,
   messages,
   newPublicId,
+  organizationMembers,
   payments,
+  scheduleItems,
   sql,
+  taskTemplates,
   teamInvites,
+  user,
+  vendorContracts,
+  vendors,
 } from "@casamento/db";
 import { createHash, randomBytes } from "node:crypto";
+import { rm, rmdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { cleanupE2eOrg, ensureE2eHost, ensureE2eOrg } from "@casamento/db/testing";
 
 type NewInvitation = {
@@ -261,6 +274,88 @@ async function main(): Promise<unknown> {
         `dona-f3-${run}@exemplo.com`,
         `anfitriao-f3-${run}@exemplo.com`,
       ]);
+      return { ok: true };
+    }
+    case "fase4-member": {
+      // Fase 4: membro da organização do evento de teste (cria modelos e o catálogo), com senha
+      // dada. O apoio do anfitrião cria a conta; o vínculo de anfitrião sai e entra o da org.
+      const input = JSON.parse(arg ?? "{}") as { run: string; slug: string; password: string };
+      const { eventId, userId } = await ensureE2eHost(db, {
+        slug: input.slug,
+        email: `gestora-f4-${input.run}@exemplo.com`,
+        name: `Gestora E2E ${input.run}`,
+        password: input.password,
+      });
+      await db
+        .delete(eventMembers)
+        .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.userId, userId)));
+      const [ev] = await db
+        .select({ orgId: events.organizationId })
+        .from(events)
+        .where(eq(events.id, eventId));
+      await db
+        .insert(organizationMembers)
+        .ignore()
+        .values({ organizationId: ev!.orgId, userId, role: "member" });
+      return { orgId: ev!.orgId, eventId };
+    }
+    case "fase4-cleanup": {
+      // Tudo o que o e2e da Fase 4 criou (marcado com o `run`) no evento de teste e na org dele,
+      // os arquivos de contrato e a conta da gestora. O previsto da categoria usada também sai.
+      const input = JSON.parse(arg ?? "{}") as { run: string; slug: string; category: string };
+      const [ev] = await db
+        .select({ id: events.id, orgId: events.organizationId })
+        .from(events)
+        .where(eq(events.slug, input.slug));
+      if (!ev) return { ok: true };
+      const mark = `%${input.run}%`;
+      const ours = await db
+        .select({ id: vendors.id })
+        .from(vendors)
+        .where(and(eq(vendors.organizationId, ev.orgId), like(vendors.name, mark)));
+      const vendorIds = ours.map((v) => v.id);
+      if (vendorIds.length) {
+        const links = await db
+          .select({ id: eventVendors.id })
+          .from(eventVendors)
+          .where(and(eq(eventVendors.eventId, ev.id), inArray(eventVendors.vendorId, vendorIds)));
+        const linkIds = links.map((l) => l.id);
+        if (linkIds.length) {
+          const files = await db
+            .select({ file: vendorContracts.file })
+            .from(vendorContracts)
+            .where(
+              and(
+                eq(vendorContracts.eventId, ev.id),
+                inArray(vendorContracts.eventVendorId, linkIds),
+              ),
+            );
+          const dir =
+            process.env.UPLOAD_DIR ??
+            fileURLToPath(new URL("../../../api/storage/uploads", import.meta.url));
+          for (const f of files) await rm(`${dir}/${ev.id}/private/${f.file}`, { force: true });
+          // Pastas que ficaram vazias (rmdir recusa pasta com arquivo: o que já existia fica).
+          for (const sub of [`${ev.id}/private`, `${ev.id}`]) {
+            await rmdir(`${dir}/${sub}`).catch(() => undefined);
+          }
+          // Orçamentos, itens, parcelas e contratos saem junto (cascata).
+          await db.delete(eventVendors).where(inArray(eventVendors.id, linkIds));
+        }
+        await db.delete(vendors).where(inArray(vendors.id, vendorIds));
+      }
+      await db
+        .delete(eventTasks)
+        .where(and(eq(eventTasks.eventId, ev.id), like(eventTasks.title, mark)));
+      await db
+        .delete(scheduleItems)
+        .where(and(eq(scheduleItems.eventId, ev.id), like(scheduleItems.title, mark)));
+      await db
+        .delete(taskTemplates)
+        .where(and(eq(taskTemplates.organizationId, ev.orgId), like(taskTemplates.name, mark)));
+      await db
+        .delete(budgetLines)
+        .where(and(eq(budgetLines.eventId, ev.id), eq(budgetLines.category, input.category)));
+      await db.delete(user).where(eq(user.email, `gestora-f4-${input.run}@exemplo.com`));
       return { ok: true };
     }
     default:

@@ -31,7 +31,7 @@ import { csvCell, describeRsvp, invitationStatus } from "../src/admin/invitation
 import { sniffImage, slugify } from "../src/admin/gifts.ts";
 import type { Mailer } from "../src/mailer.ts";
 import { createSimulatedProvider } from "../src/payments/index.ts";
-import { TEST_WEB_KEY, testApp } from "./helpers.ts";
+import { retryOnDeadlock, TEST_WEB_KEY, testApp } from "./helpers.ts";
 
 // Usa o banco de testes da API (global-setup: migrado e com seed). Cria um usuário do painel, convites e
 // presentes próprios e apaga tudo no fim.
@@ -69,15 +69,21 @@ const admin = (path: string, init: RequestInit = {}) =>
 const json = (body: unknown) => JSON.stringify(body);
 
 beforeAll(async () => {
-  await db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true });
-  await db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" });
-  await db.insert(account).values({
-    id: ulid(),
-    accountId: userId,
-    providerId: "credential",
-    userId,
-    password: await hashPassword(password),
-  });
+  await retryOnDeadlock(() =>
+    db.insert(user).values({ id: userId, name: "Teste", email, emailVerified: true }),
+  );
+  await retryOnDeadlock(() =>
+    db.insert(eventMembers).values({ eventId: LEGACY_EVENT_ID, userId, role: "host" }),
+  );
+  await retryOnDeadlock(async () =>
+    db.insert(account).values({
+      id: ulid(),
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: await hashPassword(password),
+    }),
+  );
   const res = await app.request("/api/auth/sign-in/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Forwarded-For": `198.51.100.${run.length}` },
@@ -92,7 +98,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdInvitations.length) {
-    await db.delete(invitations).where(inArray(invitations.id, createdInvitations));
+    await retryOnDeadlock(() =>
+      db.delete(invitations).where(inArray(invitations.id, createdInvitations)),
+    );
   }
   if (createdGifts.length) {
     const orders = await db
@@ -101,13 +109,13 @@ afterAll(async () => {
       .where(inArray(giftOrders.giftId, createdGifts));
     const ids = orders.map((o) => o.id);
     if (ids.length) {
-      await db.delete(messages).where(inArray(messages.giftOrderId, ids));
-      await db.delete(payments).where(inArray(payments.orderId, ids));
-      await db.delete(giftOrders).where(inArray(giftOrders.id, ids));
+      await retryOnDeadlock(() => db.delete(messages).where(inArray(messages.giftOrderId, ids)));
+      await retryOnDeadlock(() => db.delete(payments).where(inArray(payments.orderId, ids)));
+      await retryOnDeadlock(() => db.delete(giftOrders).where(inArray(giftOrders.id, ids)));
     }
-    await db.delete(gifts).where(inArray(gifts.id, createdGifts));
+    await retryOnDeadlock(() => db.delete(gifts).where(inArray(gifts.id, createdGifts)));
   }
-  await db.delete(user).where(eq(user.id, userId));
+  await retryOnDeadlock(() => db.delete(user).where(eq(user.id, userId)));
   await rm(uploadDir, { recursive: true, force: true });
   await db.$client.end();
 });
@@ -355,13 +363,17 @@ describe("presentes", () => {
   });
 
   it("não deixa o total de cotas abaixo do vendido", async () => {
-    await db.update(gifts).set({ quotaSold: 2 }).where(eq(gifts.id, gift.id));
+    await retryOnDeadlock(() =>
+      db.update(gifts).set({ quotaSold: 2 }).where(eq(gifts.id, gift.id)),
+    );
     const res = await admin(`/gifts/${gift.id}`, {
       method: "PUT",
       body: json({ ...pick(gift), quotaTotal: 1 }),
     });
     expect(res.status).toBe(422);
-    await db.update(gifts).set({ quotaSold: 0 }).where(eq(gifts.id, gift.id));
+    await retryOnDeadlock(() =>
+      db.update(gifts).set({ quotaSold: 0 }).where(eq(gifts.id, gift.id)),
+    );
   });
 
   it("desativa e tira da lista pública", async () => {
@@ -529,7 +541,7 @@ describe("recados", () => {
       const [m] = await db.select().from(messages).where(eq(messages.id, res.insertId));
       expect(m!.approved).toBe(true);
     } finally {
-      await db.delete(messages).where(eq(messages.id, res.insertId));
+      await retryOnDeadlock(() => db.delete(messages).where(eq(messages.id, res.insertId)));
     }
   });
 });

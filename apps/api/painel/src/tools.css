@@ -306,7 +306,10 @@ a.tab {
 }
 .schedule-day h2 {
   font-size: 1.05rem;
-  text-transform: capitalize;
+}
+/* "sábado, 10 de abril de 2027" → só a primeira letra maiúscula. */
+.schedule-day h2::first-letter {
+  text-transform: uppercase;
 }
 .schedule-time {
   min-width: 5.5rem;
@@ -339,5 +342,26 @@ a.tab {
   }
   .schedule-item .row__side {
     display: none;
+  }
+}
+
+/* Celular (Fase 4): abas das tarefas rolam de lado; nas linhas com botões (tarefas e
+   cronograma), os botões descem para uma linha própria e o título fica com a largura toda. */
+@media (max-width: 599px) {
+  .tabs {
+    overflow-x: auto;
+  }
+  .tab {
+    flex: none;
+    white-space: nowrap;
+  }
+  .schedule-item,
+  .row:has(> .check) {
+    flex-wrap: wrap;
+  }
+  .schedule-item > .row__side,
+  .row:has(> .check) > .row__side {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

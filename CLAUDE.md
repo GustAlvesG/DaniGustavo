@@ -106,6 +106,15 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - QR dos convites lê nomes/data de `GET /invitations/card` (`invitations.read`), não de `/settings`.
 - Painel: `useRefreshMe()` recarrega o `/me` depois de criar/mudar evento (senão o hash novo volta para `#/eventos`).
 
+## Decisões da Fase 4 da plataforma (ver `docs/saas/fase-4.md`)
+
+- Gestão só no painel (sem módulo no site): tarefas (`src/tasks`), fornecedores e contratos (`src/vendors`), orçamentos/parcelas/planejado × realizado (`src/budget`), cronograma (`src/schedule`); menu do evento "Gestão" por `tasks/vendors/budget/schedule.read`; org: `vendors.manage`, `templates.manage`.
+- Catálogo de fornecedores e modelos de tarefas são da organização (`organization_id`, auditor estrito também por org); `event_vendors` com FKs compostas (mesma org garantida no banco); fornecedor usado arquiva, não se apaga. Remover do evento: recusa com orçamento contratado, apaga contratos e orçamentos não contratados, anula o fornecedor no cronograma.
+- Data do evento: `PUT /settings` com `wedding.datetime`/`wedding.timezone` atualiza `events.starts_at/timezone`, invalida o resolver e chama `recalculateTaskDues` (prazos relativos guardam o deslocamento; `due_on` no fuso do evento). O `PATCH` da org só muda status (não há outra tela que mude a data).
+- Contratos na área privada do `Storage` (`<eventId>/private/`), download só autenticado (`attachment` + `nosniff`). Orçamento contratado é imutável; parcelas são registro manual.
+- Schemas de PATCH sem `.default()` (no zod 4 o `.partial()` aplica o padrão e zeraria campos). Datas de calendário "AAAA-MM-DD" no painel: `formatDate` formata em UTC para não cair no dia anterior.
+- Testes: escrita de setup/limpeza em tabelas compartilhadas (`user`, `event_members`, convites do evento 1) passa por `retryOnDeadlock` (deadlock real entre arquivos em paralelo).
+
 ## Fases
 
 - Fases 0 a 3: concluídas. Fase 4 (presentes e pagamento): concluída; Asaas implementado e testado com respostas gravadas, falta teste real no sandbox.
@@ -113,7 +122,8 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Fase 6 (extras): concluída. Mural de recados (`/recados`, `GET/POST /api/e/:slug/messages`: só aprovados; POST com honeypot, 3 por 10 min por IP, entra pendente; tag de cache "messages"), PWA (`manifest.ts`, ícones em `/icons/*` via ImageResponse, `public/sw.js` com cache só de fontes/ícones e `offline.html`) e lembretes de RSVP (`apps/api/src/reminders.ts`, job horário `startReminderJob`, tabela `rsvp_reminders`, config privada em `settings.reminders`, página Lembretes no painel). `NEXT_DIST_DIR=.next-e2e` permite um segundo `next dev` ao lado do aberto.
 - Plataforma (branch saas) — Fase 1 multi-evento: concluída, aguardando revisão (etapas 1–9: schema e migrations 0006–0007, CLI, tenancy, rotas por evento, painel, jobs/avisos/uploads, Next por host, testes de isolamento).
 - Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`).
-- Plataforma — Fase 3 (painel da organização: eventos, equipe, convites, anfitriões e permissões): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase3/`. Próxima: Fase 4. Status em `docs/saas/STATUS.md`.
+- Plataforma — Fase 3 (painel da organização: eventos, equipe, convites, anfitriões e permissões): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase3/`. Status em `docs/saas/STATUS.md`.
+- Plataforma — Fase 4 (tarefas e modelos, fornecedores e contratos, orçamentos/parcelas/financeiro, cronograma): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase4/`, e2e em `painel-fase4.spec.ts`. Próxima: Fase 5 (subcontas Asaas).
 - Fases seguintes do produto: F2 conteúdo/temas/vocabulário por tipo de evento; F3 painel da organização (criar evento pela UI); F4 tarefas/fornecedores/orçamentos; F5 subcontas Asaas; F6 comercial/planos/LGPD; F7 extras.
 
 ## Pendências

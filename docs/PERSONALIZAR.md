@@ -359,6 +359,33 @@ Cada bloco tem o próprio botão de salvar e é validado antes de ir para o site
 - **Avançado**: aviso de fotos oficiais e manual dos padrinhos (este em JSON). História e fotos
   ficam em **Site** e **Galeria** (seções 1 e 2).
 
+### Gestão do evento: tarefas, fornecedores, financeiro e cronograma
+
+No menu do evento, o grupo **Gestão** reúne o que é só de bastidor (nada disso aparece no site).
+A organização tira cada área do anfitrião, se quiser, em **Organização → Eventos → Permissões**.
+
+- **Modelos de tarefas** (painel da organização → Modelos de tarefas): listas reaproveitáveis,
+  por tipo de evento ou para qualquer tipo; cada item tem categoria e prazo em dias antes (ou
+  depois) da data do evento.
+- **Tarefas**: crie à mão ou **aplique um modelo** (gera cópias; aplicar de novo duplica). Prazo
+  fixo (uma data) ou relativo à data do evento; responsável da equipe da organização ou anfitrião.
+  As abas mostram atrasadas, próximas (30 dias), abertas e feitas. Mudou a data ou o fuso do evento
+  em **Configurações → Casal e datas**? Os prazos relativos são recalculados na hora.
+- **Fornecedores**: o catálogo é da organização (painel da organização → Fornecedores: contato,
+  CPF/CNPJ, avaliação, arquivar). No evento, ligue um fornecedor do catálogo ou cadastre na hora,
+  marque a situação (em cotação, contratado, descartado) e anexe **contratos** (PDF, JPG, PNG ou
+  WebP até 10 MB). Os contratos ficam numa área privada: só baixam pelo painel, com login.
+  Fornecedor já usado não se apaga, arquiva-se. Tirar do evento apaga os contratos e os orçamentos
+  não contratados dele; com orçamento contratado, não sai.
+- **Financeiro**: defina o **previsto** por categoria e cadastre **orçamentos** (itens com
+  quantidade e valor, desconto). O orçamento anda de rascunho → recebido → aprovado → contratado
+  (ou recusado); para contratar, monte as **parcelas**, que precisam somar o total. Depois de
+  contratado, o orçamento não muda (só o plano de parcelas, sem apagar parcela paga). Marque cada
+  parcela como paga (data e forma). A tabela **planejado × realizado** compara previsto,
+  contratado e pago por categoria; o início do evento mostra tarefas atrasadas e próximas parcelas.
+- **Cronograma**: a programação do dia, com horário no fuso do evento, fim opcional, local e
+  responsável (texto livre ou um fornecedor do evento). O botão **Imprimir** gera o roteiro em papel.
+
 ## 8. Criar um novo evento
 
 O site atende vários eventos, um por domínio. Quem é **dono ou membro da organização** cria e
