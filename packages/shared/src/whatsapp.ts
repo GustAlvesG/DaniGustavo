@@ -73,6 +73,8 @@ export interface WhatsappQueueItem {
   waUrl: string | null;
   message: string;
   lastSentAt: string | null;
+  /** Id da última marcação "enviado" (para desfazer com DELETE /whatsapp/sends/:id). */
+  lastSendId: number | null;
   sends: number;
 }
 
@@ -91,12 +93,16 @@ export const WhatsappSendMark = z.object({
 export type WhatsappSendMark = z.infer<typeof WhatsappSendMark>;
 
 /**
- * Telefone brasileiro para o wa.me: só dígitos, com DDI 55. Aceita "(11) 98765-4321",
+ * Telefone para o wa.me: só dígitos, com DDI 55 (número brasileiro) ou o DDI informado com "+". Aceita "(11) 98765-4321",
  * "+55 11 98765-4321", "011987654321". Inválido → null.
  */
 export function waPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let d = raw.replace(/\D/g, "");
+  // Com "+" e outro DDI o número é estrangeiro e vale como está (E.164: até 15 dígitos).
+  if (raw.trim().startsWith("+") && !d.startsWith("55")) {
+    return d.length >= 8 && d.length <= 15 ? d : null;
+  }
   if (d.startsWith("00")) d = d.slice(2);
   if (d.startsWith("0") && (d.length === 11 || d.length === 12)) d = d.slice(1);
   if (d.length === 10 || d.length === 11) d = `55${d}`;

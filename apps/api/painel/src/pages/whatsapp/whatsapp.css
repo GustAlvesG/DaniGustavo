@@ -1,0 +1,45 @@
+/* WhatsApp (Fase 7, frente D): modelos, fila e envio em sequência. */
+
+.wa-vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wa-filter {
+  min-width: 220px;
+}
+
+.wa-message {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 4px solid var(--whatsapp);
+  border-radius: 0 8px 8px 0;
+  background: var(--papel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wa-assist .actions .button {
+  flex: 1 1 180px;
+}
+
+@media (max-width: 599px) {
+  .wa-row {
+    flex-wrap: wrap;
+  }
+  .wa-row .row__main {
+    flex-basis: 100%;
+  }
+  .wa-row__side {
+    width: 100%;
+    flex-direction: row;
+    gap: 8px;
+  }
+  .wa-row__side .button {
+    flex: 1 1 0;
+  }
+  .wa-filter {
+    min-width: 0;
+    width: 100%;
+  }
+}
