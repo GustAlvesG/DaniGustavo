@@ -5,7 +5,7 @@ import { CreateMessageRequest, ERROR_CODES } from "@casamento/shared";
 import { apiWrite, clientIpFrom } from "@/lib/api/client";
 import { eventPath, requestEvent } from "@/lib/api/event";
 
-export type MessageValues = { author: string; body: string };
+export type MessageValues = { author: string; body: string; consent: boolean };
 
 export type MessageState =
   | { status: "idle" }
@@ -14,7 +14,7 @@ export type MessageState =
       status: "error";
       message: string;
       /** Campo que causou o erro, para marcar no formulário. */
-      field?: "author" | "body";
+      field?: "author" | "body" | "consent";
       values: MessageValues;
     };
 
@@ -32,8 +32,18 @@ export async function sendMessageAction(
   _prev: MessageState,
   data: FormData,
 ): Promise<MessageState> {
-  const values: MessageValues = { author: text(data, "author"), body: text(data, "body") };
-  const parsed = CreateMessageRequest.safeParse({ ...values, website: text(data, "website") });
+  const values: MessageValues = {
+    author: text(data, "author"),
+    body: text(data, "body"),
+    // Fase 6 (LGPD): a caixa do aviso de privacidade (marcada = "on").
+    consent: data.get("consent") === "on",
+  };
+  const parsed = CreateMessageRequest.safeParse({
+    author: values.author,
+    body: values.body,
+    ...(values.consent ? { consent: true } : {}),
+    website: text(data, "website"),
+  });
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const key = String(issue?.path[0]);
@@ -58,6 +68,9 @@ export async function sendMessageAction(
     clientIp: clientIpFrom(await headers()),
   });
   if (!result.ok) {
+    if (result.error.field === "consent") {
+      return { status: "error", field: "consent", message: result.error.message, values };
+    }
     return {
       status: "error",
       message:

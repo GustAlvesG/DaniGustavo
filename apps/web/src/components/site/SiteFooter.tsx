@@ -75,6 +75,12 @@ export async function SiteFooter({ site }: { site: SiteContent }) {
               </Link>
             </li>
           ))}
+          {/* Fase 6 (LGPD): o aviso de privacidade e o pedido do titular. */}
+          <li>
+            <Link href="/privacidade" className={`inline-flex min-h-11 items-center ${small}`}>
+              Privacidade
+            </Link>
+          </li>
           <li>
             <a href="#" className={`inline-flex min-h-11 items-center ${small}`}>
               Voltar ao topo

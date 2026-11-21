@@ -129,3 +129,74 @@ export interface MyDataExport {
   events: { id: number; name: string; role: string }[];
   legalAcceptances: { document: string; version: string; acceptedAt: string }[];
 }
+
+/* ------------------------------------------------------------------------ */
+/* Frente C: contratos adicionais (aviso público, painel e conta)            */
+/* ------------------------------------------------------------------------ */
+
+/** Mensagem do 422 quando o aviso é obrigatório e não veio o aceite. */
+export const CONSENT_REQUIRED_MESSAGE =
+  "Para enviar, marque que você leu e concorda com o aviso de privacidade.";
+
+/**
+ * Texto do aviso de privacidade mostrado no RSVP, no mural e na página `/privacidade`.
+ * TODO(conteudo): texto provisório, a revisar com quem responde pela LGPD. Mudou o texto, suba
+ * `PRIVACY_NOTICE_VERSION` (o aceite gravado fica com a versão antiga).
+ */
+export const PRIVACY_NOTICE_SUMMARY =
+  "Usamos seus dados só para organizar este evento: saber quem vai, avisar sobre o evento e responder você. Não vendemos nem compartilhamos com terceiros além do necessário para funcionar (hospedagem, e-mail e pagamento).";
+
+/** GET /api/e/:slug/privacy-requests/notice (público): o que o site precisa para o aviso. */
+export interface PrivacyNotice {
+  version: string;
+  requireConsent: boolean;
+  /** E-mail de quem responde pelos dados (configurado, ou o contato público do evento). */
+  contactEmail: string | null;
+  /** Dias depois do evento até anonimizar; null = sem prazo automático. */
+  retentionDays: number | null;
+  eventName: string;
+}
+
+/** GET /api/admin/events/:eventId/privacy */
+export interface PrivacyOverview {
+  settings: PrivacySettings;
+  openRequests: number;
+  noticeVersion: string;
+  /** Quando a rotina de retenção anonimizou o evento (null = ainda não). */
+  purgedAt: string | null;
+  /** Quando a retenção vai anonimizar (null = sem data do evento ou sem prazo). */
+  retentionDueAt: string | null;
+}
+
+/** POST /api/admin/events/:eventId/privacy/anonymize */
+export interface AnonymizeResult {
+  invitations: number;
+  orders: number;
+}
+
+/** GET /api/admin/events/:eventId/privacy/subjects?q= : onde aparece um titular no evento. */
+export interface PrivacySubjectsResponse {
+  invitations: {
+    id: number;
+    label: string;
+    guests: string[];
+    contactEmail: string | null;
+    anonymized: boolean;
+  }[];
+  orders: {
+    id: number;
+    publicId: string;
+    buyerName: string;
+    buyerEmail: string;
+    status: string;
+    amountCents: number;
+    createdAt: string;
+    anonymized: boolean;
+  }[];
+}
+
+/** DELETE /api/admin/me: digitar o próprio e-mail confirma. */
+export const DeleteAccountInput = z.object({
+  confirmEmail: z.string().trim().toLowerCase().min(1, { error: "Digite o seu e-mail." }).max(191),
+});
+export type DeleteAccountInput = z.infer<typeof DeleteAccountInput>;

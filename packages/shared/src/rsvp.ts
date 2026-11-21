@@ -31,6 +31,11 @@ export const Invitation = z.object({
   contact: z.object({ email: z.string().nullable(), phone: z.string().nullable() }),
   deadline: z.iso.datetime({ offset: true }),
   isClosed: z.boolean(),
+  /**
+   * Fase 6 (LGPD): o evento exige o aceite do aviso de privacidade (`required`) e se este convite
+   * já aceitou a versão atual (`given`, aí o formulário já vem marcado). Ausente = não exige.
+   */
+  consent: z.object({ required: z.boolean(), given: z.boolean() }).optional(),
 });
 export type Invitation = z.infer<typeof Invitation>;
 
@@ -90,6 +95,11 @@ export const RsvpRequest = z.object({
       ),
     })
     .optional(),
+  /**
+   * Fase 6 (LGPD): aceite do aviso de privacidade. Com `privacy.settings.requireConsent`, a API
+   * recusa (422) sem `true`, a não ser que o convite já tenha aceitado a versão atual.
+   */
+  consent: z.boolean().optional(),
   /** Honeypot: campo escondido no formulário. Se vier preenchido, a API finge sucesso. */
   website: z.string().optional(),
 });

@@ -11,10 +11,12 @@ import {
   type Database,
 } from "@casamento/db";
 import {
+  CONSENT_REQUIRED_MESSAGE,
   ERROR_CODES,
   Invitation,
   LookupRequest,
   LookupResponse,
+  PRIVACY_NOTICE_VERSION,
   RsvpRequest,
   RsvpResponse,
 } from "@casamento/shared";
@@ -23,6 +25,7 @@ import type { Env } from "../env.ts";
 import { apiError } from "../errors.ts";
 import type { Mailer } from "../mailer.ts";
 import { nameMatches } from "../names.ts";
+import { loadPrivacySettings } from "../privacy/settings.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import { eventVocabulary } from "../tenancy/modules.ts";
 import { buildRsvpEmail } from "../rsvp-email.ts";
@@ -80,6 +83,7 @@ async function loadInvitation(ev: EventCtx, db: Database, token: string, now: Da
     .where(and(eq(guests.invitationId, inv.id), byEvent(guests, ev)))
     .orderBy(asc(guests.isPlusOne), asc(guests.id));
   const deadline = String(await getSetting(ev, db, "rsvp.deadline"));
+  const privacy = await loadPrivacySettings(ev, db);
   const dto: Invitation = Invitation.parse({
     label: inv.label,
     side: inv.side,
@@ -97,6 +101,10 @@ async function loadInvitation(ev: EventCtx, db: Database, token: string, now: Da
     contact: { email: inv.contactEmail, phone: inv.contactPhone },
     deadline,
     isClosed: now.getTime() > new Date(deadline).getTime(),
+    consent: {
+      required: privacy.requireConsent,
+      given: inv.consentVersion === PRIVACY_NOTICE_VERSION,
+    },
   });
   return { inv, dto };
 }
@@ -243,6 +251,19 @@ export function invitationRoutes(deps: InvitationDeps) {
     const parsed = RsvpRequest.safeParse(body);
     if (!parsed.success) return badBody(c, parsed.error.issues[0]?.message);
     const req = parsed.data;
+    // LGPD (Fase 6): com o aviso obrigatório, só passa com o aceite (ou já aceito nesta versão).
+    if (dto.consent?.required && !dto.consent.given && req.consent !== true) {
+      return c.json(
+        {
+          error: {
+            code: ERROR_CODES.invalidRequest,
+            message: CONSENT_REQUIRED_MESSAGE,
+            field: "consent",
+          },
+        },
+        422,
+      );
+    }
 
     // Convidados do convite. O acompanhante (+1) é tratado à parte, por plusOneName.
     const named = dto.guests.filter((g) => !g.isPlusOne);
@@ -317,7 +338,16 @@ export function invitationRoutes(deps: InvitationDeps) {
         await tx.delete(guests).where(and(eq(guests.id, existingPlusOne.id), byEvent(guests, ev)));
       }
 
-      const contactUpdate: { contactEmail?: string | null; contactPhone?: string | null } = {};
+      const contactUpdate: {
+        contactEmail?: string | null;
+        contactPhone?: string | null;
+        consentAt?: Date;
+        consentVersion?: string;
+      } = {};
+      if (req.consent === true) {
+        contactUpdate.consentAt = moment;
+        contactUpdate.consentVersion = PRIVACY_NOTICE_VERSION;
+      }
       if (req.contact?.email !== undefined) contactUpdate.contactEmail = req.contact.email;
       if (req.contact?.phone !== undefined) contactUpdate.contactPhone = req.contact.phone;
       if (Object.keys(contactUpdate).length > 0) {

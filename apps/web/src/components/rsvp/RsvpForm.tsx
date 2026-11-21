@@ -6,15 +6,17 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useForm, useWatch } from "react-hook-form";
 import type { Invitation } from "@casamento/shared";
 import { submitRsvp, type RsvpActionResult } from "@/app/[host]/(site)/c/[token]/actions";
-import { Button, ButtonLink, Radio, RadioGroup, TextField } from "@/components/ui";
+import { Button, ButtonLink, Checkbox, Radio, RadioGroup, TextField } from "@/components/ui";
 import {
   attendingCount,
+  consentNeeded,
   hasAnswered,
   initialValues,
   namedGuests,
   plusOneAvailable,
   toRsvpRequest,
   validateAnswer,
+  validateConsent,
   validateDietary,
   validateEmail,
   validatePhone,
@@ -82,7 +84,7 @@ export function RsvpForm({ token, invitation }: Props) {
       );
       return trigger([...fields, "email", "phone"]);
     }
-    return true;
+    return consentNeeded(invitation) ? trigger("consent") : true;
   }
 
   /* Radios: ao escolher, o erro some na hora (e não só no blur, que moveria o layout entre o mousedown e o mouseup do próximo clique). */
@@ -268,6 +270,30 @@ export function RsvpForm({ token, invitation }: Props) {
                 <p className="max-w-[56ch] text-sm text-ink-soft">
                   Você pode mudar a resposta depois, até {formatDayMonth(invitation.deadline)}.
                 </p>
+                {consentNeeded(invitation) ? (
+                  <Checkbox
+                    data-testid="rsvp-consent"
+                    label={
+                      <>
+                        Li e concordo com o{" "}
+                        <a
+                          href="/privacidade"
+                          target="_blank"
+                          className="underline underline-offset-4"
+                        >
+                          aviso de privacidade
+                        </a>
+                        .
+                      </>
+                    }
+                    hint="Usamos os dados só para organizar o evento."
+                    error={formState.errors.consent?.message}
+                    {...register("consent", {
+                      validate: validateConsent,
+                      onChange: () => void trigger("consent"),
+                    })}
+                  />
+                ) : null}
                 {failure ? (
                   <div
                     role="alert"

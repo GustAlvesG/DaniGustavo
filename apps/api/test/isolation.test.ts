@@ -294,7 +294,7 @@ describe("recados", () => {
     const res = await app.request(e(B, "/messages"), {
       method: "POST",
       headers: write(),
-      body: JSON.stringify({ author: "Visita B", body }),
+      body: JSON.stringify({ author: "Visita B", body, consent: true }),
     });
     expect(res.status).toBe(201);
     const [row] = await db.select().from(messages).where(eq(messages.body, body));
@@ -307,7 +307,7 @@ describe("convites e RSVP", () => {
     app.request(e(ev, `/invitations/${token}/rsvp`), {
       method: "PUT",
       headers: write(),
-      body: JSON.stringify({ guests: [{ id: guestId, attending: true }] }),
+      body: JSON.stringify({ guests: [{ id: guestId, attending: true }], consent: true }),
     });
 
   async function guestOf(token: string) {

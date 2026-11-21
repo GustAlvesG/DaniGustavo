@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { MESSAGE_AUTHOR_MAX_CHARS, MESSAGE_MAX_CHARS } from "@casamento/shared";
 import { sendMessageAction, type MessageState } from "@/app/[host]/(site)/recados/actions";
-import { Button, FieldError, TextArea, TextField } from "@/components/ui";
+import { Button, Checkbox, FieldError, TextArea, TextField } from "@/components/ui";
 import type { PublicSiteSections } from "@casamento/shared";
 import styles from "./recados.module.css";
 
@@ -14,9 +14,16 @@ const idle: MessageState = { status: "idle" };
  * contador de caracteres e aviso curto de privacidade. `useActionState` + <form action>
  * funciona até sem JavaScript (como um POST de formulário do Laravel).
  */
-export function RecadoForm({ t }: { t: PublicSiteSections["pages"]["messages"] }) {
+export function RecadoForm({
+  t,
+  requireConsent,
+}: {
+  t: PublicSiteSections["pages"]["messages"];
+  /** Fase 6 (LGPD): o evento exige o aceite do aviso de privacidade. */
+  requireConsent: boolean;
+}) {
   const [state, action, pending] = useActionState(sendMessageAction, idle);
-  const values = state.status === "error" ? state.values : { author: "", body: "" };
+  const values = state.status === "error" ? state.values : { author: "", body: "", consent: false };
   const [length, setLength] = useState(values.body.length);
 
   if (state.status === "sent") {
@@ -37,7 +44,10 @@ export function RecadoForm({ t }: { t: PublicSiteSections["pages"]["messages"] }
       <p className={styles.caixaLead}>{t.formLead}</p>
       <form action={action} noValidate className="flex flex-col gap-6" data-testid="recado-form">
         {/* A key refaz os campos com o que a pessoa digitou (o React limpa o form após a ação). */}
-        <div className="flex flex-col gap-6" key={`${values.author}|${values.body}`}>
+        <div
+          className="flex flex-col gap-6"
+          key={`${values.author}|${values.body}|${values.consent}`}
+        >
           <TextField
             name="author"
             label="Seu nome"
@@ -62,6 +72,24 @@ export function RecadoForm({ t }: { t: PublicSiteSections["pages"]["messages"] }
               {length}/{MESSAGE_MAX_CHARS}
             </p>
           </div>
+          {requireConsent ? (
+            <Checkbox
+              name="consent"
+              data-testid="recado-consent"
+              defaultChecked={values.consent}
+              label={
+                <>
+                  Li e concordo com o{" "}
+                  <a href="/privacidade" target="_blank" className="underline underline-offset-4">
+                    aviso de privacidade
+                  </a>
+                  .
+                </>
+              }
+              error={error?.field === "consent" ? error.message : undefined}
+              required
+            />
+          ) : null}
         </div>
 
         {/* Honeypot: fora da tela e do teclado; só robôs preenchem. */}

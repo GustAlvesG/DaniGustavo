@@ -1,12 +1,16 @@
-import type { Database } from "@casamento/db";
+import { and, eq, events, inArray, isNotNull, isNull, type Database } from "@casamento/db";
 import type { Env } from "../env.ts";
 import type { Storage } from "../storage/index.ts";
+import { crossEvent } from "../tenancy/cross-event.ts";
+import type { EventCtx } from "../tenancy/types.ts";
+import { anonymizeInvitations, anonymizeOrders, deleteUnapprovedMessages } from "./anonymize.ts";
+import { loadPrivacySettings, retentionDueAt } from "./settings.ts";
 
 /*
  * Fase 6, frente C: rotina de retenção (diária). Para cada evento com `privacy.settings` ›
- * `retentionDays`, passado o prazo depois de `events.starts_at`, anonimiza convites (contatos e
- * nomes), compradores e recados (crossEvent) e grava `events.personal_data_purged_at`.
- * Reservado pela fundação e ligado em server.ts: hoje não faz nada.
+ * `retentionDays` (padrão 365), passado o prazo depois de `events.starts_at`, anonimiza convites
+ * (nomes e contatos) e compradores e apaga os recados não aprovados; grava
+ * `events.personal_data_purged_at`. Pedidos e valores ficam (contabilidade do recebedor).
  */
 export interface RetentionJobDeps {
   env: Env;
@@ -15,7 +19,94 @@ export interface RetentionJobDeps {
   now: () => Date;
 }
 
-export function startRetentionJob(deps: RetentionJobDeps): () => void {
-  void deps;
-  return () => {};
+export const RETENTION_INTERVAL_MS = 24 * 60 * 60_000;
+
+export interface RetentionResult {
+  /** Eventos anonimizados nesta rodada. */
+  events: number[];
+  invitations: number;
+  orders: number;
+  messages: number;
+}
+
+/**
+ * Uma rodada da retenção. `eventIds` restringe a varredura (testes: o banco é compartilhado com
+ * outros arquivos que rodam em paralelo).
+ */
+export async function runRetention(
+  deps: Pick<RetentionJobDeps, "db" | "now">,
+  opts: { eventIds?: number[] } = {},
+): Promise<RetentionResult> {
+  const { db } = deps;
+  const now = deps.now();
+  const result: RetentionResult = { events: [], invitations: 0, orders: 0, messages: 0 };
+  if (opts.eventIds && opts.eventIds.length === 0) return result;
+
+  const candidates: EventCtx[] = await crossEvent(
+    "retenção: eventos com data e ainda não anonimizados",
+    async () =>
+      await db
+        .select({
+          id: events.id,
+          slug: events.slug,
+          orgId: events.organizationId,
+          timezone: events.timezone,
+          name: events.name,
+          type: events.type,
+          status: events.status,
+          startsAt: events.startsAt,
+        })
+        .from(events)
+        .where(
+          and(
+            isNull(events.personalDataPurgedAt),
+            isNotNull(events.startsAt),
+            opts.eventIds ? inArray(events.id, opts.eventIds) : undefined,
+          ),
+        ),
+  );
+
+  for (const ev of candidates) {
+    const settings = await loadPrivacySettings(ev, db);
+    const due = retentionDueAt(ev.startsAt, settings);
+    if (!due || due.getTime() > now.getTime()) continue;
+    await db.transaction(async (tx) => {
+      result.invitations += await anonymizeInvitations(ev, tx, "all", now);
+      result.orders += await anonymizeOrders(ev, tx, "all", now);
+      result.messages += await deleteUnapprovedMessages(ev, tx);
+      await tx
+        .update(events)
+        .set({ personalDataPurgedAt: now, updatedAt: now })
+        .where(eq(events.id, ev.id));
+    });
+    result.events.push(ev.id);
+  }
+  return result;
+}
+
+export function startRetentionJob(
+  deps: RetentionJobDeps,
+  intervalMs = RETENTION_INTERVAL_MS,
+): () => void {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await runRetention(deps);
+      if (r.events.length > 0) {
+        console.log(
+          `[privacidade] Retenção: ${r.events.length} evento(s) anonimizado(s) (${r.invitations} convite(s), ${r.orders} pedido(s), ${r.messages} recado(s) não aprovado(s) apagado(s)).`,
+        );
+      }
+    } catch (err) {
+      console.error("[privacidade] Falha na rotina de retenção:", err);
+    } finally {
+      running = false;
+    }
+  };
+  void tick();
+  const timer = setInterval(() => void tick(), intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
 }
