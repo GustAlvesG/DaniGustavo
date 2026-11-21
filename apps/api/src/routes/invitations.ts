@@ -25,6 +25,7 @@ import type { Env } from "../env.ts";
 import { apiError } from "../errors.ts";
 import type { Mailer } from "../mailer.ts";
 import { nameMatches } from "../names.ts";
+import { notifyGuestOverage } from "../plans/guest-overage.ts";
 import { loadPrivacySettings } from "../privacy/settings.ts";
 import type { RateLimiter } from "../rate-limit.ts";
 import { eventVocabulary } from "../tenancy/modules.ts";
@@ -377,6 +378,9 @@ export function invitationRoutes(deps: InvitationDeps) {
         .insert(rsvpLogs)
         .values({ eventId: ev.id, invitationId: inv.id, payload: logged, ip });
     });
+
+    // Acompanhante entra no limite do plano, mas o RSVP nunca é recusado: só avisa a equipe.
+    await notifyGuestOverage(ev, { env, db, mailer, now });
 
     const updated = await loadInvitation(ev, db, token, now());
     if (!updated) return invitationNotFound(c);

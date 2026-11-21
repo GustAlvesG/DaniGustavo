@@ -1,4 +1,4 @@
-import type { DashboardData, EventPaymentView } from "@casamento/shared";
+import type { DashboardData, EventPaymentView, GuestLimitStatus } from "@casamento/shared";
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { daysUntil, formatBRL, formatDate, formatDateTime, plural } from "../format.ts";
@@ -65,6 +65,29 @@ function AvisoRecebimento() {
   );
 }
 
+/** Aviso quando as pessoas do evento passam do limite do plano (Fase 7). Sem permissão: some. */
+function AvisoLimite() {
+  const [status, setStatus] = useState<GuestLimitStatus | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api<GuestLimitStatus>("/guest-limit")
+      .then((v) => alive && setStatus(v))
+      .catch(() => alive && setStatus(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!status?.over || status.limit === null) return null;
+  return (
+    <p className="alert alert--warn" data-testid="aviso-limite">
+      A lista chegou a {plural(status.used, "pessoa", "pessoas")} e o plano permite {status.limit}.
+      Os acompanhantes que os convidados incluem ao responder contam no limite; as respostas
+      continuam sendo aceitas, mas não dá para cadastrar novos convidados até a lista voltar ao
+      limite ou o plano ser ampliado.
+    </p>
+  );
+}
+
 export function Dashboard() {
   const { data, error, loading, reload } = useLoad(() => api<DashboardData>("/dashboard"), []);
   if (loading && !data) return <Loading />;
@@ -77,6 +100,7 @@ export function Dashboard() {
     <div className="stack stack--lg">
       <PageHeader title="Início" subtitle="Resumo das confirmações e dos presentes." />
       <AvisoRecebimento />
+      <AvisoLimite />
 
       <div className="grid grid--3">
         <section className="card" aria-labelledby="d-conv">

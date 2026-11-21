@@ -8,7 +8,7 @@ import {
 } from "@casamento/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
-import { useCan } from "../event.tsx";
+import { useCan, useEvent } from "../event.tsx";
 import { formatBRL, formatDate, formatDateTime, plural } from "../format.ts";
 import { ea } from "../nav.ts";
 import {
@@ -39,7 +39,38 @@ const STATUS_TONE: Record<PrivacyRequestView["status"], string> = {
  * ou anonimizar os dados dele, exportação completa e as regras (aceite obrigatório, contato,
  * retenção). Quem só tem `privacy.read` vê, mas não mexe.
  */
+/** Data da anonimização no fuso do evento, dd/mm/aaaa. */
+function shortDate(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+/** Destaque da data em que os dados pessoais serão anonimizados (Fase 7). */
+function DataAnonimizacao({ overview, timeZone }: { overview: PrivacyOverview; timeZone: string }) {
+  const { purgedAt, retentionDueAt } = overview;
+  const text = purgedAt
+    ? `Os dados pessoais foram anonimizados em ${shortDate(purgedAt, timeZone)}.`
+    : retentionDueAt
+      ? `Os dados pessoais serão anonimizados em ${shortDate(retentionDueAt, timeZone)}.`
+      : "Os dados pessoais não serão anonimizados automaticamente.";
+  return (
+    <section className="alert alert--info retention-banner" data-testid="data-anonimizacao">
+      <p className="retention-banner__text">{text}</p>
+      <p className="muted small">
+        {purgedAt || !retentionDueAt
+          ? "Mude a regra em Regras, mais abaixo."
+          : "É a data do evento mais o prazo definido em Regras, mais abaixo."}
+      </p>
+    </section>
+  );
+}
+
 export function Privacidade() {
+  const timeZone = useEvent().timezone;
   const canManage = useCan("privacy.manage");
   const { data, setData, error, loading, reload } = useLoad(
     () => api<PrivacyOverview>("/privacy"),
@@ -73,6 +104,7 @@ export function Privacidade() {
       {loading && !data ? <Loading /> : null}
       {data ? (
         <>
+          <DataAnonimizacao overview={data} timeZone={timeZone} />
           <Pedidos canManage={canManage} onChange={refresh} />
           <Titular canManage={canManage} />
           <Regras overview={data} canManage={canManage} onSaved={setData} />

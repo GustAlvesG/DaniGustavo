@@ -1,0 +1,58 @@
+/* "Hoje" (Fase 7, frente D): blocos do dia do evento, pensados para o celular. */
+
+.dia-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 700px) {
+  .dia-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+.dia-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dia-big {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--marinho);
+}
+.dia-big .muted {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.dia-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dia-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.dia-time {
+  flex: none;
+  min-width: 3.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--marinho);
+}
+.dia-sub {
+  display: block;
+}
