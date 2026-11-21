@@ -2,8 +2,8 @@
 #
 # Imagens de produção do monorepo (contexto = raiz do repositório). Dois alvos finais:
 #
-#   docker build --target web -t casamento/web .   → site Next.js (output standalone)
-#   docker build --target api -t casamento/api .   → API Hono + painel (e migrate/setup)
+#   docker build --target web -t happy4ever/web .   → site Next.js (output standalone)
+#   docker build --target api -t happy4ever/api .   → API Hono + painel (e migrate/setup)
 #
 # Quem usa é o docker-compose.prod.yml; passo a passo em docs/DEPLOY.md.
 
@@ -41,7 +41,7 @@ COPY . .
 #   o conteúdo provisório e se refaz sozinha em ~15 s quando a API estiver no ar).
 # - BETTER_AUTH_URL: link "Entrar" do site da plataforma (layout pré-renderizado no build).
 ARG NEXT_PUBLIC_SITE_URL
-ARG API_URL=http://api:3333
+ARG API_URL=http://happy4ever-api:3333
 ARG BETTER_AUTH_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     API_URL=$API_URL \

@@ -1,26 +1,34 @@
 # Produção na VPS (Docker). Passo a passo em docs/DEPLOY.md.
 # O docker-compose.yml da raiz é só para desenvolvimento; este é o de produção.
 #
+# Plataforma (branch saas) como projeto "happy4ever", AO LADO do projeto "casamento" (branch
+# main, site do casamento no ar) na mesma VPS: nomes, redes internas, aliases e volumes não
+# colidem (o Compose prefixa redes e volumes com o name:).
+#
 #   Internet ──► edge (Caddy único da VPS, /srv/edge, :80/:443)
-#                  ├─ DOMAIN, PLATFORM_HOST ──(rede edge, alias casamento-web)──► web :3000 ──(rede proxy)──► api :3333
-#                  ├─ API_DOMAIN ──(rede edge, alias casamento-api)──────────────────────────────► api :3333
-#                  └─ LEGACY_API_DOMAIN ──► 308 para API_DOMAIN (no próprio edge)
-#                                                                       api ──(rede banco)──► db :3306
+#                  ├─ DOMAIN ──(rede edge, alias happy4ever-web)──► happy4ever-web :3000 ──(rede proxy)──► happy4ever-api :3333
+#                  └─ API_DOMAIN ──(rede edge, alias happy4ever-api)───────────────────────────────────► happy4ever-api :3333
+#                                                                       happy4ever-api ──(rede banco)──► db :3306
+#
+# Os serviços que entram na edge se chamam happy4ever-web/happy4ever-api (e não web/api): o
+# Compose registra o nome do serviço em todas as redes do container, inclusive na edge, que é
+# compartilhada; com "web"/"api" lá, o http://api:3333 do projeto casamento poderia cair na API
+# deste projeto (e vice-versa). As URLs internas usam esses nomes únicos.
 #
 # Este projeto não tem Caddy nem publica portas: o HTTPS e o roteamento ficam no edge, que
-# lê deploy/site.caddy. A rede "edge" é externa (docker network create edge) e compartilhada
-# com os outros sites da VPS, por isso os aliases com prefixo do slug. O db NUNCA entra na edge.
-# ATENÇÃO: porta publicada pelo Docker passa POR FORA do UFW; nunca publique 3000, 3333 ou
-# 3306 em 0.0.0.0.
+# lê deploy/site.caddy. A rede "edge" é externa (docker network create edge). O db NUNCA entra
+# na edge. ATENÇÃO: porta publicada pelo Docker passa POR FORA do UFW; nunca publique 3000, 3333
+# ou 3306 em 0.0.0.0.
 #
-# O nome (casamento) não pode mudar: os volumes db_data e uploads dependem dele.
+# O nome (happy4ever) não pode mudar: os volumes happy4ever_db_data e happy4ever_uploads
+# dependem dele.
 #
 # Uso (com COMPOSE_FILE=docker-compose.prod.yml no .env, o -f é dispensável):
 #   docker compose -f docker-compose.prod.yml up -d --build
 #   docker compose -f docker-compose.prod.yml run --rm migrate
 #   docker compose -f docker-compose.prod.yml run --rm setup
 
-name: casamento
+name: happy4ever
 
 x-logging: &logging
   driver: json-file
@@ -33,12 +41,12 @@ x-logging: &logging
 x-api-env: &api-env
   NODE_ENV: production
   DATABASE_URL: mysql://${MYSQL_USER:?defina MYSQL_USER no .env}:${MYSQL_PASSWORD:?defina MYSQL_PASSWORD no .env}@db:3306/${MYSQL_DATABASE:?defina MYSQL_DATABASE no .env}
-  API_URL: http://api:3333
+  API_URL: http://happy4ever-api:3333
   WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina BETTER_AUTH_SECRET no .env}
   BETTER_AUTH_URL: https://${API_DOMAIN:?defina API_DOMAIN no .env}
   SITE_URL: https://${DOMAIN:?defina DOMAIN no .env}
-  WEB_INTERNAL_URL: ${WEB_INTERNAL_URL:-http://web:3000}
+  WEB_INTERNAL_URL: ${WEB_INTERNAL_URL:-http://happy4ever-web:3000}
   UPLOAD_DIR: /data/uploads
   ADMIN_EMAIL_1: ${ADMIN_EMAIL_1:-}
   ADMIN_EMAIL_2: ${ADMIN_EMAIL_2:-}
@@ -57,49 +65,50 @@ x-api-env: &api-env
   ASAAS_PLATFORM_WALLET_ID: ${ASAAS_PLATFORM_WALLET_ID:-}
   # Fase 6 (docs/saas/fase-6.md): assinaturas, site da plataforma, cadastro e operação.
   BILLING_PROVIDER: ${BILLING_PROVIDER:-simulado}
-  PLATFORM_HOST: ${PLATFORM_HOST:-}
+  # O site da plataforma responde no próprio DOMAIN (happy4ever.artzan.tech).
+  PLATFORM_HOST: ${DOMAIN}
   PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-}
   SIGNUP_ENABLED: ${SIGNUP_ENABLED:-0}
   PLATFORM_ALERT_EMAIL: ${PLATFORM_ALERT_EMAIL:-}
   LOG_FORMAT: ${LOG_FORMAT:-}
 
 services:
-  web:
+  happy4ever-web:
     build:
       context: .
       target: web
       args:
         # Embutidas no build (ver Dockerfile): mudou o domínio, rebuild do web.
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?defina DOMAIN no .env}
-        API_URL: http://api:3333
+        API_URL: http://happy4ever-api:3333
         # Link do painel no site da plataforma (o layout é pré-renderizado no build).
         BETTER_AUTH_URL: https://${API_DOMAIN:?defina API_DOMAIN no .env}
-    image: casamento/web:latest
+    image: happy4ever/web:latest
     restart: unless-stopped
     init: true
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
-      API_URL: http://api:3333
-      # Fase 6: host do site da plataforma (o proxy.ts manda para a landing).
-      PLATFORM_HOST: ${PLATFORM_HOST:-}
+      API_URL: http://happy4ever-api:3333
+      # Fase 6: host do site da plataforma (o proxy.ts manda para a landing) = DOMAIN.
+      PLATFORM_HOST: ${DOMAIN}
       # Painel (login e confirmação do cadastro), linkado pelo site da plataforma.
       BETTER_AUTH_URL: https://${API_DOMAIN}
       WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
     depends_on:
-      api:
+      happy4ever-api:
         condition: service_started
     networks:
       proxy:
       edge:
-        aliases: [casamento-web]
+        aliases: [happy4ever-web]
     logging: *logging
 
-  api:
+  happy4ever-api:
     build:
       context: .
       target: api
-    image: casamento/api:latest
+    image: happy4ever/api:latest
     restart: unless-stopped
     init: true
     environment: *api-env
@@ -112,7 +121,7 @@ services:
       proxy:
       banco:
       edge:
-        aliases: [casamento-api]
+        aliases: [happy4ever-api]
     logging: *logging
 
   db:
@@ -154,7 +163,7 @@ services:
 
   # Aplica as migrations: docker compose -f docker-compose.prod.yml run --rm migrate
   migrate:
-    image: casamento/api:latest
+    image: happy4ever/api:latest
     build:
       context: .
       target: api
@@ -167,11 +176,13 @@ services:
     networks: [banco]
     profiles: [tools]
 
-  # Primeira carga: configurações (textos provisórios, editáveis no painel) e os dois
-  # usuários do painel (ADMIN_EMAIL_1/2 com ADMIN_PASSWORD_INICIAL). Sem dados fictícios.
+  # Primeira carga. Com SETUP_WEDDING=0 (este projeto, ao lado do casamento): só planos, as
+  # contas de ADMIN_EMAIL_1/2 (senha ADMIN_PASSWORD_INICIAL) e o admin da plataforma, sem
+  # evento nem importação do casamento. Com 1: evento 1, conteúdo do casamento e domínio de
+  # DOMAIN (só depois de trazer o banco do casamento; docs/DEPLOY.md). Sem dados fictícios.
   # docker compose -f docker-compose.prod.yml run --rm setup
   setup:
-    image: casamento/api:latest
+    image: happy4ever/api:latest
     build:
       context: .
       target: api
@@ -180,6 +191,7 @@ services:
     environment:
       <<: *api-env
       ADMIN_PASSWORD_INICIAL: ${ADMIN_PASSWORD_INICIAL:-}
+      SETUP_WEDDING: ${SETUP_WEDDING:?defina SETUP_WEDDING no .env (0 = só plataforma)}
     depends_on:
       db:
         condition: service_healthy
@@ -187,15 +199,16 @@ services:
     profiles: [tools]
 
 networks:
-  # Rede privada entre web e api.
+  # Rede privada entre web e api (happy4ever_proxy).
   proxy:
   # Rede compartilhada com o edge (Caddy único da VPS). Criada uma vez: docker network create edge
   edge:
     external: true
-  # Sem saída para a internet: só a API (e as ferramentas) falam com o banco.
+  # Sem saída para a internet: só a API (e as ferramentas) falam com o banco (happy4ever_banco).
   banco:
     internal: true
 
+# happy4ever_db_data e happy4ever_uploads: não colidem com os casamento_* do outro projeto.
 volumes:
   db_data:
   uploads:

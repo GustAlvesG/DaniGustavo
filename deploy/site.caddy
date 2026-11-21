@@ -1,15 +1,17 @@
-# Blocos de site do Caddy deste projeto, lidos pelo edge (/srv/edge) via `site registrar`.
-# Sem bloco global; seguranca e ip_real vêm do edge (o único snippet próprio é casamento_web).
+# Blocos de site do Caddy deste projeto (happy4ever), lidos pelo edge (/srv/edge) via `site registrar`.
+# Sem bloco global; seguranca e ip_real vêm do edge (o único snippet próprio é happy4ever_web).
 # O script troca ${VAR} pelos valores do .env; os upstreams são os aliases da rede Docker "edge"
 # (docker-compose.prod.yml).
 #
-#   https://${DOMAIN}              → casamento-web:3000  (site do casamento)
-#   https://${PLATFORM_HOST}       → casamento-web:3000  (site da plataforma: landing, preços, cadastro)
-#   https://${API_DOMAIN}          → casamento-api:3333  (painel em /painel, login, webhooks, fotos)
-#   https://${LEGACY_API_DOMAIN}   → 308 para https://${API_DOMAIN} (host antigo do painel)
+#   https://${DOMAIN}       → happy4ever-web:3000  (site da plataforma: landing, preços, cadastro;
+#                                                   também é o PLATFORM_HOST)
+#   https://${API_DOMAIN}   → happy4ever-api:3333  (painel em /painel, login, webhooks, fotos)
+#
+# Os hosts do casamento (danigustavo, painel-danigustavo) são do projeto "casamento" e não entram
+# aqui; quando o casamento migrar, ver docs/DEPLOY.md "Depois: trazer o casamento para a plataforma".
 
 # Regras comuns dos hosts do site (Next.js).
-(casamento_web) {
+(happy4ever_web) {
 	encode zstd gzip
 	import seguranca
 
@@ -17,7 +19,7 @@
 	@interno path /api/revalidar
 	respond @interno 404
 
-	reverse_proxy casamento-web:3000 {
+	reverse_proxy happy4ever-web:3000 {
 		import ip_real
 		# Repassa cada pedaço na hora: as páginas com <Suspense> chegam em streaming.
 		flush_interval -1
@@ -25,18 +27,7 @@
 }
 
 ${DOMAIN} {
-	import casamento_web
-}
-
-${PLATFORM_HOST} {
-	import casamento_web
-}
-
-# Host antigo do painel: redirecionamento permanente com caminho e query. 308 (não 301) para o
-# navegador repetir POST como POST; ainda assim, troque o webhook do Asaas para o host novo.
-${LEGACY_API_DOMAIN} {
-	import seguranca
-	redir https://${API_DOMAIN}{uri} 308
+	import happy4ever_web
 }
 
 ${API_DOMAIN} {
@@ -54,7 +45,7 @@ ${API_DOMAIN} {
 	# páginas sem conta do mesmo build do painel, com API própria.
 	@publico path /painel /painel/* /api/auth/* /api/admin/* /api/webhooks/* /api/health /uploads/* /api/team-invites/* /api/signup/* /portaria /portaria/* /api/checkin/* /fornecedor /fornecedor/* /api/vendor-portal/*
 	handle @publico {
-		reverse_proxy casamento-api:3333 {
+		reverse_proxy happy4ever-api:3333 {
 			import ip_real
 			# Header interno (Next → API); de fora nunca vale.
 			header_up -X-Client-Ip

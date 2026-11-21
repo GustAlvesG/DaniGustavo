@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "../src/client.ts";
 import { runMigrations } from "../src/migrate.ts";
 import { resetDatabase } from "../src/reset.ts";
-import { eventSettings, gifts, guests, invitations } from "../src/schema/app.ts";
+import { eventMedia, eventSettings, gifts, guests, invitations } from "../src/schema/app.ts";
+import { plans } from "../src/schema/platform.ts";
 import { account, user } from "../src/schema/auth.ts";
 import {
   eventDomains,
@@ -178,5 +179,56 @@ describe("setup (produção)", () => {
     expect(r.domainsCreated).toBe(0);
     const domains = await db.select({ host: eventDomains.host }).from(eventDomains);
     expect(domains).toEqual([{ host: "danigustavo.exemplo.com.br" }]);
+  });
+});
+
+describe("setup só plataforma (SETUP_WEDDING=0)", () => {
+  const platformEnv = {
+    ...env,
+    SITE_URL: "https://happy4ever.exemplo.com.br",
+    SETUP_WEDDING: "0",
+  };
+
+  beforeAll(async () => {
+    await resetDatabase(db);
+    await runMigrations(db);
+  });
+
+  it("cria planos, contas e o admin da plataforma, sem evento, importação nem domínio", async () => {
+    const first = await setup(db, platformEnv);
+    expect(first).toEqual({
+      settingsCreated: 0,
+      adminsCreated: 2,
+      domainsCreated: 0,
+      membersCreated: 0,
+    });
+    const users = await db
+      .select({ email: user.email, platformRole: user.platformRole })
+      .from(user)
+      .orderBy(user.email);
+    expect(users).toEqual([
+      { email: env.ADMIN_EMAIL_1, platformRole: null },
+      { email: env.ADMIN_EMAIL_2, platformRole: "admin" },
+    ]);
+    const [pl] = await db.select({ n: count() }).from(plans);
+    expect(pl?.n).toBeGreaterThan(1);
+    const [dom] = await db.select({ n: count() }).from(eventDomains);
+    const [mem] = await db.select({ n: count() }).from(organizationMembers);
+    const [media] = await db.select({ n: count() }).from(eventMedia);
+    expect([dom?.n, mem?.n, media?.n]).toEqual([0, 0, 0]);
+    const [set] = await db
+      .select({ n: count() })
+      .from(eventSettings)
+      .where(eq(eventSettings.key, "site.sections"));
+    expect(set?.n).toBe(0);
+    // Reserva da migration 0006 (sem data nem domínio) fica arquivada: não responde no site.
+    const active = await db.select().from(events).where(eq(events.status, "active"));
+    expect(active).toEqual([]);
+    expect(await setup(db, platformEnv)).toEqual({
+      settingsCreated: 0,
+      adminsCreated: 0,
+      domainsCreated: 0,
+      membersCreated: 0,
+    });
   });
 });

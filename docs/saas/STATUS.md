@@ -31,6 +31,8 @@
 
 ## Pendências para produção e revisão
 
+- **Deploy ao lado do casamento** (decisão do usuário): a `saas` sobe como projeto `happy4ever` (`SLUG`/`name`, imagens `happy4ever/*`, serviços `happy4ever-web`/`happy4ever-api`, volumes `happy4ever_*`), hosts `happy4ever.artzan.tech` (`DOMAIN` = `PLATFORM_HOST`) e `happy4ever-api.artzan.tech`, banco vazio com `SETUP_WEDDING=0` (setup só plataforma). O projeto `casamento` (`main`, danigustavo/painel-danigustavo) segue intocado; a migração dele para a plataforma está em `docs/DEPLOY.md` "Depois: trazer o casamento para a plataforma". Falta: registros A na Hostinger, `.env` e `site registrar` na VPS; `docker build` não rodado (sem Docker na máquina de dev).
+
 As decisões das Fases 1–7 foram respondidas em 21/11/2026 (`AGENTES.md`, §5 de cada fase). Falta:
 
 - Revisão do usuário das Fases 1 a 7 (todas "aguardando revisão"); `docker build` nunca rodado (sem Docker na máquina de dev) e CI nunca rodou no GitHub (sem remote).

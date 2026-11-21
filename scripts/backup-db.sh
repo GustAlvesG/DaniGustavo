@@ -16,7 +16,7 @@
 #   gunzip -c backups/db-AAAAMMDD-HHMMSS.sql.gz | docker compose -f docker-compose.prod.yml exec -T db \
 #     sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"'
 # Restaurar os arquivos (públicos e privados; sobrescreve os de mesmo nome):
-#   docker compose -f docker-compose.prod.yml exec -T api tar xzf - -C /data < backups/uploads-AAAAMMDD-HHMMSS.tar.gz
+#   docker compose -f docker-compose.prod.yml exec -T happy4ever-api tar xzf - -C /data < backups/uploads-AAAAMMDD-HHMMSS.tar.gz
 #
 # Os arquivos têm dados pessoais (convidados, pedidos, contratos): ficam só para o dono
 # (umask 077) e a cópia para fora da VPS deve ir para um destino privado.
@@ -54,7 +54,7 @@ mv "$DB_FILE.tmp" "$DB_FILE"
 
 # Arquivos: o volume é montado em /data/uploads no container da API (UPLOAD_DIR). Vai a pasta
 # inteira: fotos públicas de cada evento e a área privada (<evento>/private/, contratos).
-"${COMPOSE[@]}" exec -T api tar czf - -C /data uploads > "$UP_FILE.tmp"
+"${COMPOSE[@]}" exec -T happy4ever-api tar czf - -C /data uploads > "$UP_FILE.tmp"
 # Confere o arquivo antes de aceitar (gzip e tar íntegros) e conta o que entrou.
 gzip -t "$UP_FILE.tmp" || { echo "backup dos arquivos corrompido"; exit 1; }
 LISTING="$(tar tzf "$UP_FILE.tmp")" || { echo "backup dos arquivos ilegível"; exit 1; }

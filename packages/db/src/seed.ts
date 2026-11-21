@@ -1,5 +1,5 @@
 import { hashPassword } from "better-auth/crypto";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { Database } from "./client.ts";
 import { newPublicId } from "./ids.ts";
@@ -238,6 +238,7 @@ export async function setup(
   db: Database,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<SetupResult> {
+  if (env.SETUP_WEDDING?.trim() === "0") return setupPlatformOnly(db, env);
   await seedLegacyEvent(db);
   await seedPlatformCatalog(db);
   const settingsCreated = await insertSettings(db);
@@ -260,6 +261,34 @@ export async function setup(
     }
   }
   return { settingsCreated, adminsCreated, domainsCreated, membersCreated };
+}
+
+/**
+ * Setup "só plataforma" (`SETUP_WEDDING=0`, projeto happy4ever ao lado do casamento): planos,
+ * modelos de tarefas, contas de ADMIN_EMAIL_* e o admin da plataforma (ADMIN_EMAIL_2), sem
+ * evento, sem importar o casamento e sem domínio de SITE_URL. Num banco vazio a migration 0006
+ * deixa um evento 1 de reserva ("Evento 1", sem data nem domínio): ele é arquivado para não
+ * responder em /api/e/dani-gustavo. Idempotente.
+ */
+async function setupPlatformOnly(db: Database, env: NodeJS.ProcessEnv): Promise<SetupResult> {
+  await ensurePlans(db);
+  await ensurePlatformTaskTemplates(db);
+  const adminsCreated = await seedAdmins(db, env);
+  const platformAdmin = env.ADMIN_EMAIL_2?.trim().toLowerCase();
+  if (platformAdmin) {
+    await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
+  }
+  const [domains] = await db
+    .select({ n: count() })
+    .from(eventDomains)
+    .where(eq(eventDomains.eventId, LEGACY_EVENT_ID));
+  if ((domains?.n ?? 0) === 0) {
+    await db
+      .update(events)
+      .set({ status: "archived" })
+      .where(and(eq(events.id, LEGACY_EVENT_ID), isNull(events.startsAt)));
+  }
+  return { settingsCreated: 0, adminsCreated, domainsCreated: 0, membersCreated: 0 };
 }
 
 /** Convites com token e convidados, para testar manualmente (links /c/<token>). */

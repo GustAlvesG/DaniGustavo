@@ -23,7 +23,8 @@ Banco:
   seed                         popula dados fictícios (idempotente; desenvolvimento)
   setup                        primeira carga em produção: evento 1, configurações, admins e o
                                host de SITE_URL como domínio do evento 1 (sem dados fictícios;
-                               idempotente; docs/DEPLOY.md)
+                               idempotente; docs/DEPLOY.md). Com SETUP_WEDDING=0: só planos,
+                               contas de ADMIN_EMAIL_* e o admin da plataforma (sem evento)
   reset                        apaga tudo, migra e popula (só fora de produção)
 
 Plataforma:

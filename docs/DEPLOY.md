@@ -1,7 +1,14 @@
 # Deploy em produção (VPS Linux + Docker)
 
-Passo a passo para colocar o site no ar numa VPS Ubuntu (Hostinger ou outra). Tudo roda em
+Passo a passo para colocar a plataforma no ar numa VPS Ubuntu (Hostinger ou outra). Tudo roda em
 containers Docker; a VPS só precisa do Docker e do git.
+
+**Dois projetos na mesma VPS.** O site do casamento segue no ar pelo projeto `casamento` (branch
+`main`, `SLUG="casamento"`, hosts `danigustavo.artzan.tech` e `painel-danigustavo.artzan.tech`,
+volumes com os dados reais) e não é tocado. Esta branch (`saas`) sobe a plataforma como **outro
+projeto**, `happy4ever`, ao lado dele (passo a passo em "Subir a plataforma ao lado do casamento").
+O casamento só vem para a plataforma depois do teste do Asaas ("Depois: trazer o casamento para a
+plataforma").
 
 A VPS é **compartilhada** com outros sites: um Caddy único, o **edge** (`/srv/edge`), é dono das
 portas 80/443 e dos certificados, e cada projeto só entrega containers, `deploy/site.caddy` e
@@ -11,17 +18,16 @@ portas 80/443 e dos certificados, e cada projeto só entrega containers, `deploy
 
 ```
 Internet ──► edge (Caddy único, :80/:443, HTTPS automático)      rede Docker externa "edge"
-               ├─ https://DOMAIN             ──► casamento-web :3000 (Next.js) ──┐
-               ├─ https://PLATFORM_HOST      ──► casamento-web :3000 (mesmo site)  │
-               ├─ https://API_DOMAIN         ──► casamento-api :3333 (Hono + painel)◄┘ rede interna (proxy)
-               └─ https://LEGACY_API_DOMAIN  ──► 308 para API_DOMAIN (no edge)
-                                              └──► db :3306 (MySQL 8.4, rede "banco" sem internet)
+               ├─ https://DOMAIN       ──► happy4ever-web :3000 (Next.js) ──┐
+               ├─ https://API_DOMAIN   ──► happy4ever-api :3333 (Hono + painel)◄┘ rede interna (proxy)
+               │                                        └──► db :3306 (MySQL 8.4, rede "banco" sem internet)
+               └─ danigustavo / painel-danigustavo ──► projeto "casamento" (main), intocado
 ```
 
 | Serviço            | O que é                                                                                                               |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `web`              | Site público (Next.js em modo `standalone`: um `server.js` com só o necessário)                                       |
-| `api`              | API, painel em `/painel`, rotinas (expiração de Pix, conciliação, lembretes) e fotos dos presentes (volume `uploads`) |
+| `happy4ever-web`   | Site público (Next.js em modo `standalone`: um `server.js` com só o necessário)                                       |
+| `happy4ever-api`   | API, painel em `/painel`, rotinas (expiração de Pix, conciliação, lembretes) e fotos dos presentes (volume `uploads`) |
 | `db`               | MySQL 8.4 com volume `db_data`, sem porta para a internet                                                             |
 | `migrate`, `setup` | Ferramentas avulsas (`docker compose run --rm ...`)                                                                   |
 
@@ -30,30 +36,32 @@ de site que o edge importa), `deploy/deploy.conf` (lido pelo script `site`), `.e
 `scripts/setup-vps.sh`, `scripts/backup-db.sh`. O `docker-compose.yml` da raiz continua sendo só para
 desenvolvimento.
 
-O `web` e a `api` entram na rede `edge` com os aliases `casamento-web` e `casamento-api` (os
-upstreams do `site.caddy`); o `db` nunca entra nela. O nome do projeto Compose (`name: casamento`) e
-o `SLUG` do `deploy.conf` não mudam: o nome dos volumes (`casamento_db_data`, `casamento_uploads`)
-depende dele.
+O `web` e a `api` entram na rede `edge` com os aliases `happy4ever-web` e `happy4ever-api` (os
+upstreams do `site.caddy`); o `db` nunca entra nela. O nome do projeto Compose (`name: happy4ever`) e
+o `SLUG` do `deploy.conf` não mudam: o Compose prefixa volumes e redes com ele
+(`happy4ever_db_data`, `happy4ever_uploads`, `happy4ever_proxy`, `happy4ever_banco`), por isso nada
+colide com os `casamento_*` do outro projeto.
+
+Os serviços que entram na `edge` se chamam `happy4ever-web`/`happy4ever-api` (e não `web`/`api`): o
+Compose registra o nome do serviço em todas as redes do container, e a `edge` é compartilhada; com
+um segundo `api` nela, o `http://api:3333` do projeto `casamento` poderia cair na API deste projeto.
 
 ## Hosts de produção
 
-| Variável            | Host                             | Para onde                                                    |
-| ------------------- | -------------------------------- | ------------------------------------------------------------ |
-| `DOMAIN`            | `danigustavo.artzan.tech`        | `web`: site do casamento (evento 1)                          |
-| `PLATFORM_HOST`     | `happy4ever.artzan.tech`         | `web`: site da plataforma (landing, preços, cadastro)        |
-| `API_DOMAIN`        | `happy4ever-api.artzan.tech`     | `api`: painel, login, uploads e webhooks de todos os eventos |
-| `LEGACY_API_DOMAIN` | `painel-danigustavo.artzan.tech` | redirecionamento 308 para `API_DOMAIN`, com caminho e query  |
+| Variável     | Host                         | Para onde                                                                         |
+| ------------ | ---------------------------- | --------------------------------------------------------------------------------- |
+| `DOMAIN`     | `happy4ever.artzan.tech`     | `web`: site da plataforma (landing, preços, cadastro); também é o `PLATFORM_HOST` |
+| `API_DOMAIN` | `happy4ever-api.artzan.tech` | `api`: painel, login, uploads, portaria, portal e webhooks de todos os eventos    |
 
-Os quatro estão em `DOMAIN_VARS` e `REQUIRED_VARS` do `deploy/deploy.conf` e têm bloco próprio no
-`deploy/site.caddy`. O host antigo do painel existe só para links antigos (e-mails, favoritos, QR
-de portaria): sessões abertas nele não passam para o host novo (o cookie é por host), então cada
-pessoa entra de novo uma vez. **Webhook do Asaas**: quando o Asaas for ligado, cadastre
-`https://happy4ever-api.artzan.tech/api/webhooks/payments` (§10). Não conte com o redirecionamento
-para webhook: em POST, o Asaas pode não seguir o 308 e marcar o webhook como falho.
+Os dois estão em `DOMAIN_VARS` e `REQUIRED_VARS` do `deploy/deploy.conf` e têm bloco próprio no
+`deploy/site.caddy`. O compose passa `PLATFORM_HOST = DOMAIN` (não se preenche no `.env`).
+`danigustavo.artzan.tech` e `painel-danigustavo.artzan.tech` pertencem ao projeto `casamento` e não
+entram aqui até a migração. **Webhook do Asaas**: quando o Asaas for ligado neste projeto, cadastre
+`https://happy4ever-api.artzan.tech/api/webhooks/payments` (§10).
 
 ## Por que dois endereços (site e API)
 
-- `https://DOMAIN` (e `https://PLATFORM_HOST`) é o site. `https://API_DOMAIN` é a API, com o
+- `https://DOMAIN` é o site. `https://API_DOMAIN` é a API, com o
   painel em `/painel`, o login (Better Auth) e o webhook do Asaas.
 - Os dois apps usam `/api/...` (o Next tem `/api/revalidar`, `/api/pedidos`, `/api/health`), então
   dividir um domínio só por caminho exigiria uma lista frágil de exceções.
@@ -67,9 +75,9 @@ para webhook: em POST, o Asaas pode não seguir o 308 e marcar o webhook como fa
   `API_DOMAIN`, rebuild do `web`).
 - No host da API, o edge (por `deploy/site.caddy`) só libera `/painel`, `/api/auth/*`, `/api/admin/*`, `/api/webhooks/*`,
   `/api/health` e `/uploads/*`. As rotas públicas da API (`/api/site`, `/api/invitations`...) o site
-  acessa pela rede interna do Docker (`API_URL=http://api:3333`).
+  acessa pela rede interna do Docker (`API_URL=http://happy4ever-api:3333`).
 - No host do site, `/api/revalidar` fica fechado (`site.caddy`): a API avisa o site pela rede interna
-  (`WEB_INTERNAL_URL=http://web:3000`).
+  (`WEB_INTERNAL_URL=http://happy4ever-web:3000`).
 
 ---
 
@@ -109,16 +117,13 @@ estiver ligado, libere lá também 22, 80 e 443 (TCP) e 443 (UDP).
 
 ## 3. DNS
 
-No DNS do domínio, crie quatro registros **A** para o IP da VPS, TTL 300, **sem AAAA**:
+No DNS do domínio, crie dois registros **A** para o IP da VPS, TTL 300, **sem AAAA** (os de
+`danigustavo` e `painel-danigustavo` já existem e são do projeto `casamento`; não mexa neles):
 
-| Tipo | Nome                 | Host completo                    | Valor     | TTL |
-| ---- | -------------------- | -------------------------------- | --------- | --- |
-| A    | `danigustavo`        | `danigustavo.artzan.tech`        | IP da VPS | 300 |
-| A    | `happy4ever`         | `happy4ever.artzan.tech`         | IP da VPS | 300 |
-| A    | `happy4ever-api`     | `happy4ever-api.artzan.tech`     | IP da VPS | 300 |
-| A    | `painel-danigustavo` | `painel-danigustavo.artzan.tech` | IP da VPS | 300 |
-
-O último é o host antigo do painel (`LEGACY_API_DOMAIN`), mantido só para redirecionar.
+| Tipo | Nome             | Host completo                | Valor     | TTL |
+| ---- | ---------------- | ---------------------------- | --------- | --- |
+| A    | `happy4ever`     | `happy4ever.artzan.tech`     | IP da VPS | 300 |
+| A    | `happy4ever-api` | `happy4ever-api.artzan.tech` | IP da VPS | 300 |
 
 (Hostinger: hPanel → Domínios → artzan.tech → DNS, TTL 300. Só um nível de subdomínio: o SSL da
 Cloudflare cobre `*.artzan.tech`, mas não `*.danigustavo.artzan.tech`.)
@@ -127,7 +132,7 @@ Cloudflare cobre `*.artzan.tech`, mas não `*.danigustavo.artzan.tech`.)
 - **Não crie registro AAAA (IPv6)** por enquanto: sem IPv6 configurado no Docker, as conexões por
   IPv6 chegam ao edge com o IP interno do Docker, e o limite de tentativas por IP passaria a valer
   para todo mundo junto.
-- Confira antes de subir: `nslookup` de cada um dos quatro hosts tem que devolver o IP da VPS. Com o DNS
+- Confira antes de subir: `nslookup` de cada um dos dois hosts tem que devolver o IP da VPS. Com o DNS
   errado, o edge fica tentando emitir o certificado e pode esbarrar no limite do Let's Encrypt.
 
 ## 4. Clonar o projeto
@@ -149,9 +154,12 @@ Host github.com
   IdentityFile ~/.ssh/github_deploy
   IdentitiesOnly yes
 EOF
-git clone git@github.com:GustAlvesG/DaniGustavo.git DaniGustavo
-cd DaniGustavo
+git clone -b saas git@github.com:GustAlvesG/DaniGustavo.git ~/happy4ever
+cd ~/happy4ever
 ```
+
+A pasta do projeto `casamento` (`/root/DaniGustavo`, branch `main`) continua onde está; esta é
+outra pasta, na branch `saas`. A mesma deploy key serve para as duas (é o mesmo repositório).
 
 ## 5. Configurar o `.env`
 
@@ -164,7 +172,9 @@ nano .env
 
 Preencha:
 
-- `DOMAIN`, `API_DOMAIN`, `LEGACY_API_DOMAIN` e `PLATFORM_HOST` (o e-mail do Let's Encrypt fica no edge, não aqui);
+- `DOMAIN` e `API_DOMAIN` (o e-mail do Let's Encrypt fica no edge, não aqui);
+- `SETUP_WEDDING=0` (já vem assim): o `setup` cria só planos, contas e o admin da plataforma, sem
+  importar o casamento;
 - `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `WEB_KEY`, `BETTER_AUTH_SECRET` (cada um com um valor
   diferente do `openssl`; hex evita `@ / : #`, que quebram a `DATABASE_URL`);
 - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
@@ -175,12 +185,12 @@ Preencha:
   Asaas; trocá-lo depois invalida as chaves gravadas. `PLATFORM_FEE_PERCENT` (taxa da plataforma,
   padrão 0) e `ASAAS_PLATFORM_WALLET_ID` ficam para o passo 10;
 - Fase 6 (todas opcionais; ver "Plataforma multi-evento" abaixo): `BILLING_PROVIDER`
-  (`simulado` padrão ou `asaas`), `SIGNUP_ENABLED` (`0` padrão), `PLATFORM_HOST`,
+  (`simulado` padrão ou `asaas`), `SIGNUP_ENABLED` (`0` padrão),
   `PLATFORM_BASE_DOMAIN`, `PLATFORM_ALERT_EMAIL` (recebe falhas de rotina e erros 5xx, com
   intervalo mínimo entre avisos; vazio = só log) e `LOG_FORMAT` (`json` padrão em produção, ou
   `texto`). Os avisos de pedido e RSVP saem só por e-mail (o Telegram foi removido).
 
-`SITE_URL`, `BETTER_AUTH_URL`, `API_URL`, `DATABASE_URL` e `NEXT_PUBLIC_SITE_URL` **não** vão no
+`SITE_URL`, `BETTER_AUTH_URL`, `API_URL`, `DATABASE_URL`, `PLATFORM_HOST` e `NEXT_PUBLIC_SITE_URL` **não** vão no
 `.env`: o `docker-compose.prod.yml` monta a partir de `DOMAIN`, `API_DOMAIN` e `MYSQL_*`. A linha
 `COMPOSE_FILE=docker-compose.prod.yml` faz o `docker compose` usar o arquivo de produção sem `-f`.
 
@@ -196,14 +206,15 @@ site instalar-edge        # cria a rede "edge", sobe o Caddy único e pede o e-m
 ```
 
 Depois, com o `.env` pronto (passo 5), o script `site` faz o resto (valida `deploy/deploy.conf`,
-sobe o compose, roda `setup` na primeira vez e `migrate` sempre, registra o `deploy/site.caddy` no
-edge e confere os `HEALTH_URLS`):
+sobe o compose, roda `migrate` + `setup` na primeira vez (`primeira_vez`) e `migrate` sempre
+(`pos_subida`), registra o `deploy/site.caddy` no edge e confere os `HEALTH_URLS`):
 
 ```bash
-site novo git@github.com:GustAlvesG/DaniGustavo.git   # clona, cria o .env e sobe
-# ou, se o projeto já foi clonado (passos 4 e 5):
-site registrar ~/DaniGustavo
+site registrar ~/happy4ever   # projeto já clonado na branch saas, com o .env pronto (passos 4 e 5)
 ```
+
+(`site novo <repo>` clonaria a branch padrão, `main`, que é o projeto `casamento`: por isso o
+clone manual com `-b saas` no passo 4.)
 
 Sem o script, o equivalente manual é `docker compose up -d --build` seguido do passo 7, mais o
 registro do `site.caddy` no edge.
@@ -219,28 +230,31 @@ visita mostrar textos provisórios, recarregue a página.
 
 ```bash
 docker compose run --rm migrate   # cria/atualiza as tabelas
-docker compose run --rm setup     # configurações + os dois usuários do painel
+docker compose run --rm setup     # SETUP_WEDDING=0: planos, contas e admin da plataforma
 ```
 
-- O `setup` cria as configurações (textos, datas e locais provisórios; o site não funciona sem
-  elas) e os usuários `ADMIN_EMAIL_1`/`ADMIN_EMAIL_2` com a senha `ADMIN_PASSWORD_INICIAL`. Não cria
-  convites nem presentes. Pode rodar de novo: não sobrescreve nada. Na branch `saas` (plataforma)
-  ele também garante o evento 1, os vínculos dos dois usuários com a organização 1 e o host de
-  `DOMAIN` como domínio do evento 1 (ver "Plataforma multi-evento" no fim).
+- Com `SETUP_WEDDING=0` (este projeto) o `setup` cria os planos, os modelos de tarefas, os
+  usuários `ADMIN_EMAIL_1`/`ADMIN_EMAIL_2` com a senha `ADMIN_PASSWORD_INICIAL` e marca
+  `ADMIN_EMAIL_2` como admin da plataforma. Não cria evento, não importa o casamento e não
+  cadastra domínio. Num banco vazio a migration 0006 deixa um evento 1 de reserva ("Evento 1", sem
+  data nem domínio); o setup o arquiva para que não responda. Pode rodar de novo: não sobrescreve
+  nada.
+- Com `SETUP_WEDDING=1` (só depois de trazer o banco do casamento) ele garante o evento 1, as
+  configurações e o conteúdo do casamento, os vínculos dos dois usuários com a organização 1 e o
+  host de `DOMAIN` como domínio do evento 1 se ele não tiver nenhum.
 - **Não use o `seed` em produção.** Ele cria convites e 8 presentes fictícios, e cada nova execução
   recria os presentes de exemplo que vocês tiverem apagado (o seed é de desenvolvimento).
 
 ## 8. Conferir
 
 ```bash
-docker compose ps                    # web, api e db "healthy"
+docker compose ps                         # happy4ever-web, happy4ever-api e db "healthy"
 docker logs edge-caddy-1 2>&1 | grep -i "certificate obtained"
-docker compose logs -f api           # "Pagamentos: provedor ..." e nenhum erro de configuração
-curl -I https://danigustavo.artzan.tech
-curl -I https://happy4ever.artzan.tech
+docker compose logs -f happy4ever-api     # "Pagamentos: provedor ..." e nenhum erro de configuração
+curl -I https://happy4ever.artzan.tech                       # landing da plataforma
 curl https://happy4ever-api.artzan.tech/api/health
 curl 'https://happy4ever-api.artzan.tech/api/health?db=1'    # também confere o banco (503 se falhar)
-curl -I 'https://painel-danigustavo.artzan.tech/painel/?x=1' # 308 para happy4ever-api, mesmo caminho
+curl -I https://danigustavo.artzan.tech                      # o casamento continua respondendo
 ```
 
 Depois:
@@ -248,14 +262,13 @@ Depois:
 1. Abra `https://API_DOMAIN/painel/`, entre com o seu e-mail e a senha inicial e troque a senha
    (seu nome → **Trocar senha**). Os dois.
 2. Apague `ADMIN_PASSWORD_INICIAL` do `.env` (ela só serve para o `setup`).
-3. Ajuste em **Configurações** os textos, datas, locais e o prazo do RSVP.
-4. Cadastre presentes e convites (ou importe a planilha, `docs/PERSONALIZAR.md` §7).
+3. Crie organizações e eventos pela CLI ou pelo painel (`docs/PERSONALIZAR.md`).
 
 ## 9. Cloudflare (recomendado)
 
-Com o HTTPS funcionando nos quatro endereços:
+Com o HTTPS funcionando nos dois endereços:
 
-1. Ligue a nuvem **laranja** nos quatro registros.
+1. Ligue a nuvem **laranja** nos dois registros.
 2. **SSL/TLS → Visão geral → Full (strict)**. (Flexible causa loop de redirecionamento.)
 3. Pronto: o edge já confia no header `CF-Connecting-IP` **só** quando a conexão vem dos IPs da
    Cloudflare (`trusted_proxies` no Caddyfile global do edge, lista de
@@ -283,9 +296,9 @@ O certificado continua sendo renovado pelo edge, inclusive com a nuvem laranja.
 Siga `docs/PERSONALIZAR.md` §6 (conta, chave Pix, chave de API). Em produção:
 
 - Webhook do Asaas: `https://API_DOMAIN/api/webhooks/payments`
-  (`https://happy4ever-api.artzan.tech/api/webhooks/payments`), com o token gerado lá. Se ele já
-  estava cadastrado no host antigo (`painel-danigustavo.artzan.tech`), **troque para o host novo**
-  ao ligar o Asaas: o 308 do host antigo não é confiável para POST de webhook.
+  (`https://happy4ever-api.artzan.tech/api/webhooks/payments`), com o token gerado lá. Enquanto o
+  casamento estiver no projeto `casamento`, o webhook do Asaas dele continua em
+  `painel-danigustavo.artzan.tech`; só troque na migração ("Depois: trazer o casamento...").
 - No `.env`:
   ```
   PAYMENT_PROVIDER=asaas
@@ -294,7 +307,7 @@ Siga `docs/PERSONALIZAR.md` §6 (conta, chave Pix, chave de API). Em produção:
   ```
 - Cadastre o domínio do site (`https://DOMAIN`) em Minha conta → Informações, para a volta do
   cartão.
-- Aplique: `docker compose up -d api` (o `restart` **não** relê o `.env`; o `up -d` recria o
+- Aplique: `docker compose up -d happy4ever-api` (o `restart` **não** relê o `.env`; o `up -d` recria o
   container com os valores novos). O log deve mostrar `Pagamentos: provedor "asaas"`.
 - Teste com um Pix de R$ 5 e estorne pelo painel (Pedidos).
 - **Subcontas e split (plataforma, Fase 5)**: peça ao Asaas a liberação de subcontas e split e
@@ -323,12 +336,12 @@ comandos de restauração estão no topo do script; teste uma restauração ante
 ## 12. Atualizar o site
 
 ```bash
-site atualizar casamento   # git pull, up -d --build, migrate, atualiza o site.caddy no edge, confere a saúde
+site atualizar happy4ever  # git pull, up -d --build, migrate, atualiza o site.caddy no edge, confere a saúde
 docker image prune -f      # limpa imagens antigas
 ```
 
-Manual, se preferir: `cd ~/DaniGustavo && git pull && docker compose up -d --build &&
-docker compose run --rm migrate`. Mudou o `deploy/site.caddy`? Rode `site atualizar casamento` (ou
+Manual, se preferir: `cd ~/happy4ever && git pull && docker compose up -d --build &&
+docker compose run --rm migrate`. Mudou o `deploy/site.caddy`? Rode `site atualizar happy4ever` (ou
 `site registrar`) para o edge reler o arquivo.
 
 Quem estiver com o site aberto durante a troca pode ver um erro ao enviar um formulário; recarregar
@@ -337,13 +350,14 @@ a página resolve (cada build tem seus próprios identificadores de Server Actio
 ## Comandos úteis
 
 ```bash
-docker compose logs -f web api                 # logs
+docker compose logs -f happy4ever-web happy4ever-api   # logs
 docker compose exec db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
-site atualizar casamento                       # depois de mudar o deploy/site.caddy
+site atualizar happy4ever                      # depois de mudar o deploy/site.caddy
 docker compose down                            # para tudo (os volumes ficam)
 ```
 
-Banco no DBeaver/HeidiSQL do seu PC: descomente `127.0.0.1:3306:3306` no serviço `db`, rode
+Banco no DBeaver/HeidiSQL do seu PC: descomente `127.0.0.1:3306:3306` no serviço `db` (se o projeto
+`casamento` já usa a 3306 da VPS, troque por `127.0.0.1:3307:3306` aqui), rode
 `docker compose up -d db` e abra um túnel: `ssh -L 3306:127.0.0.1:3306 deploy@IP_DA_VPS`.
 
 ## Pegadinhas
@@ -366,9 +380,9 @@ Banco no DBeaver/HeidiSQL do seu PC: descomente `127.0.0.1:3306:3306` no serviç
   `db_data`. Trocar `MYSQL_PASSWORD` no `.env` depois disso não muda a senha no banco (use
   `ALTER USER` no MySQL e depois ajuste o `.env`).
 
-## Migração do Caddy próprio para o edge
+## Migração do Caddy próprio para o edge (histórico, projeto `casamento`)
 
-Para quem já tem o site no ar com o Caddy do próprio compose (`/root/DaniGustavo`, projeto
+Já feito no projeto `casamento` (branch `main`); fica como referência. Para quem já tem o site no ar com o Caddy do próprio compose (`/root/DaniGustavo`, projeto
 `casamento`, `DOMAIN=danigustavo.artzan.tech`, `API_DOMAIN=painel-danigustavo.artzan.tech`). O
 banco e as fotos não são tocados: o `name: casamento` continua, então os volumes são os mesmos.
 
@@ -391,55 +405,120 @@ site registrar /root/DaniGustavo           # 5. registra o site.caddy e confere 
   (o `site instalar-edge` já teria tomado as portas: pare o edge antes com `docker compose down`
   em `/srv/edge`).
 
+## Subir a plataforma ao lado do casamento
+
+Resumo do caminho deste projeto (`happy4ever`, branch `saas`), sem tocar no projeto `casamento`:
+
+1. **DNS** (Hostinger: hPanel → Domínios → artzan.tech → DNS): registros **A** `happy4ever` e
+   `happy4ever-api` para o IP da VPS, TTL 300, **sem AAAA** (§3). Confira com `nslookup`.
+2. **Clonar** na branch `saas`, em outra pasta: `git clone -b saas ... ~/happy4ever` (§4).
+3. **`.env`**: `cp .env.production.example .env && chmod 600 .env` e preencha (§5):
+   - `DOMAIN=happy4ever.artzan.tech`: site da plataforma (o compose o usa também como
+     `PLATFORM_HOST`).
+   - `API_DOMAIN=happy4ever-api.artzan.tech`: painel, login, uploads, portaria, portal e webhooks.
+   - `MYSQL_DATABASE`/`MYSQL_USER` = `happy4ever`: banco próprio, no volume `happy4ever_db_data`.
+   - `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `WEB_KEY`, `BETTER_AUTH_SECRET`,
+     `PAYMENT_SECRETS_KEY`: um `openssl rand -hex 32` diferente para cada; **não** reaproveite os
+     do projeto `casamento`.
+   - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL`: contas do painel; o
+     `ADMIN_EMAIL_2` (Gustavo) vira admin da plataforma.
+   - `SETUP_WEDDING=0`: o `setup` não cria evento nem importa o casamento (uma cópia aqui
+     divergiria dos dados reais, que seguem chegando no projeto antigo).
+   - `MAIL_*`, `PAYMENT_PROVIDER`, `BILLING_PROVIDER`, `SIGNUP_ENABLED`...: como no §5; comece
+     com `simulado` e cadastro fechado.
+4. **Subir**: `site registrar ~/happy4ever` (§6). O `primeira_vez` roda `migrate` + `setup` (só
+   plataforma); o `pos_subida`, `migrate`. O script registra o `site.caddy` (blocos `DOMAIN` e
+   `API_DOMAIN`, snippet `happy4ever_web`) e confere os `HEALTH_URLS`.
+5. **Verificar** (§8): `https://happy4ever.artzan.tech` mostra a landing,
+   `https://happy4ever-api.artzan.tech/api/health?db=1` dá 200, o painel abre e aceita o login, e
+   `https://danigustavo.artzan.tech` continua igual (projeto `casamento`).
+6. **Backup**: o `BACKUP_CMD` do `deploy.conf` entra no cron deste projeto; os arquivos ficam em
+   `~/happy4ever/backups`, separados dos do casamento.
+
+Fica separado dos dois lados: `name`/`SLUG`, imagens (`happy4ever/*` × `casamento/*`), nomes dos
+serviços na `edge`, redes internas (`happy4ever_proxy`/`happy4ever_banco`), aliases, volumes, banco,
+segredos, pasta e cron de backup. Só a rede `edge` e o Caddy do edge são compartilhados.
+
+## Depois: trazer o casamento para a plataforma
+
+Quando o Asaas estiver testado e o casal decidir migrar. Faça fora do horário de pico: o que
+chegar no projeto antigo depois do backup do passo 1 não vem junto.
+
+1. **Backup do projeto `casamento`** e parada do site antigo:
+   `cd /root/DaniGustavo && docker compose stop web && ./scripts/backup-db.sh` (só o `web`: o
+   backup lê os uploads de dentro da `api`, que precisa estar no ar; confira o
+   `db-*.sql.gz` e o `uploads-*.tar.gz`).
+2. **Importar no `happy4ever`**. Substitui o banco dele: o que tiver sido criado na plataforma até
+   aqui se perde (se já houver clientes, faça backup do `happy4ever` e planeje a fusão dos dados,
+   que este passo não cobre).
+   ```bash
+   cd ~/happy4ever && ./scripts/backup-db.sh
+   docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "DROP DATABASE \`$MYSQL_DATABASE\`; CREATE DATABASE \`$MYSQL_DATABASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL ON \`$MYSQL_DATABASE\`.* TO \"$MYSQL_USER\"@\"%\";"'
+   gunzip -c /root/DaniGustavo/backups/db-AAAAMMDD-HHMMSS.sql.gz | docker compose exec -T db \
+     sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" exec mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"'
+   docker compose exec -T happy4ever-api tar xzf - -C /data < /root/DaniGustavo/backups/uploads-AAAAMMDD-HHMMSS.tar.gz
+   ```
+3. **Migrations 0006+**: `docker compose run --rm migrate` (organizações, eventos, domínios e
+   `event_id` em tudo; o casamento vira o evento 1).
+4. **Domínio do casamento antes do setup**: cadastre `danigustavo.artzan.tech` no evento 1 com o
+   `domain:add` da CLI (`docker compose run --rm --entrypoint node happy4ever-api /app/packages/db/src/cli.ts`
+   sem argumentos lista as opções). Sem isso o `setup` cadastraria o `DOMAIN`
+   (`happy4ever.artzan.tech`, o site da plataforma) como domínio do casamento.
+5. **`setup` normal**: `SETUP_WEDDING=1` no `.env`, `docker compose run --rm setup` (vínculos dos
+   admins com a organização 1, conteúdo do casamento; idempotente) e volte para `SETUP_WEDDING=0`.
+6. **Fotos**: `docker compose run --rm --entrypoint node happy4ever-api /app/packages/db/src/cli.ts uploads:migrate`
+   (move as fotos antigas para `uploads/1/`).
+7. **Hosts**: no `deploy/site.caddy` deste projeto, acrescente o bloco do site do casamento
+   (`import happy4ever_web`) e o do host antigo do painel (`import seguranca` +
+   `redir https://${API_DOMAIN}{uri} 308`), com as variáveis em `DOMAIN_VARS`/`REQUIRED_VARS`/
+   `HEALTH_URLS` e no `.env.production.example` (o desenho estava no commit `10c83c4`,
+   `LEGACY_API_DOMAIN`). Tire o `site.caddy` do projeto `casamento` do edge e rode
+   `site atualizar happy4ever`.
+8. **Webhook do Asaas**: troque para `https://happy4ever-api.artzan.tech/api/webhooks/payments`
+   (com `ASAAS_*` e o token no `.env` deste projeto). O 308 do host antigo não é confiável para
+   POST de webhook.
+9. **Conferir**: `https://danigustavo.artzan.tech` com o casal, um RSVP de teste, painel em
+   `happy4ever-api` com o evento, `painel-danigustavo` redirecionando.
+10. **Desligar o projeto antigo**: `cd /root/DaniGustavo && docker compose down` (**sem** `-v`;
+    guarde os volumes `casamento_*` e os backups por um tempo) e tire o cron de backup dele.
+
 ## Plataforma multi-evento (branch saas)
 
-O que muda quando o deploy passar a sair da branch `saas` (hoje o site do casamento é publicado
-do `main`). Nada de infraestrutura nova: mesmo compose, mesmas imagens, mesmo `site.caddy`.
+Referência do funcionamento da plataforma em produção.
 
 - **Hosts por evento.** O site descobre o evento pelo `Host` da requisição, consultando a tabela
-  `event_domains`. Host que não está lá → 404. O `setup` cadastra o host de `SITE_URL`
-  (`https://DOMAIN`) como domínio primário do evento 1 se ele ainda não tiver nenhum; outros
-  hosts entram pela CLI (`domain:add`). O `/api/health` do site responde com qualquer `Host`.
-- **`WEB_INTERNAL_URL`** (já no compose: `http://web:3000`): a API avisa o site por ela com
-  `{ eventId, tags }`; o `/api/revalidar` continua fechado no `site.caddy`.
-- **Migrations 0006 em diante** (organizações, eventos, domínios, `event_settings`, `event_id` em
-  todas as tabelas, mídia da Fase 2) reescrevem tabelas com dados. Antes da primeira atualização:
-  ```bash
-  ./scripts/backup-db.sh                        # backup (confira o .sql.gz gerado)
-  git checkout saas && git pull
-  docker compose up -d --build
-  docker compose run --rm migrate               # aplica 0006+
-  docker compose run --rm setup                 # evento 1, vínculos dos admins e domínio de DOMAIN
-  docker compose run --rm --entrypoint node api /app/packages/db/src/cli.ts uploads:migrate
-  ```
-  Sem o `setup` depois das migrations, o site responde 404 (nenhum domínio cadastrado) e o painel
-  não mostra o evento (ninguém vinculado). O `pos_subida` do `deploy.conf` roda só o `migrate`.
-  O `uploads:migrate` move as fotos dos presentes para `uploads/1/`.
+  `event_domains`. Host que não está lá → 404. Hosts entram pela CLI (`domain:add`) ou pelo painel
+  da organização. O `/api/health` do site responde com qualquer `Host`.
+- **`WEB_INTERNAL_URL`** (já no compose: `http://happy4ever-web:3000`): a API avisa o site por ela
+  com `{ eventId, tags }`; o `/api/revalidar` continua fechado no `site.caddy`.
+- **Migrations 0006 em diante** reescrevem tabelas com dados (organizações, eventos, domínios,
+  `event_settings`, `event_id` em todas as tabelas). Só pesam ao trazer o banco do casamento
+  (seção anterior); num banco novo o `migrate` cria tudo do zero.
 - **Migration 0011 (recebimentos, Fase 5)**: cria `payment_accounts` e põe todos os eventos
   existentes em `payment_receiver = platform` (continuam na conta principal, sem taxa). Exige
   `PAYMENT_SECRETS_KEY` no `.env` (ver §5) antes de subir a API nova.
 - **Host público**: o site lê o `X-Forwarded-Host` antes do `Host` (o Caddy manda o host
   original nele; o próprio Next também, ao seguir o `redirect()` de uma Server Action).
 - **CLI de plataforma no container** (mesma imagem da API):
-  `docker compose run --rm --entrypoint node api /app/packages/db/src/cli.ts <comando>`
+  `docker compose run --rm --entrypoint node happy4ever-api /app/packages/db/src/cli.ts <comando>`
   (`event:list`, `org:create`, `event:create`, `domain:add`, `user:add`; sem argumentos lista as
   opções). Um evento novo num subdomínio de `artzan.tech` também precisa do DNS (§3) e de um
-  bloco no `site.caddy` apontando para `casamento-web:3000`.
+  bloco no `site.caddy` com `import happy4ever_web`.
 - **Planos, cadastro, domínios e LGPD (Fase 6)**: sem migration nova além da 0012 (aplicada pelo
   `migrate`; ela põe as organizações existentes no plano interno Cortesia e marca os domínios
   existentes como verificados: só domínio verificado resolve). `docs/PERSONALIZAR.md` §9 a §11
   descrevem o uso.
 - **Logs e saúde**: em produção cada requisição e erro sai como uma linha JSON no `docker compose
-logs api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o processo (é o do
+logs happy4ever-api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o processo (é o do
   healthcheck e do `HEALTH_URLS`); `?db=1` também faz `SELECT 1` e dá 503 se o banco falhar
   (use-o em monitor externo).
 - **Backup**: `scripts/backup-db.sh` guarda também os uploads (fotos e contratos privados).
 
 ### Site da plataforma e subdomínios automáticos
 
-- `PLATFORM_HOST` (`happy4ever.artzan.tech`): host da landing, dos preços e do cadastro. Já tem
-  registro A (passo 3) e bloco no `site.caddy` (mesmas regras do `${DOMAIN}`, snippet
-  `casamento_web`). `SIGNUP_ENABLED=1` abre o cadastro; fechado por padrão.
+- `PLATFORM_HOST` (`happy4ever.artzan.tech`): host da landing, dos preços e do cadastro. Neste
+  projeto é o próprio `DOMAIN` (o compose repassa), com registro A (passo 3) e o bloco `${DOMAIN}`
+  do `site.caddy` (snippet `happy4ever_web`). `SIGNUP_ENABLED=1` abre o cadastro; fechado por padrão.
 - `PLATFORM_BASE_DOMAIN` (ex.: `eventos.artzan.tech`): cada evento ganha `<slug>.<base>` sozinho.
   Exige um registro curinga `*.eventos.artzan.tech` e um certificado que o cubra (curinga via DNS
   challenge no edge, ou on-demand TLS abaixo). **Atenção:** o SSL da Cloudflare cobre só
@@ -452,14 +531,11 @@ Decidido: a plataforma fica em **`happy4ever.artzan.tech`** (`PLATFORM_HOST`: la
 cadastro). Contrato da VPS: só um nível de subdomínio em `artzan.tech`.
 
 - Hosts decididos (tabela em "Hosts de produção" e DNS no passo 3): `happy4ever.artzan.tech`
-  (`PLATFORM_HOST`, site) e `happy4ever-api.artzan.tech` (`API_DOMAIN`, API e painel de todos os
-  eventos, inclusive o casamento). O antigo `painel-danigustavo.artzan.tech` (`LEGACY_API_DOMAIN`)
-  redireciona com 308 para o novo, preservando caminho e query.
-- Ao trocar o `API_DOMAIN` de um deploy já no ar: preencha `API_DOMAIN`, `LEGACY_API_DOMAIN` e
-  `PLATFORM_HOST` no `.env`, crie os registros A novos, `docker compose up -d --build` (o `web`
-  embute o link do painel no build) e `site registrar` de novo para o edge ler o `site.caddy` novo.
-  Links de convite de equipe, cadastro e portaria já enviados apontam para o host antigo e seguem
-  pelo redirecionamento.
+  (`DOMAIN` = `PLATFORM_HOST`, site) e `happy4ever-api.artzan.tech` (`API_DOMAIN`, API e painel de
+  todos os eventos). O casamento e o redirecionamento de `painel-danigustavo.artzan.tech` entram
+  depois ("Depois: trazer o casamento para a plataforma").
+- Mudou o `API_DOMAIN`? `docker compose up -d --build` (o `web` embute o link do painel no build)
+  e `site atualizar happy4ever` para o edge ler o `site.caddy` novo.
 - `PLATFORM_BASE_DOMAIN` fica **vazio**: não pode ser `happy4ever.artzan.tech` (geraria
   `slug.happy4ever.artzan.tech`, dois níveis, sem cobertura do SSL universal da Cloudflare).
   Alternativas: certificado avançado da Cloudflare para `*.happy4ever.artzan.tech`; um domínio
@@ -478,7 +554,7 @@ muda o edge (`/srv/edge`), fora deste repositório, e **não** entra no `deploy/
 {
 	on_demand_tls {
 		# 200 só para host verificado de evento ativo, subdomínio da base e PLATFORM_HOST; o resto 404
-		ask http://casamento-api:3333/api/hosts/ask
+		ask http://happy4ever-api:3333/api/hosts/ask
 	}
 }
 
@@ -488,14 +564,14 @@ https:// {
 		on_demand
 	}
 	import seguranca
-	reverse_proxy casamento-web:3000 {
+	reverse_proxy happy4ever-web:3000 {
 		import ip_real
 		flush_interval -1
 	}
 }
 ```
 
-- `GET /api/hosts/ask?domain=<host>` responde só na rede interna (`casamento-api:3333`); o host da
+- `GET /api/hosts/ask?domain=<host>` responde só na rede interna (`happy4ever-api:3333`); o host da
   API (`site.caddy`) não o expõe.
 - O `/api/revalidar` precisa continuar fechado também no bloco dos domínios próprios (`respond 404`
   para esse caminho, como no `site.caddy`).
