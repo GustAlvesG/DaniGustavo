@@ -39,10 +39,13 @@ COPY . .
 # - API_URL: o rewrite de /uploads é calculado no build (vai para o routes-manifest) e
 #   as leituras "use cache" do pré-render tentam a API (sem ela no build, a página sai com
 #   o conteúdo provisório e se refaz sozinha em ~15 s quando a API estiver no ar).
+# - BETTER_AUTH_URL: link "Entrar" do site da plataforma (layout pré-renderizado no build).
 ARG NEXT_PUBLIC_SITE_URL
 ARG API_URL=http://api:3333
+ARG BETTER_AUTH_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     API_URL=$API_URL \
+    BETTER_AUTH_URL=$BETTER_AUTH_URL \
     NEXT_OUTPUT=standalone \
     NODE_ENV=production
 RUN test -n "$NEXT_PUBLIC_SITE_URL" || (echo "Defina o build arg NEXT_PUBLIC_SITE_URL (https://seu-dominio)." && exit 1)

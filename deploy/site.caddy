@@ -1,11 +1,15 @@
 # Blocos de site do Caddy deste projeto, lidos pelo edge (/srv/edge) via `site registrar`.
-# Sem bloco global e sem snippets: seguranca e ip_real vêm do edge. O script troca ${VAR}
-# pelos valores do .env; os upstreams são os aliases da rede Docker "edge" (docker-compose.prod.yml).
+# Sem bloco global; seguranca e ip_real vêm do edge (o único snippet próprio é casamento_web).
+# O script troca ${VAR} pelos valores do .env; os upstreams são os aliases da rede Docker "edge"
+# (docker-compose.prod.yml).
 #
-#   https://${DOMAIN}       → casamento-web:3000  (site Next.js)
-#   https://${API_DOMAIN}   → casamento-api:3333  (painel em /painel, login, webhooks, fotos)
+#   https://${DOMAIN}              → casamento-web:3000  (site do casamento)
+#   https://${PLATFORM_HOST}       → casamento-web:3000  (site da plataforma: landing, preços, cadastro)
+#   https://${API_DOMAIN}          → casamento-api:3333  (painel em /painel, login, webhooks, fotos)
+#   https://${LEGACY_API_DOMAIN}   → 308 para https://${API_DOMAIN} (host antigo do painel)
 
-${DOMAIN} {
+# Regras comuns dos hosts do site (Next.js).
+(casamento_web) {
 	encode zstd gzip
 	import seguranca
 
@@ -18,6 +22,21 @@ ${DOMAIN} {
 		# Repassa cada pedaço na hora: as páginas com <Suspense> chegam em streaming.
 		flush_interval -1
 	}
+}
+
+${DOMAIN} {
+	import casamento_web
+}
+
+${PLATFORM_HOST} {
+	import casamento_web
+}
+
+# Host antigo do painel: redirecionamento permanente com caminho e query. 308 (não 301) para o
+# navegador repetir POST como POST; ainda assim, troque o webhook do Asaas para o host novo.
+${LEGACY_API_DOMAIN} {
+	import seguranca
+	redir https://${API_DOMAIN}{uri} 308
 }
 
 ${API_DOMAIN} {

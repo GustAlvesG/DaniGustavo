@@ -2,8 +2,9 @@
 # O docker-compose.yml da raiz é só para desenvolvimento; este é o de produção.
 #
 #   Internet ──► edge (Caddy único da VPS, /srv/edge, :80/:443)
-#                  ├─ DOMAIN     ──(rede edge, alias casamento-web)──► web :3000 ──(rede proxy)──► api :3333
-#                  └─ API_DOMAIN ──(rede edge, alias casamento-api)──────────────────────────────► api :3333
+#                  ├─ DOMAIN, PLATFORM_HOST ──(rede edge, alias casamento-web)──► web :3000 ──(rede proxy)──► api :3333
+#                  ├─ API_DOMAIN ──(rede edge, alias casamento-api)──────────────────────────────► api :3333
+#                  └─ LEGACY_API_DOMAIN ──► 308 para API_DOMAIN (no próprio edge)
 #                                                                       api ──(rede banco)──► db :3306
 #
 # Este projeto não tem Caddy nem publica portas: o HTTPS e o roteamento ficam no edge, que
@@ -71,6 +72,8 @@ services:
         # Embutidas no build (ver Dockerfile): mudou o domínio, rebuild do web.
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?defina DOMAIN no .env}
         API_URL: http://api:3333
+        # Link do painel no site da plataforma (o layout é pré-renderizado no build).
+        BETTER_AUTH_URL: https://${API_DOMAIN:?defina API_DOMAIN no .env}
     image: casamento/web:latest
     restart: unless-stopped
     init: true
@@ -80,6 +83,8 @@ services:
       API_URL: http://api:3333
       # Fase 6: host do site da plataforma (o proxy.ts manda para a landing).
       PLATFORM_HOST: ${PLATFORM_HOST:-}
+      # Painel (login e confirmação do cadastro), linkado pelo site da plataforma.
+      BETTER_AUTH_URL: https://${API_DOMAIN}
       WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
     depends_on:
       api:

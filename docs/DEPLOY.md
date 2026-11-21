@@ -11,8 +11,10 @@ portas 80/443 e dos certificados, e cada projeto só entrega containers, `deploy
 
 ```
 Internet ──► edge (Caddy único, :80/:443, HTTPS automático)      rede Docker externa "edge"
-               ├─ https://DOMAIN      ──► casamento-web :3000 (Next.js) ──┐
-               └─ https://API_DOMAIN  ──► casamento-api :3333 (Hono + painel)◄┘ rede interna (proxy)
+               ├─ https://DOMAIN             ──► casamento-web :3000 (Next.js) ──┐
+               ├─ https://PLATFORM_HOST      ──► casamento-web :3000 (mesmo site)  │
+               ├─ https://API_DOMAIN         ──► casamento-api :3333 (Hono + painel)◄┘ rede interna (proxy)
+               └─ https://LEGACY_API_DOMAIN  ──► 308 para API_DOMAIN (no edge)
                                               └──► db :3306 (MySQL 8.4, rede "banco" sem internet)
 ```
 
@@ -33,15 +35,36 @@ upstreams do `site.caddy`); o `db` nunca entra nela. O nome do projeto Compose (
 o `SLUG` do `deploy.conf` não mudam: o nome dos volumes (`casamento_db_data`, `casamento_uploads`)
 depende dele.
 
+## Hosts de produção
+
+| Variável            | Host                             | Para onde                                                    |
+| ------------------- | -------------------------------- | ------------------------------------------------------------ |
+| `DOMAIN`            | `danigustavo.artzan.tech`        | `web`: site do casamento (evento 1)                          |
+| `PLATFORM_HOST`     | `happy4ever.artzan.tech`         | `web`: site da plataforma (landing, preços, cadastro)        |
+| `API_DOMAIN`        | `happy4ever-api.artzan.tech`     | `api`: painel, login, uploads e webhooks de todos os eventos |
+| `LEGACY_API_DOMAIN` | `painel-danigustavo.artzan.tech` | redirecionamento 308 para `API_DOMAIN`, com caminho e query  |
+
+Os quatro estão em `DOMAIN_VARS` e `REQUIRED_VARS` do `deploy/deploy.conf` e têm bloco próprio no
+`deploy/site.caddy`. O host antigo do painel existe só para links antigos (e-mails, favoritos, QR
+de portaria): sessões abertas nele não passam para o host novo (o cookie é por host), então cada
+pessoa entra de novo uma vez. **Webhook do Asaas**: quando o Asaas for ligado, cadastre
+`https://happy4ever-api.artzan.tech/api/webhooks/payments` (§10). Não conte com o redirecionamento
+para webhook: em POST, o Asaas pode não seguir o 308 e marcar o webhook como falho.
+
 ## Por que dois endereços (site e API)
 
-- `https://DOMAIN` é o site. `https://API_DOMAIN` (ex.: `api.danigustavo.com.br`) é a API, com o
+- `https://DOMAIN` (e `https://PLATFORM_HOST`) é o site. `https://API_DOMAIN` é a API, com o
   painel em `/painel`, o login (Better Auth) e o webhook do Asaas.
 - Os dois apps usam `/api/...` (o Next tem `/api/revalidar`, `/api/pedidos`, `/api/health`), então
   dividir um domínio só por caminho exigiria uma lista frágil de exceções.
 - O cookie de sessão do painel fica preso ao host da API e nunca vai para o site.
-- O painel e o login estão na mesma origem (`BETTER_AUTH_URL = https://API_DOMAIN`), que é o que a
-  proteção de CSRF do painel e o `trustedOrigins` do Better Auth já esperam: nenhum código mudou.
+- O painel e o login estão na mesma origem (`BETTER_AUTH_URL = https://API_DOMAIN`, montado pelo
+  compose), que é o que a proteção de CSRF do painel (`Origin`), o aceite de convites, a confirmação
+  do cadastro e o `trustedOrigins` do Better Auth esperam. Os links dos e-mails também saem dela.
+- O site da plataforma não chama a API pelo navegador: o cadastro é uma Server Action do Next, que
+  faz `POST /api/signup` pela rede interna com `X-Web-Key`. O link do painel no site da plataforma
+  aponta para `BETTER_AUTH_URL/painel/` (build arg e variável do `web` no compose: mudou
+  `API_DOMAIN`, rebuild do `web`).
 - No host da API, o edge (por `deploy/site.caddy`) só libera `/painel`, `/api/auth/*`, `/api/admin/*`, `/api/webhooks/*`,
   `/api/health` e `/uploads/*`. As rotas públicas da API (`/api/site`, `/api/invitations`...) o site
   acessa pela rede interna do Docker (`API_URL=http://api:3333`).
@@ -86,12 +109,16 @@ estiver ligado, libere lá também 22, 80 e 443 (TCP) e 443 (UDP).
 
 ## 3. DNS
 
-No DNS do domínio (Cloudflare, Registro.br...), crie dois registros **A** para o IP da VPS:
+No DNS do domínio, crie quatro registros **A** para o IP da VPS, TTL 300, **sem AAAA**:
 
-| Tipo | Nome                                                    | Valor     |
-| ---- | ------------------------------------------------------- | --------- |
-| A    | `danigustavo` (`danigustavo.artzan.tech`)               | IP da VPS |
-| A    | `painel-danigustavo` (`painel-danigustavo.artzan.tech`) | IP da VPS |
+| Tipo | Nome                 | Host completo                    | Valor     | TTL |
+| ---- | -------------------- | -------------------------------- | --------- | --- |
+| A    | `danigustavo`        | `danigustavo.artzan.tech`        | IP da VPS | 300 |
+| A    | `happy4ever`         | `happy4ever.artzan.tech`         | IP da VPS | 300 |
+| A    | `happy4ever-api`     | `happy4ever-api.artzan.tech`     | IP da VPS | 300 |
+| A    | `painel-danigustavo` | `painel-danigustavo.artzan.tech` | IP da VPS | 300 |
+
+O último é o host antigo do painel (`LEGACY_API_DOMAIN`), mantido só para redirecionar.
 
 (Hostinger: hPanel → Domínios → artzan.tech → DNS, TTL 300. Só um nível de subdomínio: o SSL da
 Cloudflare cobre `*.artzan.tech`, mas não `*.danigustavo.artzan.tech`.)
@@ -100,7 +127,7 @@ Cloudflare cobre `*.artzan.tech`, mas não `*.danigustavo.artzan.tech`.)
 - **Não crie registro AAAA (IPv6)** por enquanto: sem IPv6 configurado no Docker, as conexões por
   IPv6 chegam ao edge com o IP interno do Docker, e o limite de tentativas por IP passaria a valer
   para todo mundo junto.
-- Confira antes de subir: `nslookup painel-danigustavo.artzan.tech` tem que devolver o IP da VPS. Com o DNS
+- Confira antes de subir: `nslookup` de cada um dos quatro hosts tem que devolver o IP da VPS. Com o DNS
   errado, o edge fica tentando emitir o certificado e pode esbarrar no limite do Let's Encrypt.
 
 ## 4. Clonar o projeto
@@ -137,7 +164,7 @@ nano .env
 
 Preencha:
 
-- `DOMAIN`, `API_DOMAIN` (o e-mail do Let's Encrypt fica no edge, não aqui);
+- `DOMAIN`, `API_DOMAIN`, `LEGACY_API_DOMAIN` e `PLATFORM_HOST` (o e-mail do Let's Encrypt fica no edge, não aqui);
 - `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `WEB_KEY`, `BETTER_AUTH_SECRET` (cada um com um valor
   diferente do `openssl`; hex evita `@ / : #`, que quebram a `DATABASE_URL`);
 - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
@@ -210,8 +237,10 @@ docker compose ps                    # web, api e db "healthy"
 docker logs edge-caddy-1 2>&1 | grep -i "certificate obtained"
 docker compose logs -f api           # "Pagamentos: provedor ..." e nenhum erro de configuração
 curl -I https://danigustavo.artzan.tech
-curl https://painel-danigustavo.artzan.tech/api/health
-curl 'https://painel-danigustavo.artzan.tech/api/health?db=1'   # também confere o banco (503 se falhar)
+curl -I https://happy4ever.artzan.tech
+curl https://happy4ever-api.artzan.tech/api/health
+curl 'https://happy4ever-api.artzan.tech/api/health?db=1'    # também confere o banco (503 se falhar)
+curl -I 'https://painel-danigustavo.artzan.tech/painel/?x=1' # 308 para happy4ever-api, mesmo caminho
 ```
 
 Depois:
@@ -224,9 +253,9 @@ Depois:
 
 ## 9. Cloudflare (recomendado)
 
-Com o HTTPS funcionando nos dois endereços:
+Com o HTTPS funcionando nos quatro endereços:
 
-1. Ligue a nuvem **laranja** nos dois registros.
+1. Ligue a nuvem **laranja** nos quatro registros.
 2. **SSL/TLS → Visão geral → Full (strict)**. (Flexible causa loop de redirecionamento.)
 3. Pronto: o edge já confia no header `CF-Connecting-IP` **só** quando a conexão vem dos IPs da
    Cloudflare (`trusted_proxies` no Caddyfile global do edge, lista de
@@ -253,7 +282,10 @@ O certificado continua sendo renovado pelo edge, inclusive com a nuvem laranja.
 
 Siga `docs/PERSONALIZAR.md` §6 (conta, chave Pix, chave de API). Em produção:
 
-- Webhook do Asaas: `https://API_DOMAIN/api/webhooks/payments`, com o token gerado lá.
+- Webhook do Asaas: `https://API_DOMAIN/api/webhooks/payments`
+  (`https://happy4ever-api.artzan.tech/api/webhooks/payments`), com o token gerado lá. Se ele já
+  estava cadastrado no host antigo (`painel-danigustavo.artzan.tech`), **troque para o host novo**
+  ao ligar o Asaas: o 308 do host antigo não é confiável para POST de webhook.
 - No `.env`:
   ```
   PAYMENT_PROVIDER=asaas
@@ -405,9 +437,9 @@ logs api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o p
 
 ### Site da plataforma e subdomínios automáticos
 
-- `PLATFORM_HOST` (ex.: `plataforma.artzan.tech`): host da landing, dos preços e do cadastro. Crie
-  o registro A (passo 3) e um bloco no `site.caddy` encaminhando para `casamento-web:3000`, como o
-  de `${DOMAIN}`. `SIGNUP_ENABLED=1` abre o cadastro; fechado por padrão.
+- `PLATFORM_HOST` (`happy4ever.artzan.tech`): host da landing, dos preços e do cadastro. Já tem
+  registro A (passo 3) e bloco no `site.caddy` (mesmas regras do `${DOMAIN}`, snippet
+  `casamento_web`). `SIGNUP_ENABLED=1` abre o cadastro; fechado por padrão.
 - `PLATFORM_BASE_DOMAIN` (ex.: `eventos.artzan.tech`): cada evento ganha `<slug>.<base>` sozinho.
   Exige um registro curinga `*.eventos.artzan.tech` e um certificado que o cubra (curinga via DNS
   challenge no edge, ou on-demand TLS abaixo). **Atenção:** o SSL da Cloudflare cobre só
@@ -419,11 +451,15 @@ logs api` (sem corpo, e-mail ou IP em claro). `GET /api/health` só confirma o p
 Decidido: a plataforma fica em **`happy4ever.artzan.tech`** (`PLATFORM_HOST`: landing, preços e
 cadastro). Contrato da VPS: só um nível de subdomínio em `artzan.tech`.
 
-- Hosts (registro **A** para o IP da VPS, TTL 300, **sem AAAA**, um para cada):
-  `happy4ever.artzan.tech` (site) e, como recomendação, `happy4ever-api.artzan.tech` (API e painel;
-  alternativa: `painel-happy4ever.artzan.tech`). Hoje o compose tem um único par `DOMAIN` /
-  `API_DOMAIN` (casamento); a API da plataforma usa o mesmo `API_DOMAIN` ou um bloco novo no
-  `site.caddy`, a decidir no deploy.
+- Hosts decididos (tabela em "Hosts de produção" e DNS no passo 3): `happy4ever.artzan.tech`
+  (`PLATFORM_HOST`, site) e `happy4ever-api.artzan.tech` (`API_DOMAIN`, API e painel de todos os
+  eventos, inclusive o casamento). O antigo `painel-danigustavo.artzan.tech` (`LEGACY_API_DOMAIN`)
+  redireciona com 308 para o novo, preservando caminho e query.
+- Ao trocar o `API_DOMAIN` de um deploy já no ar: preencha `API_DOMAIN`, `LEGACY_API_DOMAIN` e
+  `PLATFORM_HOST` no `.env`, crie os registros A novos, `docker compose up -d --build` (o `web`
+  embute o link do painel no build) e `site registrar` de novo para o edge ler o `site.caddy` novo.
+  Links de convite de equipe, cadastro e portaria já enviados apontam para o host antigo e seguem
+  pelo redirecionamento.
 - `PLATFORM_BASE_DOMAIN` fica **vazio**: não pode ser `happy4ever.artzan.tech` (geraria
   `slug.happy4ever.artzan.tech`, dois níveis, sem cobertura do SSL universal da Cloudflare).
   Alternativas: certificado avançado da Cloudflare para `*.happy4ever.artzan.tech`; um domínio
