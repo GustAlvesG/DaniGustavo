@@ -60,7 +60,9 @@ export async function getEvent(host: string): Promise<EventInfo> {
  * (`next/root-params`, sem passar props de layout em layout).
  */
 export async function currentEvent(): Promise<EventInfo> {
-  return getEvent(decodeHostParam(await hostParam()));
+  const host = await pageHost();
+  if (!host) notFound();
+  return getEvent(host);
 }
 
 /**
@@ -89,6 +91,17 @@ export function eventPath(ev: Pick<EventInfo, "slug">, path: string): string {
 
 /** Como `currentEvent()`, mas null em vez de 404 (páginas de erro, metadados). */
 export async function findCurrentEvent(): Promise<EventInfo | null> {
-  const result = await lookup(decodeHostParam(await hostParam()));
+  const host = await pageHost();
+  if (!host) return null;
+  const result = await lookup(host);
   return result.ok ? result.data : null;
+}
+
+/**
+ * Root param `host` da página. Só existe em `app/[host]` (o site da plataforma, `app/plataforma`,
+ * tem root layout próprio, por isso o tipo gerado é `string | undefined`).
+ */
+async function pageHost(): Promise<string | null> {
+  const raw = await hostParam();
+  return raw ? decodeHostParam(raw) : null;
 }

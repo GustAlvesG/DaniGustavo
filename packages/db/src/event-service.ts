@@ -99,6 +99,12 @@ export interface NewEventInput {
   status?: string;
   /** Domínio próprio opcional; entra como host primário em `event_domains`. */
   host?: string | null;
+  /**
+   * Fase 6: domínio base dos endereços automáticos. Com ele o evento ganha
+   * `<slug>.<base>` (`kind = platform`, verificado na hora; primário se não veio `host`).
+   * Omitido = `PLATFORM_BASE_DOMAIN` do ambiente; `null` = sem subdomínio.
+   */
+  platformBaseDomain?: string | null;
 }
 
 export interface NewEventResult {
@@ -107,6 +113,15 @@ export interface NewEventResult {
   organizationId: number;
   status: EventStatus;
   host: string | null;
+  /** Fase 6: `<slug>.<PLATFORM_BASE_DOMAIN>` criado com o evento (null = sem base). */
+  platformHost: string | null;
+}
+
+/** `<slug>.<base>` (a porta da base, em desenvolvimento, vai para o fim: `ana.localhost:3000`). */
+export function platformEventHost(slug: string, base: string): string {
+  const b = base.trim().toLowerCase();
+  const port = /:\d+$/.exec(b)?.[0] ?? "";
+  return `${slug}.${b.replace(/:\d+$/, "")}${port}`;
 }
 
 /**
@@ -158,6 +173,16 @@ export async function createEventRecord(
   if (host && !(await isEventHostAvailable(db, host))) {
     throw new EventInputError("host", "taken", `O host "${host}" já está cadastrado.`);
   }
+  // Fase 6: subdomínio automático. Se já estiver ocupado (não deveria: o slug é único), o
+  // evento nasce sem ele e o painel oferece criar depois.
+  const base =
+    input.platformBaseDomain === undefined
+      ? process.env.PLATFORM_BASE_DOMAIN?.trim() || null
+      : input.platformBaseDomain;
+  let platformHost = base ? platformEventHost(slug, base) : null;
+  if (platformHost && (platformHost === host || !(await isEventHostAvailable(db, platformHost)))) {
+    platformHost = null;
+  }
 
   let eventId: number;
   try {
@@ -179,6 +204,14 @@ export async function createEventRecord(
         { eventId: id, key: "wedding.timezone", value: timezone, isPublic: true },
       ]);
       if (host) await tx.insert(eventDomains).values({ eventId: id, host, isPrimary: true });
+      if (platformHost) {
+        await tx.insert(eventDomains).values({
+          eventId: id,
+          host: platformHost,
+          isPrimary: !host,
+          kind: "platform",
+        });
+      }
       return id;
     });
   } catch (error) {
@@ -191,5 +224,5 @@ export async function createEventRecord(
     }
     throw error;
   }
-  return { id: eventId, slug, organizationId: input.organizationId, status, host };
+  return { id: eventId, slug, organizationId: input.organizationId, status, host, platformHost };
 }
