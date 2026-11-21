@@ -18,10 +18,25 @@ export const SCOPED_TABLES = [
   "messages",
   "event_settings",
   "event_media",
+  // Fase 4 (gestão do evento).
+  "event_tasks",
+  "event_vendors",
+  "vendor_contracts",
+  "quotes",
+  "quote_items",
+  "quote_installments",
+  "budget_lines",
+  "schedule_items",
 ] as const;
 
 /** Fase 3: dados da organização; a consulta precisa filtrar por `organization_id`. */
-export const ORG_SCOPED_TABLES = ["team_invites"] as const;
+export const ORG_SCOPED_TABLES = [
+  "team_invites",
+  // Fase 4: catálogo de fornecedores e modelos de tarefas.
+  "vendors",
+  "task_templates",
+  "task_template_items",
+] as const;
 
 /** Tabela → coluna de escopo exigida depois do FROM. */
 const SCOPE_COLUMN = new Map<string, string>([

@@ -47,6 +47,10 @@ import { Pedidos } from "./pages/Pedidos.tsx";
 import { Presentes } from "./pages/Presentes.tsx";
 import { Recados } from "./pages/Recados.tsx";
 import { Site } from "./pages/Site.tsx";
+import { Cronograma } from "./pages/Cronograma.tsx";
+import { Financeiro } from "./pages/Financeiro.tsx";
+import { Fornecedores } from "./pages/Fornecedores.tsx";
+import { Tarefas } from "./pages/Tarefas.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
@@ -78,6 +82,11 @@ const NAV: { href: string; label: string; action?: EventAction }[] = [
   { href: "/pedidos", label: "Pedidos", action: "orders.read" },
   { href: "/recados", label: "Recados", action: "messages.read" },
   { href: "/lembretes", label: "Lembretes", action: "reminders.read" },
+  // Fase 4: gestão do evento (a frente D organiza o menu).
+  { href: "/tarefas", label: "Tarefas", action: "tasks.read" },
+  { href: "/fornecedores", label: "Fornecedores", action: "vendors.read" },
+  { href: "/financeiro", label: "Financeiro", action: "budget.read" },
+  { href: "/cronograma", label: "Cronograma", action: "schedule.read" },
   { href: "/site", label: "Site", action: "content.read" },
   { href: "/galeria", label: "Galeria", action: "content.read" },
   { href: "/aparencia", label: "Aparência", action: "content.read" },
@@ -138,6 +147,14 @@ function PageRoutes({ path }: { path: string }) {
       return <Evento />;
     case "configuracoes":
       return <Configuracoes />;
+    case "tarefas":
+      return <Tarefas />;
+    case "fornecedores":
+      return <Fornecedores id={id ? Number(id) : undefined} />;
+    case "financeiro":
+      return <Financeiro quoteId={id === "orcamentos" && extra ? Number(extra) : undefined} />;
+    case "cronograma":
+      return <Cronograma />;
     case "conta":
       return <Conta />;
     default:

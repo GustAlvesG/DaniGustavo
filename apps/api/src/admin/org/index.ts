@@ -6,7 +6,9 @@ import type { AdminDeps } from "../context.ts";
 import { orgDashboardRoutes, orgEventRoutes } from "./events.ts";
 import { orgHostPermissionRoutes } from "./host-permissions.ts";
 import { orgEventHostRoutes } from "./hosts.ts";
+import { orgTaskTemplateRoutes } from "./task-templates.ts";
 import { orgInviteRoutes, orgMemberRoutes } from "./team.ts";
+import { orgVendorRoutes } from "./vendors.ts";
 
 /**
  * /api/admin/orgs/:orgId/* (Fase 3, docs/saas/fase-3.md), depois de requireSession e do CSRF
@@ -25,6 +27,9 @@ export function adminOrgRoutes(deps: AdminDeps) {
   // B: equipe e convites.
   app.route("/members", orgMemberRoutes(deps));
   app.route("/invites", orgInviteRoutes(deps));
+  // Fase 4 (docs/saas/fase-4.md): A = modelos de tarefas; B = catálogo de fornecedores.
+  app.route("/task-templates", orgTaskTemplateRoutes(deps));
+  app.route("/vendors", orgVendorRoutes(deps));
 
   // Rotas de um evento da organização. O middleware fica dentro de cada grupo (e não em
   // "/events/:eventId/*") para não pegar /events/slug-check da frente A.

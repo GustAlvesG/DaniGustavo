@@ -45,6 +45,15 @@ export const PERMISSIONS: Record<Action, readonly EventAccessRole[]> = {
   "content.read": ALL,
   "content.write": ALL,
   "event.configure": ALL,
+  // Fase 4 (gestão do evento).
+  "tasks.read": ALL,
+  "tasks.write": ALL,
+  "vendors.read": ALL,
+  "vendors.write": ALL,
+  "budget.read": ALL,
+  "budget.write": ALL,
+  "schedule.read": ALL,
+  "schedule.write": ALL,
 };
 
 /** Chave em `event_settings` das ações negadas ao anfitrião (privada). */

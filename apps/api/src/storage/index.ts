@@ -1,5 +1,5 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /*
  * Arquivos enviados pelo painel (fotos dos presentes e do evento), sempre por evento:
@@ -13,6 +13,12 @@ export const STORAGE_FILE = /^[0-9A-Z]{26}(-t)?\.(jpg|png|webp)$/;
 
 export const STORAGE_MIME = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" } as const;
 
+/**
+ * Fase 4: arquivo da área privada (contratos): ULID + extensão. Fica em
+ * `<eventId>/private/<arquivo>` e nunca é servido por /uploads (o `get` público não aceita "/").
+ */
+export const PRIVATE_FILE = /^[0-9A-Z]{26}\.(pdf|jpg|png|webp)$/;
+
 export interface Storage {
   /** Grava (sobrescreve) o arquivo do evento. */
   put(eventId: number, file: string, bytes: Uint8Array): Promise<void>;
@@ -22,10 +28,14 @@ export interface Storage {
   delete(eventId: number, file: string): Promise<void>;
   /** URL pública (o Next repassa `/uploads/*` à API). */
   url(eventId: number, file: string): string;
+  /** Fase 4: área privada do evento (contratos), lida só por rota autenticada do painel. */
+  putPrivate(eventId: number, file: string, bytes: Uint8Array): Promise<void>;
+  getPrivate(eventId: number, file: string): Promise<Uint8Array | null>;
+  deletePrivate(eventId: number, file: string): Promise<void>;
 }
 
-function assertSafe(eventId: number, file: string) {
-  if (!Number.isSafeInteger(eventId) || eventId <= 0 || !STORAGE_FILE.test(file)) {
+function assertSafe(eventId: number, file: string, pattern = STORAGE_FILE) {
+  if (!Number.isSafeInteger(eventId) || eventId <= 0 || !pattern.test(file)) {
     throw new Error(`Arquivo inválido no Storage: ${eventId}/${file}`);
   }
 }
@@ -33,13 +43,18 @@ function assertSafe(eventId: number, file: string) {
 /** Disco local: `<dir>/<eventId>/<arquivo>`; escrita atômica (arquivo temporário + rename). */
 export function createLocalStorage(dir: string): Storage {
   const path = (eventId: number, file: string) => join(dir, String(eventId), file);
+  const privatePath = (eventId: number, file: string) =>
+    join(dir, String(eventId), "private", file);
+  const write = async (target: string, bytes: Uint8Array) => {
+    await mkdir(dirname(target), { recursive: true });
+    const tmp = `${target}.${process.pid}.tmp`;
+    await writeFile(tmp, bytes);
+    await rename(tmp, target);
+  };
   return {
     async put(eventId, file, bytes) {
       assertSafe(eventId, file);
-      await mkdir(join(dir, String(eventId)), { recursive: true });
-      const tmp = `${path(eventId, file)}.${process.pid}.tmp`;
-      await writeFile(tmp, bytes);
-      await rename(tmp, path(eventId, file));
+      await write(path(eventId, file), bytes);
     },
     async get(eventId, file) {
       if (!STORAGE_FILE.test(file)) return null;
@@ -54,5 +69,21 @@ export function createLocalStorage(dir: string): Storage {
       await unlink(path(eventId, file)).catch(() => undefined);
     },
     url: (eventId, file) => `/uploads/${eventId}/${file}`,
+    async putPrivate(eventId, file, bytes) {
+      assertSafe(eventId, file, PRIVATE_FILE);
+      await write(privatePath(eventId, file), bytes);
+    },
+    async getPrivate(eventId, file) {
+      if (!Number.isSafeInteger(eventId) || eventId <= 0 || !PRIVATE_FILE.test(file)) return null;
+      try {
+        return new Uint8Array(await readFile(privatePath(eventId, file)));
+      } catch {
+        return null;
+      }
+    },
+    async deletePrivate(eventId, file) {
+      assertSafe(eventId, file, PRIVATE_FILE);
+      await unlink(privatePath(eventId, file)).catch(() => undefined);
+    },
   };
 }

@@ -28,6 +28,18 @@ export const EVENT_ACTIONS = [
   "content.write",
   /** Fase 2: tipo do evento, módulos, lados dos convites e vocabulário. */
   "event.configure",
+  /** Fase 4: checklist de tarefas do evento (e aplicar modelo da organização). */
+  "tasks.read",
+  "tasks.write",
+  /** Fase 4: fornecedores do evento e contratos (inclui cadastrar no catálogo da organização). */
+  "vendors.read",
+  "vendors.write",
+  /** Fase 4: orçamentos, parcelas e planejado × realizado. */
+  "budget.read",
+  "budget.write",
+  /** Fase 4: cronograma do dia. */
+  "schedule.read",
+  "schedule.write",
 ] as const;
 export const EventAction = z.enum(EVENT_ACTIONS);
 export type EventAction = z.infer<typeof EventAction>;
@@ -51,6 +63,14 @@ export const EVENT_ACTION_LABELS: Record<EventAction, string> = {
   "content.read": "Ver textos, fotos e aparência do site",
   "content.write": "Editar textos, fotos e aparência do site",
   "event.configure": "Mudar tipo, módulos, lados e palavras do evento",
+  "tasks.read": "Ver as tarefas",
+  "tasks.write": "Criar, editar e concluir tarefas",
+  "vendors.read": "Ver fornecedores e contratos",
+  "vendors.write": "Cadastrar fornecedores e enviar contratos",
+  "budget.read": "Ver orçamentos, parcelas e o financeiro",
+  "budget.write": "Editar orçamentos, contratar e registrar pagamentos",
+  "schedule.read": "Ver o cronograma do dia",
+  "schedule.write": "Editar o cronograma do dia",
 };
 
 /**
@@ -89,6 +109,10 @@ export const ACTION_REQUIRES: Partial<Record<EventAction, HostConfigurableAction
   "settings.write": "settings.read",
   "reminders.write": "reminders.read",
   "content.write": "content.read",
+  "tasks.write": "tasks.read",
+  "vendors.write": "vendors.read",
+  "budget.write": "budget.read",
+  "schedule.write": "schedule.read",
 };
 
 /**
@@ -113,6 +137,10 @@ export const ORG_ACTIONS = [
   "team.manage",
   /** Convidar e remover anfitriões dos eventos e ajustar as permissões deles. */
   "hosts.manage",
+  /** Fase 4: cadastrar, editar e arquivar fornecedores do catálogo da organização. */
+  "vendors.manage",
+  /** Fase 4: criar e editar modelos de tarefas. */
+  "templates.manage",
 ] as const;
 export const OrgAction = z.enum(ORG_ACTIONS);
 export type OrgAction = z.infer<typeof OrgAction>;

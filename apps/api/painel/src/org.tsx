@@ -9,6 +9,8 @@ import { OrgEventos } from "./pages/org/Eventos.tsx";
 import { OrgInicio } from "./pages/org/Inicio.tsx";
 import { NovoEvento } from "./pages/org/NovoEvento.tsx";
 import { PermissoesAnfitriao } from "./pages/org/Permissoes.tsx";
+import { OrgFornecedores } from "./pages/org/Fornecedores.tsx";
+import { ModelosTarefas } from "./pages/org/ModelosTarefas.tsx";
 
 /*
  * Painel da organização (Fase 3, docs/saas/fase-3.md): `#/o/:orgId/...`. Páginas das frentes
@@ -40,6 +42,9 @@ export const ORG_NAV = [
   { href: "/eventos", label: "Eventos" },
   { href: "/equipe", label: "Equipe" },
   { href: "/convites", label: "Convites pendentes" },
+  // Fase 4: catálogo de fornecedores (B) e modelos de tarefas (A).
+  { href: "/fornecedores", label: "Fornecedores" },
+  { href: "/modelos", label: "Modelos de tarefas" },
 ];
 
 /** Página da organização; `path` é relativo a ela ("/eventos/3/anfitrioes"). */
@@ -60,6 +65,10 @@ export function OrgPage({ path }: { path: string }) {
       return <Equipe />;
     case "convites":
       return <ConvitesEquipe />;
+    case "fornecedores":
+      return <OrgFornecedores id={eventId ?? undefined} />;
+    case "modelos":
+      return <ModelosTarefas id={eventId ?? undefined} />;
   }
   return (
     <div className="stack">

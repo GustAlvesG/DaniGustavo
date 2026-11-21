@@ -93,6 +93,14 @@ describe("enumeração das rotas", () => {
       "messages",
       "settings",
       "reminders",
+      // Fase 4.
+      "tasks",
+      "vendor-catalog",
+      "vendors",
+      "quotes",
+      "installments",
+      "budget",
+      "schedule",
     ]) {
       expect(areas, `área ${area}`).toContain(area);
     }
@@ -322,6 +330,9 @@ describe("organização: enumeração das rotas", () => {
       "/invites",
       "/events/:eventId/hosts",
       "/events/:eventId/host-permissions",
+      // Fase 4.
+      "/task-templates",
+      "/vendors",
     ]) {
       expect(paths, p).toContain(p);
     }

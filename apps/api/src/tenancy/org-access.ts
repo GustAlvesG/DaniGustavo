@@ -22,6 +22,9 @@ export const ORG_PERMISSIONS: Record<OrgAction, readonly OrgAccessRole[]> = {
   "events.create": ALL,
   "team.manage": ["platform_admin", "org_owner"],
   "hosts.manage": ALL,
+  // Fase 4: catálogo de fornecedores e modelos de tarefas (ler é org.read).
+  "vendors.manage": ALL,
+  "templates.manage": ALL,
 };
 
 export function canOrg(role: OrgAccessRole, action: OrgAction): boolean {

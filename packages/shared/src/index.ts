@@ -18,3 +18,8 @@ export * from "./permissions.ts";
 export * from "./org.ts";
 export * from "./org-events.ts";
 export * from "./team.ts";
+export * from "./planning.ts";
+export * from "./tasks.ts";
+export * from "./vendors.ts";
+export * from "./budget.ts";
+export * from "./schedule.ts";

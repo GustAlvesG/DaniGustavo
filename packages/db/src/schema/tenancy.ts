@@ -65,7 +65,11 @@ export const events = mysqlTable(
     startsAt: utcDatetime("starts_at"),
     ...timestamps(),
   },
-  (t) => [index("events_organization_id_idx").on(t.organizationId)],
+  (t) => [
+    index("events_organization_id_idx").on(t.organizationId),
+    // Fase 4: alvo da FK composta de event_vendors (fornecedor e evento da mesma organização).
+    uniqueIndex("events_org_id_id_idx").on(t.organizationId, t.id),
+  ],
 );
 
 export const eventDomains = mysqlTable(

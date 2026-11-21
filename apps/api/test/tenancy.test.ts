@@ -405,6 +405,32 @@ describe("auditor de SQL", () => {
     ).toMatchObject({ tables: ["team_invites", "invitations"], scoped: true });
   });
 
+  it("fase 4: catálogo exige organization_id; fornecedor do evento + catálogo, as duas", () => {
+    expect(analyzeSql("select `id` from `vendors` where `vendors`.`id` = ?")).toMatchObject({
+      tables: ["vendors"],
+      scoped: false,
+    });
+    expect(
+      analyzeSql(
+        "select `id` from `task_template_items` where `task_template_items`.`organization_id` = ?",
+      ),
+    ).toMatchObject({ scoped: true });
+    expect(analyzeSql("select `id` from `quotes` where `quotes`.`id` = ?")).toMatchObject({
+      tables: ["quotes"],
+      scoped: false,
+    });
+    expect(
+      analyzeSql(
+        "select `id` from `event_vendors` inner join `vendors` on `vendors`.`id` = `event_vendors`.`vendor_id` where `event_vendors`.`event_id` = ?",
+      ),
+    ).toMatchObject({ tables: ["event_vendors", "vendors"], scoped: false });
+    expect(
+      analyzeSql(
+        "select `id` from `event_vendors` inner join `vendors` on (`vendors`.`organization_id` = `event_vendors`.`organization_id` and `vendors`.`id` = `event_vendors`.`vendor_id`) where `event_vendors`.`event_id` = ?",
+      ),
+    ).toMatchObject({ scoped: true });
+  });
+
   it("acha o módulo de origem na pilha", () => {
     const stack = [
       "Error",

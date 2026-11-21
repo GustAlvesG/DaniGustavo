@@ -11,6 +11,10 @@ import { adminMediaRoutes } from "./media.ts";
 import { adminOrderRoutes } from "./orders.ts";
 import { adminReminderRoutes } from "./reminders.ts";
 import { adminSiteEditorRoutes } from "./site-editor.ts";
+import { adminBudgetRoutes, adminInstallmentRoutes, adminQuoteRoutes } from "./budget.ts";
+import { adminScheduleRoutes } from "./schedule.ts";
+import { adminTaskRoutes } from "./tasks.ts";
+import { adminEventVendorRoutes, adminVendorCatalogRoutes } from "./vendors.ts";
 import { listAccessibleEvents, requireEventAccess } from "../tenancy/access.ts";
 import { listAccessibleOrgs } from "../tenancy/org-access.ts";
 import { adminOrgRoutes } from "./org/index.ts";
@@ -62,6 +66,15 @@ export function adminRoutes(deps: AdminDeps) {
   ev.route("/config", adminEventConfigRoutes(deps));
   // Fase 3 (docs/saas/fase-3.md), frente C: o que quem está logado pode fazer no evento.
   ev.route("/access", adminEventAccessRoutes(deps));
+  // Fase 4 (docs/saas/fase-4.md): A = /tasks; B = /vendor-catalog e /vendors;
+  // C = /quotes, /installments e /budget; D = /schedule.
+  ev.route("/tasks", adminTaskRoutes(deps));
+  ev.route("/vendor-catalog", adminVendorCatalogRoutes(deps));
+  ev.route("/vendors", adminEventVendorRoutes(deps));
+  ev.route("/quotes", adminQuoteRoutes(deps));
+  ev.route("/installments", adminInstallmentRoutes(deps));
+  ev.route("/budget", adminBudgetRoutes(deps));
+  ev.route("/schedule", adminScheduleRoutes(deps));
   app.route("/events/:eventId", ev);
 
   // Fase 3 (docs/saas/fase-3.md): painel da organização.
