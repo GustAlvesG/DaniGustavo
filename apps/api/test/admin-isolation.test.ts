@@ -24,12 +24,6 @@ const PLATFORM_PREFIX = "/api/admin/platform";
 /** Fase 6: dados da própria conta (LGPD). */
 const ME_PREFIX = "/api/admin/me";
 
-/**
- * Fase 7: rotas reservadas pela fundação que ainda respondem 501 (cada frente implementa as
- * suas). Sai na integração da Fase 7, junto com `admin/stub.ts`.
- */
-const PHASE7_STUB =
-  /^\/(checkin|seating|whatsapp|guest-limit)(\/|$)|^\/vendors\/[^/]+\/portal-links/;
 /** Fase 7: APIs públicas sem conta (portaria e portal do fornecedor), fora de /api/admin. */
 const PUBLIC_PHASE7_PREFIXES = ["/api/checkin", "/api/vendor-portal"] as const;
 
@@ -245,10 +239,8 @@ describe("quem tem acesso ao evento A", () => {
           continue;
         }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501), salvo as da Fase 7 ainda nas frentes.
-        if (!PHASE7_STUB.test(r.pattern.slice(PREFIX.length))) {
-          expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
-        }
+        // Nenhuma rota reservada (501).
+        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
       }
     },
   );
