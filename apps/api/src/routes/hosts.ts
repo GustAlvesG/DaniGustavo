@@ -1,4 +1,4 @@
-import { and, eq, eventDomains, events, type Database } from "@casamento/db";
+import { and, eq, eventDomains, events, isNotNull, type Database } from "@casamento/db";
 import { Hono } from "hono";
 import { routeNotFound } from "../errors.ts";
 import type { EventResolver } from "../tenancy/resolver.ts";
@@ -15,7 +15,13 @@ export function hostRoutes(resolver: EventResolver, db: Database) {
       .select({ host: eventDomains.host })
       .from(eventDomains)
       .innerJoin(events, eq(events.id, eventDomains.eventId))
-      .where(and(eq(eventDomains.isPrimary, true), eq(events.status, "active")))
+      .where(
+        and(
+          eq(eventDomains.isPrimary, true),
+          eq(events.status, "active"),
+          isNotNull(eventDomains.verifiedAt),
+        ),
+      )
       .orderBy(eventDomains.host);
     c.header("Cache-Control", "public, max-age=60");
     return c.json({ hosts: rows.map((r) => r.host) });

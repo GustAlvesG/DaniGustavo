@@ -85,6 +85,13 @@
       "when": 1795230103333,
       "tag": "0011_recebimentos",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1795272720259,
+      "tag": "0012_comercial_lgpd",
+      "breakpoints": true
     }
   ]
 }

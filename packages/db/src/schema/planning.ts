@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   foreignKey,
   index,
@@ -345,4 +346,94 @@ export const scheduleItems = mysqlTable(
     ...timestamps(),
   },
   (t) => [index("schedule_items_event_starts_idx").on(t.eventId, t.startsAt, t.sort)],
+);
+
+/* ------------------------------------------------------------------------ */
+/* Fase 6 (docs/saas/fase-6.md, frente E)                                    */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Categorias de fornecedor/orçamento próprias da organização, além das 18 fixas de
+ * `VENDOR_CATEGORIES`. A chave (`c-<slug>`, ver `CUSTOM_CATEGORY_PATTERN` em @casamento/shared)
+ * é o que vai em `vendors.category`, `event_vendors.category`, `quotes.category` e
+ * `budget_lines.category` (varchar 32); arquivar some das listas de escolha sem mexer no que
+ * já usa a categoria.
+ */
+export const vendorCategories = mysqlTable(
+  "vendor_categories",
+  {
+    id: pk(),
+    organizationId: organizationId(),
+    key: varchar("key", { length: 32 }).notNull(),
+    label: varchar("label", { length: 64 }).notNull(),
+    sort: int("sort").notNull().default(0),
+    archivedAt: utcDatetime("archived_at"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("vendor_categories_org_key_idx").on(t.organizationId, t.key)],
+);
+
+/**
+ * Lembrete semanal de tarefas por e-mail (resumo de atrasadas e próximas) para cada responsável
+ * de um evento. Sem linha = recebe (padrão); `enabled = false` = a pessoa saiu (opt-out) neste
+ * evento. `last_week` ("2026-W47") impede dois envios na mesma semana. O evento inteiro desliga
+ * em `event_settings` › `tasks.reminders`.
+ */
+export const taskReminderPrefs = mysqlTable(
+  "task_reminder_prefs",
+  {
+    id: pk(),
+    eventId: eventId(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(true),
+    lastWeek: varchar("last_week", { length: 10 }),
+    lastSentAt: utcDatetime("last_sent_at"),
+    ...timestamps(),
+  },
+  (t) => [uniqueIndex("task_reminder_prefs_event_user_idx").on(t.eventId, t.userId)],
+);
+
+/**
+ * Modelos de tarefas prontos da PLATAFORMA (iguais para todas as organizações), por tipo de
+ * evento. Tabela global de propósito: não tem `organization_id` nem `event_id`, só leitura
+ * para as organizações (copiar para o catálogo delas ou aplicar num evento) e escrita pelo
+ * seed/setup e pelo platform admin. Exceção registrada no auditor (`PLATFORM_TABLES` em
+ * apps/api/test/sql-audit.ts).
+ */
+export const platformTaskTemplates = mysqlTable("platform_task_templates", {
+  id: pk(),
+  /** Identificador estável do modelo (o seed faz upsert por ele), ex.: "casamento-completo". */
+  code: varchar("code", { length: 64 }).notNull().unique(),
+  name: varchar("name", { length: 191 }).notNull(),
+  /** Um de EVENT_TYPES; nulo = serve para qualquer tipo. */
+  eventType: varchar("event_type", { length: 32 }),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+  sort: int("sort").notNull().default(0),
+  ...timestamps(),
+});
+
+export const platformTaskTemplateItems = mysqlTable(
+  "platform_task_template_items",
+  {
+    id: pk(),
+    templateId: fk("template_id").notNull(),
+    title: varchar("title", { length: 191 }).notNull(),
+    description: text("description"),
+    category: varchar("category", { length: 32 }).notNull(),
+    offsetDays: int("offset_days").notNull(),
+    sort: int("sort").notNull().default(0),
+    ...timestamps(),
+  },
+  (t) => [
+    index("platform_task_template_items_template_idx").on(t.templateId, t.sort),
+    // Nome curto: o gerado passaria de 64 caracteres (limite do MySQL/MariaDB).
+    foreignKey({
+      name: "platform_task_items_template_fk",
+      columns: [t.templateId],
+      foreignColumns: [platformTaskTemplates.id],
+    }).onDelete("cascade"),
+  ],
 );

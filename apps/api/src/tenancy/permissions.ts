@@ -59,6 +59,11 @@ export const PERMISSIONS: Record<Action, readonly EventAccessRole[]> = {
   "payments.read": ALL,
   "payments.configure": ["platform_admin", "org_owner", "org_member"],
   "payments.own_account": ALL,
+  // Fase 6: LGPD do evento (o anfitrião responde pelos dados dos convidados junto com a
+  // organização; ela pode tirar) e catálogo de fornecedores só pela organização.
+  "privacy.read": ALL,
+  "privacy.manage": ALL,
+  "vendors.catalog": ["platform_admin", "org_owner", "org_member"],
 };
 
 /** Chave em `event_settings` das ações negadas ao anfitrião (privada). */

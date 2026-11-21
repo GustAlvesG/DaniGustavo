@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 /*
@@ -32,6 +32,10 @@ export interface Storage {
   putPrivate(eventId: number, file: string, bytes: Uint8Array): Promise<void>;
   getPrivate(eventId: number, file: string): Promise<Uint8Array | null>;
   deletePrivate(eventId: number, file: string): Promise<void>;
+  /** Fase 6 (apagar evento, LGPD): remove a pasta inteira do evento, inclusive a privada. */
+  deleteEvent(eventId: number): Promise<void>;
+  /** Fase 6 (limite de espaço do plano): bytes em disco do evento, inclusive a área privada. */
+  usageBytes(eventId: number): Promise<number>;
 }
 
 function assertSafe(eventId: number, file: string, pattern = STORAGE_FILE) {
@@ -84,6 +88,26 @@ export function createLocalStorage(dir: string): Storage {
     async deletePrivate(eventId, file) {
       assertSafe(eventId, file, PRIVATE_FILE);
       await unlink(privatePath(eventId, file)).catch(() => undefined);
+    },
+    async deleteEvent(eventId) {
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) {
+        throw new Error(`Evento inválido no Storage: ${eventId}`);
+      }
+      await rm(join(dir, String(eventId)), { recursive: true, force: true });
+    },
+    async usageBytes(eventId) {
+      if (!Number.isSafeInteger(eventId) || eventId <= 0) return 0;
+      const sum = async (folder: string): Promise<number> => {
+        const entries = await readdir(folder, { withFileTypes: true }).catch(() => []);
+        let total = 0;
+        for (const entry of entries) {
+          const full = join(folder, entry.name);
+          if (entry.isDirectory()) total += await sum(full);
+          else if (entry.isFile()) total += (await stat(full)).size;
+        }
+        return total;
+      };
+      return sum(join(dir, String(eventId)));
     },
   };
 }

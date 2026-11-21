@@ -46,6 +46,15 @@ export const EVENT_ACTIONS = [
   "payments.configure",
   /** Fase 5: cadastrar e acompanhar a própria subconta (anfitrião só se a organização liberar). */
   "payments.own_account",
+  /** Fase 6: ver pedidos dos titulares e as regras de privacidade/retenção do evento (LGPD). */
+  "privacy.read",
+  /** Fase 6: atender pedidos, anonimizar, exportar os dados do evento e mudar a privacidade. */
+  "privacy.manage",
+  /**
+   * Fase 6: cadastrar fornecedor NOVO no catálogo da organização pelo evento (ligar um que já
+   * existe continua em `vendors.write`). Nunca o anfitrião (HOST_NEVER_ACTIONS).
+   */
+  "vendors.catalog",
 ] as const;
 export const EventAction = z.enum(EVENT_ACTIONS);
 export type EventAction = z.infer<typeof EventAction>;
@@ -80,13 +89,20 @@ export const EVENT_ACTION_LABELS: Record<EventAction, string> = {
   "payments.read": "Ver a conta que recebe os presentes",
   "payments.configure": "Escolher a conta que recebe os presentes",
   "payments.own_account": "Cadastrar a própria conta de recebimento",
+  "privacy.read": "Ver pedidos de privacidade e a retenção de dados",
+  "privacy.manage": "Atender pedidos de privacidade, exportar e anonimizar dados",
+  "vendors.catalog": "Cadastrar fornecedor novo no catálogo da organização",
 };
 
 /**
  * Fase 5: ações que o anfitrião nunca tem (fora da matriz para `event_host` e fora da tela de
  * permissões): mandar o dinheiro do evento para outra conta é decisão da organização.
  */
-export const HOST_NEVER_ACTIONS = ["payments.configure"] as const satisfies readonly EventAction[];
+export const HOST_NEVER_ACTIONS = [
+  "payments.configure",
+  // Fase 6 (decisão de 21/11/2026): o catálogo de fornecedores é da organização.
+  "vendors.catalog",
+] as const satisfies readonly EventAction[];
 
 /**
  * Fase 5: ações que o anfitrião só tem se a organização liberar (lista `allow` de
@@ -151,6 +167,7 @@ export const ACTION_REQUIRES: Partial<Record<EventAction, HostConfigurableAction
   "vendors.write": "vendors.read",
   "budget.write": "budget.read",
   "schedule.write": "schedule.read",
+  "privacy.manage": "privacy.read",
 };
 
 /**
@@ -196,9 +213,31 @@ export const ORG_ACTIONS = [
   "templates.manage",
   /** Fase 5: cadastrar e desativar a subconta de recebimento da organização. */
   "payments.manage",
+  /** Fase 6: escolher/trocar o plano e cancelar a assinatura. */
+  "billing.manage",
+  /** Fase 6: domínios dos eventos (subdomínio da plataforma e domínio próprio). */
+  "domains.manage",
+  /** Fase 6: apagar evento arquivado (com confirmação; LGPD). */
+  "events.delete",
+  /** Fase 6: categorias de fornecedor próprias da organização. */
+  "categories.manage",
 ] as const;
 export const OrgAction = z.enum(ORG_ACTIONS);
 export type OrgAction = z.infer<typeof OrgAction>;
+
+/**
+ * Fase 6: ações do painel da plataforma (`/api/admin/platform/*`), só do platform admin. Quem
+ * não é platform admin recebe o 404 de rota inexistente (não descobre que o painel existe).
+ */
+export const PLATFORM_ACTIONS = [
+  "platform.read",
+  "platform.orgs.manage",
+  "platform.plans.manage",
+  "platform.subscriptions.manage",
+  "platform.templates.manage",
+] as const;
+export const PlatformAction = z.enum(PLATFORM_ACTIONS);
+export type PlatformAction = z.infer<typeof PlatformAction>;
 
 /** Papel efetivo de quem acessa uma organização pelo painel (do mais forte ao mais fraco). */
 export const ORG_ACCESS_ROLES = ["platform_admin", "org_owner", "org_member"] as const;

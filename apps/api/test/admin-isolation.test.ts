@@ -19,6 +19,17 @@ const { app, db } = testApp({ mailer, revalidate: () => Promise.resolve() });
 const PREFIX = "/api/admin/events/:eventId";
 /** Fase 3: painel da organização. */
 const ORG_PREFIX = "/api/admin/orgs/:orgId";
+/** Fase 6: painel da plataforma (só platform admin). */
+const PLATFORM_PREFIX = "/api/admin/platform";
+/** Fase 6: dados da própria conta (LGPD). */
+const ME_PREFIX = "/api/admin/me";
+
+/**
+ * Fase 6: rotas reservadas pela fundação que ainda respondem 501 (cada frente implementa as
+ * suas). Sai na integração da Fase 6.
+ */
+const PHASE6_STUB =
+  /\/(privacy|tasks\/reminders|subscription|usage|vendor-categories|platform-task-templates|domains|deletion|platform|export)(\/|$)|^\/api\/admin\/me$/;
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 
 interface RouteCase {
@@ -114,20 +125,24 @@ describe("enumeração das rotas", () => {
       "schedule",
       // Fase 5.
       "payments",
+      // Fase 6.
+      "privacy",
     ]) {
       expect(areas, `área ${area}`).toContain(area);
     }
     expect(routes.length).toBeGreaterThan(30);
   });
 
-  it("não sobrou rota do painel fora de /events/:eventId e /orgs/:orgId (exceto /me)", () => {
+  it("não sobrou rota do painel fora de /events/:eventId, /orgs/:orgId, /platform e /me", () => {
     const outside = app.routes
       .filter((r) => METHODS.has(r.method) && r.path.startsWith("/api/admin/"))
       .filter(
         (r) =>
           !r.path.startsWith(`${PREFIX}/`) &&
           !r.path.startsWith(ORG_PREFIX) &&
-          r.path !== "/api/admin/me",
+          !r.path.startsWith(`${PLATFORM_PREFIX}/`) &&
+          r.path !== ME_PREFIX &&
+          !r.path.startsWith(`${ME_PREFIX}/`),
       )
       .map((r) => `${r.method} ${r.path}`);
     expect(outside).toEqual([]);
@@ -182,8 +197,10 @@ describe("quem tem acesso ao evento A", () => {
           continue;
         }
         expect(p.status, `${kind} ${label(r)}`).not.toBe(403);
-        // Nenhuma rota reservada (501).
-        expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        // Nenhuma rota reservada (501), salvo as da Fase 6 ainda nas frentes.
+        if (!PHASE6_STUB.test(r.pattern.slice(PREFIX.length))) {
+          expect(p.status, `${kind} ${label(r)}`).not.toBe(501);
+        }
       }
     },
   );
@@ -426,6 +443,13 @@ describe("organização: enumeração das rotas", () => {
       // Fase 5.
       "/payment-accounts",
       "/payment-accounts/:accountId{[0-9]+}/refresh",
+      // Fase 6.
+      "/subscription",
+      "/usage",
+      "/vendor-categories",
+      "/platform-task-templates",
+      "/events/:eventId/domains",
+      "/events/:eventId/deletion",
     ]) {
       expect(paths, p).toContain(p);
     }
@@ -458,7 +482,9 @@ describe("organização: barreira de acesso", () => {
         expect(p.routeNotFound, `${kind} ${orgLabel(r)}`).toBe(false);
         expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(401);
         if (kind !== "member") expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(403);
-        expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
+        if (!PHASE6_STUB.test(r.pattern.slice(ORG_PREFIX.length))) {
+          expect(p.status, `${kind} ${orgLabel(r)}`).not.toBe(501);
+        }
       }
     }
   });
@@ -470,6 +496,18 @@ describe("organização: barreira de acesso", () => {
       body: "{}",
     });
     expect(res.status).toBe(403);
+  });
+
+  it("Fase 6: membro não mexe na assinatura nem apaga evento (403)", async () => {
+    const post = (path: string) =>
+      app.request(`/api/admin/orgs/${ev.orgA.id}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", cookie: cookies.member },
+        body: "{}",
+      });
+    expect((await post("/subscription")).status).toBe(403);
+    expect((await post("/subscription/cancel")).status).toBe(403);
+    expect((await post(`/events/${ev.eventA.id}/deletion`)).status).toBe(403);
   });
 
   it("membro não mexe na equipe (403)", async () => {
@@ -506,5 +544,75 @@ describe("organização: barreira de acesso", () => {
       [ev.orgA.id, ev.orgB.id].includes(o.id),
     );
     expect(admin.map((o) => o.role)).toEqual(["platform_admin", "platform_admin"]);
+  });
+});
+
+/* ------------------------------------------------------------------------ */
+/* Fase 6: painel da plataforma (/api/admin/platform/*) e /me/*              */
+/* ------------------------------------------------------------------------ */
+
+function enumeratePrefixed(prefix: string): RouteCase[] {
+  const seen = new Map<string, RouteCase>();
+  for (const r of app.routes) {
+    if (!METHODS.has(r.method) || r.path.endsWith("*")) continue;
+    if (r.path !== prefix && !r.path.startsWith(`${prefix}/`)) continue;
+    seen.set(`${r.method} ${r.path}`, { method: r.method, pattern: r.path });
+  }
+  return [...seen.values()];
+}
+
+const platformRoutes = enumeratePrefixed(PLATFORM_PREFIX);
+/** Sem o GET /me (lista de eventos, já coberto acima). */
+const meRoutes = enumeratePrefixed(ME_PREFIX).filter(
+  (r) => r.pattern !== ME_PREFIX || r.method !== "GET",
+);
+const fillAny = (pattern: string) =>
+  pattern.replace(/:(\w+)(\{[^}]*\})?/g, (_m, name: string) => SAMPLE[name] ?? "999999999");
+const platformLabel = (r: RouteCase) => `${r.method} ${r.pattern}`;
+
+describe("Fase 6: painel da plataforma", () => {
+  it("cobre as áreas", () => {
+    const paths = platformRoutes.map((r) => r.pattern.slice(PLATFORM_PREFIX.length));
+    for (const p of ["/overview", "/orgs", "/plans", "/task-templates"]) {
+      expect(paths, p).toContain(p);
+    }
+  });
+
+  it("sem sessão → 401", async () => {
+    for (const r of platformRoutes) {
+      const p = await probe({ ...r, pattern: fillAny(r.pattern) }, 0, "");
+      expect(p.status, platformLabel(r)).toBe(401);
+    }
+  });
+
+  it("dono, membro, anfitrião e dono de outra org → 404 de rota (não descobrem o painel)", async () => {
+    for (const r of platformRoutes) {
+      for (const kind of ["owner", "member", "host", "stranger"] as const) {
+        const p = await probe({ ...r, pattern: fillAny(r.pattern) }, 0, cookies[kind]);
+        expect(p, `${kind} ${platformLabel(r)}`).toEqual({ status: 404, routeNotFound: true });
+      }
+    }
+  });
+
+  it("platform admin passa da barreira", async () => {
+    for (const r of platformRoutes) {
+      const p = await probe({ ...r, pattern: fillAny(r.pattern) }, 0, cookies.platformAdmin);
+      expect(p.routeNotFound, platformLabel(r)).toBe(false);
+      expect([401, 403], platformLabel(r)).not.toContain(p.status);
+    }
+  });
+});
+
+describe("Fase 6: /me (dados da própria conta)", () => {
+  it("sem sessão → 401; com sessão passa", async () => {
+    expect(meRoutes.length).toBeGreaterThan(0);
+    for (const r of meRoutes) {
+      expect((await probe(r, 0, "")).status, platformLabel(r)).toBe(401);
+      // DELETE /me apagaria a conta de teste: só a barreira sem sessão aqui.
+      if (r.method === "DELETE") continue;
+      const p = await probe(r, 0, cookies.host);
+      expect(p.routeNotFound, platformLabel(r)).toBe(false);
+      expect(p.status, platformLabel(r)).not.toBe(401);
+    }
   });
 });

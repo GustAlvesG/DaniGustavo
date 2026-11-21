@@ -46,8 +46,6 @@ x-api-env: &api-env
   MAIL_USER: ${MAIL_USER:-}
   MAIL_PASS: ${MAIL_PASS:-}
   MAIL_FROM: ${MAIL_FROM:-}
-  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
   PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-simulado}
   ASAAS_API_KEY: ${ASAAS_API_KEY:-}
   ASAAS_ENV: ${ASAAS_ENV:-}
@@ -56,6 +54,13 @@ x-api-env: &api-env
   PAYMENT_SECRETS_KEY: ${PAYMENT_SECRETS_KEY:-}
   PLATFORM_FEE_PERCENT: ${PLATFORM_FEE_PERCENT:-}
   ASAAS_PLATFORM_WALLET_ID: ${ASAAS_PLATFORM_WALLET_ID:-}
+  # Fase 6 (docs/saas/fase-6.md): assinaturas, site da plataforma, cadastro e operação.
+  BILLING_PROVIDER: ${BILLING_PROVIDER:-simulado}
+  PLATFORM_HOST: ${PLATFORM_HOST:-}
+  PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-}
+  SIGNUP_ENABLED: ${SIGNUP_ENABLED:-0}
+  PLATFORM_ALERT_EMAIL: ${PLATFORM_ALERT_EMAIL:-}
+  LOG_FORMAT: ${LOG_FORMAT:-}
 
 services:
   web:
@@ -73,6 +78,8 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
       API_URL: http://api:3333
+      # Fase 6: host do site da plataforma (o proxy.ts manda para a landing).
+      PLATFORM_HOST: ${PLATFORM_HOST:-}
       WEB_KEY: ${WEB_KEY:?defina WEB_KEY no .env}
     depends_on:
       api:

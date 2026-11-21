@@ -1,5 +1,5 @@
 import { hashPassword } from "better-auth/crypto";
-import { count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { Database } from "./client.ts";
 import { newPublicId } from "./ids.ts";
@@ -14,9 +14,14 @@ import {
   organizations,
 } from "./schema/tenancy.ts";
 import { ADMIN_NAMES, seedGifts, seedInvitations, seedSettings } from "./seed-data.ts";
+import { ensureOrgSubscription, ensurePlans } from "./plan-catalog.ts";
+import { ensurePlatformTaskTemplates } from "./platform-task-templates.ts";
+import { COURTESY_PLAN_CODE } from "./schema/platform.ts";
 
 /** Organização do casamento (criada também pela migration 0006). */
 const LEGACY_ORG_ID = 1;
+/** Nome da organização 1 (a migration 0006 a criou como "Organização 1"). */
+export const LEGACY_ORG_NAME = "Casamento Dani & Gustavo";
 
 /** Hosts de desenvolvimento do evento 1; o primeiro é o primário. */
 export const DEV_EVENT_HOSTS = ["localhost:3000", "evento1.localhost:3000"] as const;
@@ -45,6 +50,7 @@ export async function seed(
   };
 
   await seedLegacyEvent(db);
+  await seedPlatformCatalog(db);
   result.domainsCreated = await seedDevDomains(db);
   result.settingsCreated = await insertSettings(db);
   // Fotos, textos e galeria do casamento vêm do banco (Fase 2): sem isto o site do evento 1 fica nu.
@@ -110,7 +116,12 @@ async function seedLegacyEvent(db: Database): Promise<void> {
   await db
     .insert(organizations)
     .ignore()
-    .values({ id: LEGACY_ORG_ID, slug: "org-1", name: "Organização 1", status: "active" });
+    .values({ id: LEGACY_ORG_ID, slug: "org-1", name: LEGACY_ORG_NAME, status: "active" });
+  // Bancos vindos da migration 0006 ainda têm o nome provisório: troca só esse.
+  await db
+    .update(organizations)
+    .set({ name: LEGACY_ORG_NAME })
+    .where(and(eq(organizations.id, LEGACY_ORG_ID), eq(organizations.name, "Organização 1")));
   await db
     .insert(events)
     .ignore()
@@ -126,6 +137,16 @@ async function seedLegacyEvent(db: Database): Promise<void> {
       // Fase 5: o casamento recebe na conta principal (como antes); a migration 0011 faz o mesmo.
       paymentReceiver: "platform",
     });
+}
+
+/**
+ * Fase 6: planos (organização 1 no plano interno "Cortesia", sem limites nem cobrança) e
+ * modelos de tarefas da plataforma. Idempotente.
+ */
+async function seedPlatformCatalog(db: Database): Promise<void> {
+  await ensurePlans(db);
+  await ensureOrgSubscription(db, LEGACY_ORG_ID, COURTESY_PLAN_CODE);
+  await ensurePlatformTaskTemplates(db);
 }
 
 /** Domínios de desenvolvimento do evento 1 (em produção, cadastrados pela CLI). */
@@ -156,8 +177,8 @@ async function insertSettings(db: Database): Promise<number> {
 }
 
 /**
- * Papéis dos usuários do painel. TODO(fase1-papeis): provisório até o casal decidir; hoje os
- * dois são donos da organização 1 e o Gustavo (dev, ADMIN_NAMES[1]) é admin da plataforma.
+ * Papéis dos usuários do painel (decisão do usuário, 21/11/2026): os dois são donos da
+ * organização 1 e o Gustavo (dev, ADMIN_NAMES[1]) é admin da plataforma.
  */
 async function seedMembers(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
   const emails = [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2]
@@ -218,6 +239,7 @@ export async function setup(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<SetupResult> {
   await seedLegacyEvent(db);
+  await seedPlatformCatalog(db);
   const settingsCreated = await insertSettings(db);
   await importLegacyContent(db, { uploadDir: env.UPLOAD_DIR || undefined });
   const adminsCreated = await seedAdmins(db, env);

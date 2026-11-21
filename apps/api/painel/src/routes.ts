@@ -15,6 +15,12 @@ export function parseOrgPath(path: string): { orgId: number; rest: string } | nu
   return m ? { orgId: Number(m[1]), rest: m[2] ?? "/" } : null;
 }
 
+/** Fase 6: "/plataforma/orgs/2" → { rest: "/orgs/2" }; outro caminho → null. */
+export function parsePlatformPath(path: string): { rest: string } | null {
+  const m = /^\/plataforma(\/.*)?$/.exec(path);
+  return m ? { rest: m[1] ?? "/" } : null;
+}
+
 /**
  * Para onde o hash deve ir (null = ficar). Um evento só e nenhuma organização: entra direto
  * nele. Vários (ou com organização): lista em #/eventos. Hashes antigos (#/convites/12, sem

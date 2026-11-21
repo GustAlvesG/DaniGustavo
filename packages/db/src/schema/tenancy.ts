@@ -40,6 +40,12 @@ export const PAYMENT_ACCOUNT_STATUSES = [
   "disabled",
 ] as const;
 export const EVENT_ROLES = ["host"] as const;
+/**
+ * Fase 6: origem do domínio do evento. `platform` = `<slug>.<PLATFORM_BASE_DOMAIN>` (criado pela
+ * plataforma, já verificado); `custom` = domínio próprio, só resolve depois de verificado por DNS.
+ */
+export const EVENT_DOMAIN_KINDS = ["platform", "custom"] as const;
+export type EventDomainKind = (typeof EVENT_DOMAIN_KINDS)[number];
 export const PLATFORM_ROLES = ["admin"] as const;
 
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
@@ -92,6 +98,11 @@ export const events = mysqlTable(
       .default("organization"),
     /** Subconta escolhida quando `payment_receiver = host` (FK composta: mesma organização). */
     receivingAccountId: fk("receiving_account_id"),
+    /**
+     * Fase 6 (LGPD): quando a rotina de retenção anonimizou os dados pessoais dos convidados e
+     * compradores deste evento (prazo em `event_settings` › `privacy.settings`). Nulo = ainda não.
+     */
+    personalDataPurgedAt: utcDatetime("personal_data_purged_at"),
     ...timestamps(),
   },
   (t) => [
@@ -118,6 +129,23 @@ export const eventDomains = mysqlTable(
     host: varchar("host", { length: 191 }).notNull().unique(),
     /** O host primário substitui `SITE_URL` nos links do evento. */
     isPrimary: boolean("is_primary").notNull().default(false),
+    /** Fase 6: `platform` (subdomínio automático) ou `custom` (domínio próprio). */
+    kind: mysqlEnum("kind", EVENT_DOMAIN_KINDS).notNull().default("custom"),
+    /**
+     * Fase 6: valor que o dono do domínio põe no registro TXT de verificação (não é segredo:
+     * prova o controle do DNS). Nulo para os domínios da plataforma.
+     */
+    verificationToken: varchar("verification_token", { length: 64 }),
+    /**
+     * Fase 6: domínio verificado. Só domínio verificado resolve o evento (resolver, `/api/hosts`
+     * e o `ask` do on-demand TLS). A migration 0012 marca os já cadastrados (vieram da CLI).
+     * Padrão na aplicação: verificado na hora (CLI, seed, testes, subdomínio da plataforma);
+     * domínio próprio cadastrado pelo painel grava `null` explicitamente até a checagem de DNS.
+     */
+    verifiedAt: utcDatetime("verified_at").$defaultFn(() => new Date()),
+    /** Fase 6: última checagem de DNS e o motivo da falha, em pt-BR (nulo = deu certo). */
+    lastCheckedAt: utcDatetime("last_checked_at"),
+    checkError: varchar("check_error", { length: 191 }),
     ...timestamps(),
   },
   (t) => [index("event_domains_event_id_idx").on(t.eventId)],

@@ -1,4 +1,5 @@
 import { eq, eventDomains, eventMembers, events } from "@casamento/db";
+import { HOST_NEVER_ACTIONS } from "@casamento/shared";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { requireSession } from "../src/admin/context.ts";
@@ -196,8 +197,10 @@ describe("permissões", () => {
   it("pela matriz de papéis, todo papel do evento pode toda ação (a negação do anfitrião vem do evento)", () => {
     for (const role of EVENT_ACCESS_ROLES) {
       for (const action of ACTIONS) {
-        // Fase 5: escolher a conta recebedora nunca é do anfitrião.
-        const expected = !(role === "event_host" && action === "payments.configure");
+        // Fase 5/6: escolher a conta recebedora e cadastrar no catálogo nunca são do anfitrião.
+        const expected = !(
+          role === "event_host" && (HOST_NEVER_ACTIONS as readonly string[]).includes(action)
+        );
         expect(can(role, action), `${role} ${action}`).toBe(expected);
       }
     }
@@ -280,6 +283,18 @@ describe("GET /api/hosts/:host", () => {
       expect(res.status).toBe(404);
       expect(await res.json()).toEqual(notFoundBody("GET", `/api/hosts/${host}`));
     }
+  });
+});
+
+describe("Fase 6: domínio não verificado", () => {
+  it("não resolve o evento nem entra na lista de hosts", async () => {
+    const host = `nao-verificado-${fx.run}.teste.local`;
+    await db
+      .insert(eventDomains)
+      .values({ eventId: fx.eventA.id, host, isPrimary: false, verifiedAt: null });
+    expect((await app.request(`/api/hosts/${host}`)).status).toBe(404);
+    const { hosts } = (await (await app.request("/api/hosts")).json()) as { hosts: string[] };
+    expect(hosts).not.toContain(host);
   });
 });
 

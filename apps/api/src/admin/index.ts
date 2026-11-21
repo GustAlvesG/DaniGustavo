@@ -17,6 +17,12 @@ import { adminTaskRoutes } from "./tasks.ts";
 import { adminEventVendorRoutes, adminVendorCatalogRoutes } from "./vendors.ts";
 import { adminPaymentRoutes } from "./payments.ts";
 import { eventAccountStatusRoutes } from "./payment-account-status.ts";
+import { adminPrivacyRoutes } from "./privacy.ts";
+import { adminTaskReminderRoutes } from "./task-reminders.ts";
+import { adminMeRoutes } from "./me.ts";
+import { platformRoutes } from "./platform/index.ts";
+import { platformTaskTemplateRoutes } from "./platform/task-templates.ts";
+import { eventSubscriptionGate } from "../plans/gate.ts";
 import { listAccessibleEvents, requireEventAccess } from "../tenancy/access.ts";
 import { listAccessibleOrgs } from "../tenancy/org-access.ts";
 import { adminOrgRoutes } from "./org/index.ts";
@@ -48,9 +54,13 @@ export function adminRoutes(deps: AdminDeps) {
     ]);
     return c.json({ user, events, organizations });
   });
+  // Fase 6 (docs/saas/fase-6.md), frente C: exportar e apagar os dados da própria conta.
+  app.route("/me", adminMeRoutes(deps));
 
   const ev = new Hono<EventAdminEnv>();
   ev.use("*", requireEventAccess(deps.db, resolverFor(deps.db, deps.eventResolver)));
+  // Fase 6, frente A: assinatura inadimplente além da carência → painel só leitura (402).
+  ev.use("*", eventSubscriptionGate(deps.db));
   ev.route("/dashboard", adminDashboardRoutes(deps));
   ev.route("/invitations/import", adminImportRoutes(deps));
   ev.route("/invitations/lists", adminGuestListRoutes(deps));
@@ -80,9 +90,17 @@ export function adminRoutes(deps: AdminDeps) {
   // Fase 5 (docs/saas/fase-5.md): C = /payments; D = /payments/my-account/refresh.
   ev.route("/payments", adminPaymentRoutes(deps));
   ev.route("/payments", eventAccountStatusRoutes(deps));
+  // Fase 6 (docs/saas/fase-6.md): C = /privacy; E = /tasks/reminders.
+  ev.route("/privacy", adminPrivacyRoutes(deps));
+  ev.route("/tasks", adminTaskReminderRoutes(deps));
   app.route("/events/:eventId", ev);
 
   // Fase 3 (docs/saas/fase-3.md): painel da organização.
   app.route("/orgs/:orgId", adminOrgRoutes(deps));
+
+  // Fase 6: painel da plataforma (só platform admin; os demais, 404 de rota). A = organizações,
+  // planos e assinaturas; E = modelos de tarefas da plataforma.
+  app.route("/platform/task-templates", platformTaskTemplateRoutes(deps));
+  app.route("/platform", platformRoutes(deps));
   return app;
 }

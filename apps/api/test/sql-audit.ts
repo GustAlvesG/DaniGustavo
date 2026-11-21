@@ -27,6 +27,9 @@ export const SCOPED_TABLES = [
   "quote_installments",
   "budget_lines",
   "schedule_items",
+  // Fase 6: LGPD (pedidos dos titulares) e lembrete semanal de tarefas.
+  "privacy_requests",
+  "task_reminder_prefs",
 ] as const;
 
 /** Fase 3: dados da organização; a consulta precisa filtrar por `organization_id`. */
@@ -38,6 +41,47 @@ export const ORG_SCOPED_TABLES = [
   "task_template_items",
   // Fase 5: subcontas de recebimento.
   "payment_accounts",
+  // Fase 6: assinatura, uso, categorias de fornecedor e resumo de evento apagado.
+  "organization_subscriptions",
+  "subscription_payments",
+  "organization_usage",
+  "vendor_categories",
+  "event_deletions",
+] as const;
+
+/**
+ * Fase 6: tabelas da PLATAFORMA, sem organização nem evento — exceções explícitas ao escopo
+ * (o auditor não exige coluna nenhuma). Toda tabela nova precisa estar numa das listas daqui
+ * (`table-scopes.test.ts` confere contra o schema).
+ * - `plans`: catálogo de planos, igual para todos (leitura pública na página de preços).
+ * - `platform_task_templates`/`_items`: modelos de tarefas prontos, iguais para todas as
+ *   organizações (só leitura para elas; escrita pelo seed e pelo platform admin).
+ * - `signup_requests`: cadastro antes de existir organização (achado só pelo hash do token).
+ * - `legal_acceptances`: aceite dos termos por pessoa (achado por `user_id`).
+ */
+export const PLATFORM_TABLES = [
+  "plans",
+  "platform_task_templates",
+  "platform_task_template_items",
+  "signup_requests",
+  "legal_acceptances",
+] as const;
+
+/**
+ * Tabelas de estrutura e de autenticação, também sem a regra (já eram assim antes da Fase 6):
+ * a própria tenancy (o escopo É a linha), as do Better Auth e a idempotência dos webhooks.
+ */
+export const STRUCTURAL_TABLES = [
+  "organizations",
+  "events",
+  "event_domains",
+  "organization_members",
+  "event_members",
+  "user",
+  "session",
+  "account",
+  "verification",
+  "webhook_events",
 ] as const;
 
 /** Tabela → coluna de escopo exigida depois do FROM. */

@@ -27,6 +27,7 @@ import {
   parseEventPath,
   parseOrgPath,
   pickerTarget,
+  parsePlatformPath,
   pickerValue,
   resolveRedirect,
 } from "./routes.ts";
@@ -52,6 +53,9 @@ import { Financeiro } from "./pages/Financeiro.tsx";
 import { Fornecedores } from "./pages/Fornecedores.tsx";
 import { Tarefas } from "./pages/Tarefas.tsx";
 import { Recebimento } from "./pages/Recebimento.tsx";
+import { Privacidade } from "./pages/Privacidade.tsx";
+import { ConfirmarCadastro } from "./pages/ConfirmarCadastro.tsx";
+import { Plataforma } from "./pages/plataforma/Plataforma.tsx";
 import { ErrorBox, Loading, ToastProvider, useLoad } from "./ui.tsx";
 
 /* ------------------------------------------------------------------------ */
@@ -100,6 +104,8 @@ const NAV: { href: string; label: string; action?: EventAction; group?: string }
     action: "settings.read",
     group: "Site e ajustes",
   },
+  // Fase 6 (frente C): LGPD do evento (pedidos dos titulares, retenção, exportação).
+  { href: "/privacidade", label: "Privacidade", action: "privacy.read", group: "Site e ajustes" },
 ];
 
 const SECTION_ACTION = new Map(NAV.map((i) => [i.href.slice(1), i.action]));
@@ -165,6 +171,8 @@ function PageRoutes({ path }: { path: string }) {
       return <Cronograma />;
     case "recebimento":
       return <Recebimento />;
+    case "privacidade":
+      return <Privacidade />;
     case "conta":
       return <Conta />;
     default:
@@ -189,6 +197,15 @@ export function App() {
     return (
       <ToastProvider>
         <Aceitar token={decodeURIComponent(invite[1]!)} />
+      </ToastProvider>
+    );
+  }
+  // Fase 6 (frente B): confirmação do cadastro self-service (define a senha; sem sessão).
+  const signup = /^\/cadastro\/([^/?]+)/.exec(path);
+  if (signup) {
+    return (
+      <ToastProvider>
+        <ConfirmarCadastro token={decodeURIComponent(signup[1]!)} />
       </ToastProvider>
     );
   }
@@ -252,6 +269,16 @@ function Painel() {
 }
 
 function Routed({ me, path }: { me: MeResponse; path: string }) {
+  // Fase 6 (frente A): painel da plataforma, só para o platform admin (os demais seguem o
+  // redirecionamento normal; a API responde 404 para eles).
+  const platform = parsePlatformPath(path);
+  if (platform && me.user.platformRole === "admin") {
+    return (
+      <Frame me={me} event={null} rest={platform.rest}>
+        <Plataforma path={platform.rest} />
+      </Frame>
+    );
+  }
   const redirectTo = resolveRedirect(path, me.events, lastEvent(), me.organizations);
   useEffect(() => {
     if (redirectTo) window.location.replace(`#${redirectTo}`);
@@ -404,6 +431,11 @@ function Frame({
         <Brand event={event} org={org} />
         <div className="topbar__user">
           <Picker me={me} event={event} org={org} />
+          {me.user.platformRole === "admin" && (
+            <a href="#/plataforma" className="button button--ghost button--small">
+              Plataforma
+            </a>
+          )}
           <a href={event ? eh("/conta") : "#/conta"} className="topbar__name" title={me.user.email}>
             {me.user.name}
           </a>

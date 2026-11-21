@@ -60,13 +60,28 @@ export {
   count,
   desc,
   eq,
+  getTableName,
   gt,
   inArray,
   isNotNull,
   isNull,
+  isTable,
   like,
   lt,
   or,
   sql,
   type SQL,
 } from "drizzle-orm";
+// Fase 6: catálogo de planos e modelos de tarefas da plataforma (seed/setup e API).
+export {
+  DEFAULT_SIGNUP_PLAN_CODE,
+  ensureOrgSubscription,
+  ensurePlans,
+  PLAN_CATALOG,
+  type PlanSeed,
+} from "./plan-catalog.ts";
+export {
+  ensurePlatformTaskTemplates,
+  PLATFORM_TASK_TEMPLATES,
+  type PlatformTemplateSeed,
+} from "./platform-task-templates.ts";

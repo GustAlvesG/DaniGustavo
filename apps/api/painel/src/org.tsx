@@ -12,6 +12,10 @@ import { PermissoesAnfitriao } from "./pages/org/Permissoes.tsx";
 import { OrgFornecedores } from "./pages/org/Fornecedores.tsx";
 import { ModelosTarefas } from "./pages/org/ModelosTarefas.tsx";
 import { OrgRecebimentos } from "./pages/org/Recebimentos.tsx";
+import { OrgPlano } from "./pages/org/Plano.tsx";
+import { OrgCategorias } from "./pages/org/Categorias.tsx";
+import { Dominios } from "./pages/org/Dominios.tsx";
+import { ApagarEvento } from "./pages/org/ApagarEvento.tsx";
 
 /*
  * Painel da organização (Fase 3, docs/saas/fase-3.md): `#/o/:orgId/...`. Páginas das frentes
@@ -48,6 +52,9 @@ export const ORG_NAV = [
   { href: "/modelos", label: "Modelos de tarefas" },
   // Fase 5 (frente C): subcontas de recebimento.
   { href: "/recebimentos", label: "Recebimentos" },
+  // Fase 6: plano e assinatura (A) e categorias de fornecedor próprias (E).
+  { href: "/plano", label: "Plano" },
+  { href: "/categorias", label: "Categorias" },
 ];
 
 /** Página da organização; `path` é relativo a ela ("/eventos/3/anfitrioes"). */
@@ -62,6 +69,9 @@ export function OrgPage({ path }: { path: string }) {
       if (id === "novo") return <NovoEvento />;
       if (eventId && extra === "anfitrioes") return <Anfitrioes eventId={eventId} />;
       if (eventId && extra === "permissoes") return <PermissoesAnfitriao eventId={eventId} />;
+      // Fase 6: domínios do evento (B) e apagar evento arquivado (C).
+      if (eventId && extra === "dominios") return <Dominios eventId={eventId} />;
+      if (eventId && extra === "apagar") return <ApagarEvento eventId={eventId} />;
       if (!id) return <OrgEventos />;
       break;
     case "equipe":
@@ -74,6 +84,10 @@ export function OrgPage({ path }: { path: string }) {
       return <ModelosTarefas id={eventId ?? undefined} />;
     case "recebimentos":
       return <OrgRecebimentos id={eventId ?? undefined} />;
+    case "plano":
+      return <OrgPlano />;
+    case "categorias":
+      return <OrgCategorias />;
   }
   return (
     <div className="stack">

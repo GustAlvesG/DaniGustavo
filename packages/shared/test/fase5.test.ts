@@ -112,8 +112,16 @@ describe("permissões da fase 5", () => {
     expect(HOST_CONFIGURABLE_ACTIONS).not.toContain("payments.configure");
     expect(HOST_CONFIGURABLE_ACTIONS).not.toContain("payments.own_account");
     expect(HOST_CONFIGURABLE_ACTIONS).toContain("payments.read");
-    expect(effectiveHostDeny([])).toEqual(["payments.own_account", "payments.configure"]);
-    expect(effectiveHostDeny([], ["payments.own_account"])).toEqual(["payments.configure"]);
+    // Fase 6: `vendors.catalog` também é do tipo "nunca o anfitrião".
+    expect(effectiveHostDeny([])).toEqual([
+      "payments.own_account",
+      "payments.configure",
+      "vendors.catalog",
+    ]);
+    expect(effectiveHostDeny([], ["payments.own_account"])).toEqual([
+      "payments.configure",
+      "vendors.catalog",
+    ]);
     expect(HostPermissions.safeParse({ allow: ["payments.configure"] }).success).toBe(false);
     expect(HostPermissions.safeParse({ deny: ["payments.own_account"] }).success).toBe(false);
   });

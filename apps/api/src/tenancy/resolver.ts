@@ -1,4 +1,4 @@
-import { and, eq, eventDomains, events, type Database } from "@casamento/db";
+import { and, eq, eventDomains, events, isNotNull, type Database } from "@casamento/db";
 import type { EventCtx } from "./types.ts";
 
 export interface EventResolver {
@@ -121,7 +121,8 @@ export function createEventResolver(
               .select(columns)
               .from(eventDomains)
               .innerJoin(events, eq(events.id, eventDomains.eventId))
-              .where(eq(eventDomains.host, normalized))
+              // Fase 6: domínio próprio só vale depois de verificado por DNS.
+              .where(and(eq(eventDomains.host, normalized), isNotNull(eventDomains.verifiedAt)))
           )[0] ?? null,
         eventId,
       );
@@ -134,7 +135,13 @@ export function createEventResolver(
             await db
               .select({ host: eventDomains.host })
               .from(eventDomains)
-              .where(and(eq(eventDomains.eventId, id), eq(eventDomains.isPrimary, true)))
+              .where(
+                and(
+                  eq(eventDomains.eventId, id),
+                  eq(eventDomains.isPrimary, true),
+                  isNotNull(eventDomains.verifiedAt),
+                ),
+              )
               .limit(1)
           )[0]?.host ?? null,
         () => id,

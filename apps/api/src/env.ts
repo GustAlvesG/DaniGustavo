@@ -42,7 +42,10 @@ export const envSchema = z
     /** E-mails dos noivos: só o seed os usa (usuários do painel). Os avisos vão aos membros do evento. */
     ADMIN_EMAIL_1: z.email({ error: "deve ser um e-mail válido" }).optional(),
     ADMIN_EMAIL_2: z.email({ error: "deve ser um e-mail válido" }).optional(),
-    /** Avisos no Telegram (opcional): token do bot e id do chat. */
+    /**
+     * Telegram: DESLIGADO por decisão do usuário (21/11/2026). A frente D da Fase 6 remove o
+     * canal do código; estas duas saem daqui na integração (já não estão nos exemplos de .env).
+     */
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_CHAT_ID: z.string().optional(),
     /**
@@ -70,16 +73,49 @@ export const envSchema = z
       })
       .optional(),
     /**
-     * Fase 5: percentual da plataforma descontado por split de cada presente pago numa subconta
-     * (0 a 50; vazio = 0). TODO(conteudo): valor comercial; a Fase 6 leva para os planos.
+     * Fase 5/6: percentual da plataforma descontado por split de cada presente pago numa
+     * subconta (0 a 50). Desde a Fase 6 vale só para organização SEM assinatura: a taxa vem do
+     * plano (`plans.fee_bps`, padrão 0,5%, decisão de 21/11/2026). Vazio = 0,5.
      */
     PLATFORM_FEE_PERCENT: z.coerce
       .number({ error: "deve ser um número, ex.: 2.5" })
       .min(0, { error: "não pode ser negativo" })
       .max(50, { error: "no máximo 50" })
-      .default(0),
+      .default(0.5),
     /** Fase 5: walletId da conta principal do Asaas, destino do split da plataforma. */
     ASAAS_PLATFORM_WALLET_ID: z.string().max(64).optional(),
+    /**
+     * Fase 6: provedor da assinatura das organizações: "simulado" (padrão) ou "asaas" (conta
+     * principal, a mesma ASAAS_API_KEY). Escolha explícita, como PAYMENT_PROVIDER.
+     */
+    BILLING_PROVIDER: z
+      .enum(["simulado", "asaas"], { error: "use simulado ou asaas" })
+      .default("simulado"),
+    /**
+     * Fase 6: domínio base dos endereços automáticos (`<slug>.<base>`, ex.: eventos.artzan.tech).
+     * Vazio = sem subdomínio automático (decisão de 21/11/2026: definir depois).
+     */
+    PLATFORM_BASE_DOMAIN: z
+      .string()
+      .regex(/^[a-z0-9.-]+(:\d+)?$/, { error: "use só o domínio, ex.: eventos.exemplo.com" })
+      .optional(),
+    /**
+     * Fase 6: host do site da plataforma (landing, preços, cadastro), como chega no Host, ex.:
+     * plataforma.artzan.tech ou localhost:3000. Vazio = sem landing (o Host cai nos eventos).
+     */
+    PLATFORM_HOST: z
+      .string()
+      .regex(/^[a-z0-9.-]+(:\d+)?$/, { error: "use só o host, ex.: plataforma.exemplo.com" })
+      .optional(),
+    /** Fase 6: cadastro self-service aberto (1) ou fechado (0, padrão). */
+    SIGNUP_ENABLED: z
+      .enum(["0", "1", "true", "false"], { error: "use 1 ou 0" })
+      .default("0")
+      .transform((v) => v === "1" || v === "true"),
+    /** Fase 6: e-mail que recebe os alertas da plataforma (rotinas falhando, erros 5xx). */
+    PLATFORM_ALERT_EMAIL: z.email({ error: "deve ser um e-mail válido" }).optional(),
+    /** Fase 6: formato dos logs: json (padrão em produção) ou texto (padrão fora dela). */
+    LOG_FORMAT: z.enum(["json", "texto"], { error: "use json ou texto" }).optional(),
   })
   .superRefine((e, ctx) => {
     // Nenhuma mensagem daqui inclui o valor da chave.
@@ -105,6 +141,9 @@ export const envSchema = z
         );
       }
     }
+    if (e.BILLING_PROVIDER === "asaas" && !e.ASAAS_API_KEY) {
+      issue("ASAAS_API_KEY", "é obrigatória com BILLING_PROVIDER=asaas (conta principal do Asaas)");
+    }
     if (e.PAYMENT_PROVIDER !== "asaas") return;
     if (!e.ASAAS_API_KEY) {
       issue(
@@ -112,13 +151,9 @@ export const envSchema = z
         "é obrigatória com PAYMENT_PROVIDER=asaas (veja docs/PERSONALIZAR.md §6)",
       );
     }
-    // Fase 5: com taxa da plataforma, o split precisa da carteira da conta principal.
-    if (e.PLATFORM_FEE_PERCENT > 0 && !e.ASAAS_PLATFORM_WALLET_ID) {
-      issue(
-        "ASAAS_PLATFORM_WALLET_ID",
-        "é obrigatória com PAYMENT_PROVIDER=asaas e PLATFORM_FEE_PERCENT maior que 0 (walletId da conta principal)",
-      );
-    }
+    // Fase 6: a taxa vem do plano de cada organização, então a carteira da plataforma não é
+    // mais exigida aqui: sem ela, evento de subconta com taxa > 0 fica sem presentes em dinheiro
+    // (payment-accounts/resolve.ts) e a API avisa no log ao subir.
     // Em desenvolvimento dá para subir sem o token (sem túnel o webhook nem chega: a API
     // avisa no log e confere o status no Asaas); em produção é obrigatório.
     const token = e.ASAAS_WEBHOOK_TOKEN ?? "";

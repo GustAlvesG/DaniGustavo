@@ -6,7 +6,15 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 // Rotas de escrita que não vêm do site: webhooks (assinatura própria), Better Auth e painel
 // (sessão por cookie; o painel nunca recebe a WEB_KEY), inclusive o aceite de convite da equipe,
 // que o painel chama antes de haver sessão (Fase 3; tem limite por IP e confere a origem).
-const EXEMPT_PREFIXES = ["/api/webhooks/", "/api/auth/", "/api/admin/", "/api/team-invites/"];
+// Fase 6: a confirmação do cadastro self-service (`/api/signup/<token>/confirm`) também vem do
+// painel; o pedido de cadastro (`POST /api/signup`, sem barra no fim) continua exigindo a chave.
+const EXEMPT_PREFIXES = [
+  "/api/webhooks/",
+  "/api/auth/",
+  "/api/admin/",
+  "/api/team-invites/",
+  "/api/signup/",
+];
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
 

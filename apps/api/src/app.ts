@@ -21,6 +21,11 @@ import { webKey } from "./middleware/web-key.ts";
 import { secretBoxFromEnv, type SecretBox } from "./crypto/secret-box.ts";
 import { accountWebhookRoutes } from "./routes/account-webhooks.ts";
 import { painelRoutes } from "./painel.ts";
+import { createSubscriptionProvider, type SubscriptionProvider } from "./billing/index.ts";
+import { publicPlanRoutes } from "./routes/plans.ts";
+import { subscriptionWebhookRoutes } from "./routes/subscription-webhooks.ts";
+import { signupRoutes } from "./routes/signup.ts";
+import { privacyRequestRoutes } from "./routes/privacy-requests.ts";
 import { requireModule } from "./tenancy/modules.ts";
 import { publicEvent } from "./tenancy/public.ts";
 import { createEventResolver, type EventResolver } from "./tenancy/resolver.ts";
@@ -55,6 +60,8 @@ export interface AppDeps {
   eventResolver?: EventResolver;
   /** Fase 5: segredos das subcontas (padrão: PAYMENT_SECRETS_KEY do .env). */
   secrets?: SecretBox;
+  /** Fase 6: provedor da assinatura das organizações (padrão: BILLING_PROVIDER do .env). */
+  billing?: SubscriptionProvider;
 }
 
 /** Monta a aplicação sem abrir porta: o servidor fica em server.ts e os testes usam app.request(). */
@@ -71,6 +78,7 @@ export function createApp({
   revalidate = createWebRevalidator(env),
   eventResolver = createEventResolver(db),
   secrets = secretBoxFromEnv(env),
+  billing = createSubscriptionProvider(env),
 }: AppDeps) {
   const app = new Hono();
 
@@ -82,6 +90,8 @@ export function createApp({
   app.get("/api/health", (c) => c.json({ status: "ok" }));
 
   app.route("/api/hosts", hostRoutes(eventResolver, db));
+  // Fase 6, frente A: planos da página de preços (público).
+  app.route("/api/plans", publicPlanRoutes(db));
 
   const orderDeps: OrderDeps = {
     env,
@@ -116,6 +126,8 @@ export function createApp({
   pub.route("/messages", messageRoutes({ db, limiter: rateLimiter }));
   pub.route("/gifts", giftRoutes(orderDeps));
   pub.route("/orders", orderRoutes({ ...orderDeps, limiter: rateLimiter }));
+  // Fase 6, frente C: pedidos dos titulares (LGPD) pelo site do evento.
+  pub.route("/privacy-requests", privacyRequestRoutes({ db, limiter: rateLimiter, mailer }));
 
   // Só no modo simulado e fora de produção: "Simular pagamento aprovado". Marca o Pix como
   // pago no provedor de mentira e entrega à rota real um webhook no formato do Asaas
@@ -151,6 +163,8 @@ export function createApp({
   app.route("/api/webhooks", webhookRoutes(orderDeps));
   // Fase 5: um webhook por subconta (/api/webhooks/payments/accounts/:publicId).
   app.route("/api/webhooks", accountWebhookRoutes(orderDeps));
+  // Fase 6, frente A: cobranças da assinatura das organizações.
+  app.route("/api/webhooks", subscriptionWebhookRoutes({ env, db, billing, mailer, now }));
 
   const storage = createLocalStorage(env.UPLOAD_DIR);
   const adminDeps: AdminDeps = {
@@ -164,6 +178,8 @@ export function createApp({
   app.route("/api/admin", adminRoutes(adminDeps));
   // Fase 3: aceite de convite da equipe/anfitrião (sem sessão obrigatória; ver o arquivo).
   app.route("/api/team-invites", teamInviteRoutes(adminDeps));
+  // Fase 6, frente B: cadastro self-service (fechado com SIGNUP_ENABLED=0).
+  app.route("/api/signup", signupRoutes(adminDeps));
   app.route("/", uploadFileRoutes(storage));
 
   app.route("/", painelRoutes(painelDist));

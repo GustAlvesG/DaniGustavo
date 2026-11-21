@@ -27,6 +27,11 @@ export const ORG_PERMISSIONS: Record<OrgAction, readonly OrgAccessRole[]> = {
   "templates.manage": ALL,
   // Fase 5: a subconta da organização (dados da pessoa/empresa e o dinheiro) é do dono.
   "payments.manage": ["platform_admin", "org_owner"],
+  // Fase 6: assinatura e apagar evento são do dono; domínios e categorias, de toda a equipe.
+  "billing.manage": ["platform_admin", "org_owner"],
+  "domains.manage": ALL,
+  "events.delete": ["platform_admin", "org_owner"],
+  "categories.manage": ALL,
 };
 
 export function canOrg(role: OrgAccessRole, action: OrgAction): boolean {

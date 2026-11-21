@@ -18,6 +18,7 @@ import {
 import {
   CreateOrgEventInput,
   EventSlug,
+  limitMessage,
   localDateTimeToIso,
   UpdateOrgEventInput,
   type OrgDashboard,
@@ -26,6 +27,7 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { ERROR_CODES, errorBody, routeNotFound } from "../../errors.ts";
+import { checkPlanLimit } from "../../plans/limits.ts";
 import { requireOrgPermission } from "../../tenancy/org-access.ts";
 import { resolverFor } from "../../tenancy/resolver.ts";
 import type { OrgAdminEnv } from "../../tenancy/types.ts";
@@ -184,6 +186,13 @@ export function orgEventRoutes(deps: AdminDeps) {
     const parsed = CreateOrgEventInput.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
+    // Fase 6: evento que já nasce ativo conta no limite de eventos ativos do plano.
+    if (input.status === "active") {
+      const limit = await checkPlanLimit(db, org.id, { kind: "activeEvents", adding: 1 });
+      if (!limit.ok) {
+        return c.json(errorBody(ERROR_CODES.planLimit, limitMessage(limit.kind, limit.limit)), 409);
+      }
+    }
     try {
       const created = await createEventRecord(db, {
         organizationId: org.id,
@@ -220,13 +229,20 @@ export function orgEventRoutes(deps: AdminDeps) {
     // Evento de outra organização (ou inexistente) recebe o mesmo 404 de rota.
     if (!eventId) return routeNotFound(c);
     const [current] = await db
-      .select({ id: events.id })
+      .select({ id: events.id, status: events.status })
       .from(events)
       .where(and(eq(events.id, eventId), eq(events.organizationId, org.id)));
     if (!current) return routeNotFound(c);
 
     const parsed = UpdateOrgEventInput.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return invalid(c, parsed.error.issues);
+    // Fase 6: ativar conta no limite de eventos ativos do plano.
+    if (parsed.data.status === "active" && current.status !== "active") {
+      const limit = await checkPlanLimit(db, org.id, { kind: "activeEvents", adding: 1 });
+      if (!limit.ok) {
+        return c.json(errorBody(ERROR_CODES.planLimit, limitMessage(limit.kind, limit.limit)), 409);
+      }
+    }
     await db
       .update(events)
       .set({ status: parsed.data.status, updatedAt: new Date() })

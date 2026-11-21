@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { EVENT_HOST_HEADER, normalizeHost } from "@/lib/host";
 
+/** Fase 6: segmento interno do site da plataforma (`app/plataforma`). */
+const PLATFORM_SEGMENT = "/plataforma";
+
 /*
  * Proxy (o antigo "middleware" do Next; roda antes de qualquer rota, como um middleware
  * global do Laravel). Cada evento da plataforma é um host: aqui o Host vira o primeiro
@@ -39,6 +42,15 @@ export function proxy(request: NextRequest) {
 
   const url = request.nextUrl.clone();
   const path = request.nextUrl.pathname;
+  // Fase 6: o host da plataforma (landing, preços e cadastro) vai para `app/plataforma`, que é
+  // um segmento estático ao lado de `app/[host]` (com root layout próprio). Os eventos nunca
+  // chegam lá: o caminho deles sempre ganha o prefixo do host.
+  const platformHost = normalizeHost(process.env.PLATFORM_HOST ?? null);
+  if (platformHost && host === platformHost) {
+    const inside = path === PLATFORM_SEGMENT || path.startsWith(`${PLATFORM_SEGMENT}/`);
+    url.pathname = inside ? path : `${PLATFORM_SEGMENT}${path === "/" ? "" : path}`;
+    return NextResponse.rewrite(url, { request: { headers } });
+  }
   const prefix = `/${encodeURIComponent(host)}`;
   // Os arquivos de metadados (ícone, OG) saem com o caminho interno `/<host>/icon`: se o
   // prefixo já é o do PRÓPRIO host, não repete (outro host no caminho continua prefixado).

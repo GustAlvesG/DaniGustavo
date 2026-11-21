@@ -11,6 +11,12 @@ import { orgInviteRoutes, orgMemberRoutes } from "./team.ts";
 import { orgVendorRoutes } from "./vendors.ts";
 import { orgPaymentAccountRoutes } from "./payment-accounts.ts";
 import { orgAccountStatusRoutes } from "../payment-account-status.ts";
+import { orgSubscriptionRoutes } from "./subscription.ts";
+import { orgEventDomainRoutes } from "./domains.ts";
+import { orgEventDeletionRoutes } from "./event-deletion.ts";
+import { orgVendorCategoryRoutes } from "./vendor-categories.ts";
+import { orgPlatformTemplateRoutes } from "./platform-templates.ts";
+import { orgSubscriptionGate } from "../../plans/gate.ts";
 
 /**
  * /api/admin/orgs/:orgId/* (Fase 3, docs/saas/fase-3.md), depois de requireSession e do CSRF
@@ -20,6 +26,8 @@ import { orgAccountStatusRoutes } from "../payment-account-status.ts";
 export function adminOrgRoutes(deps: AdminDeps) {
   const app = new Hono<OrgAdminEnv>();
   app.use("*", requireOrgAccess(deps.db));
+  // Fase 6, frente A: inadimplência além da carência → só leitura (exceto /subscription).
+  app.use("*", orgSubscriptionGate(deps.db));
 
   app.get("/", (c) => c.json({ organization: c.get("org"), role: c.get("orgRole") }));
 
@@ -35,6 +43,11 @@ export function adminOrgRoutes(deps: AdminDeps) {
   // Fase 5 (docs/saas/fase-5.md): C = subcontas; D = /:accountId/refresh.
   app.route("/payment-accounts", orgPaymentAccountRoutes(deps));
   app.route("/payment-accounts", orgAccountStatusRoutes(deps));
+  // Fase 6 (docs/saas/fase-6.md): A = /subscription e /usage; E = categorias e modelos da
+  // plataforma.
+  app.route("/", orgSubscriptionRoutes(deps));
+  app.route("/vendor-categories", orgVendorCategoryRoutes(deps));
+  app.route("/platform-task-templates", orgPlatformTemplateRoutes(deps));
 
   // Rotas de um evento da organização. O middleware fica dentro de cada grupo (e não em
   // "/events/:eventId/*") para não pegar /events/slug-check da frente A.
@@ -47,6 +60,9 @@ export function adminOrgRoutes(deps: AdminDeps) {
   };
   app.route("/events/:eventId/hosts", ofEvent(orgEventHostRoutes(deps))); // B
   app.route("/events/:eventId/host-permissions", ofEvent(orgHostPermissionRoutes(deps))); // C
+  // Fase 6: B = domínios do evento; C = apagar evento.
+  app.route("/events/:eventId/domains", ofEvent(orgEventDomainRoutes(deps)));
+  app.route("/events/:eventId/deletion", ofEvent(orgEventDeletionRoutes(deps)));
 
   return app;
 }

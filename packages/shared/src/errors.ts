@@ -15,6 +15,10 @@ export const ERROR_CODES = {
   /** O provedor de pagamento falhou ou recusou a cobrança. */
   paymentFailed: "payment_failed",
   tooManyRequests: "too_many_requests",
+  /** Fase 6: o plano da organização não permite (limite de eventos, convidados, espaço...). 409. */
+  planLimit: "plan_limit",
+  /** Fase 6: painel só leitura por assinatura inadimplente (carência vencida). 402. */
+  subscriptionInactive: "subscription_inactive",
   internalError: "internal_error",
 } as const;
 

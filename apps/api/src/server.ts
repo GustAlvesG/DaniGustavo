@@ -13,6 +13,10 @@ import {
 import { createMailer } from "./mailer.ts";
 import { createPaymentProvider } from "./payments/index.ts";
 import { secretBoxFromEnv } from "./crypto/secret-box.ts";
+import { startSubscriptionJob } from "./plans/jobs.ts";
+import { startRetentionJob } from "./privacy/retention.ts";
+import { startTaskReminderJob } from "./tasks/reminder-job.ts";
+import { createLocalStorage } from "./storage/index.ts";
 
 loadRootEnv();
 
@@ -45,6 +49,19 @@ const stopExpiryJob = startExpiryJob(jobDeps);
 const stopReconcileJob = startReconcileJob(jobDeps);
 const stopReminderJob = startReminderJob(jobDeps);
 const stopAccountStatusJob = startAccountStatusJob(jobDeps);
+// Fase 6 (docs/saas/fase-6.md): A = assinaturas e uso; C = retenção (LGPD); E = resumo de tarefas.
+const stopSubscriptionJob = startSubscriptionJob(jobDeps);
+const stopRetentionJob = startRetentionJob({
+  ...jobDeps,
+  storage: createLocalStorage(env.UPLOAD_DIR),
+});
+const stopTaskReminderJob = startTaskReminderJob(jobDeps);
+
+if (env.PAYMENT_PROVIDER === "asaas" && !env.ASAAS_PLATFORM_WALLET_ID) {
+  console.warn(
+    "[pagamentos] ASAAS_PLATFORM_WALLET_ID vazio: eventos que recebem em subconta com taxa da plataforma ficam sem presentes em dinheiro.",
+  );
+}
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   console.log(`API em http://localhost:${info.port} (painel em /painel)`);
@@ -56,6 +73,9 @@ const shutdown = () => {
   stopReconcileJob();
   stopReminderJob();
   stopAccountStatusJob();
+  stopSubscriptionJob();
+  stopRetentionJob();
+  stopTaskReminderJob();
   server.close();
   void db.$client.end();
 };

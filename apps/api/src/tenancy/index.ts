@@ -16,3 +16,8 @@ export {
   resolveOrgRole,
   type OrgEventEnv,
 } from "./org-access.ts";
+export {
+  PLATFORM_PERMISSIONS,
+  requirePlatformAdmin,
+  requirePlatformPermission,
+} from "./platform-access.ts";

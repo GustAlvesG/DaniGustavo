@@ -58,6 +58,14 @@ export const invitations = mysqlTable(
     contactEmail: varchar("contact_email", { length: 191 }),
     contactPhone: varchar("contact_phone", { length: 32 }),
     sentAt: utcDatetime("sent_at"),
+    /**
+     * Fase 6 (LGPD): quando o grupo aceitou o aviso de privacidade ao responder o RSVP e qual
+     * versão do aviso (`PRIVACY_NOTICE_VERSION` em @casamento/shared › privacy). Nulo = antes.
+     */
+    consentAt: utcDatetime("consent_at"),
+    consentVersion: varchar("consent_version", { length: 16 }),
+    /** Fase 6 (LGPD): dados pessoais do convite trocados por marcadores (retenção ou pedido). */
+    anonymizedAt: utcDatetime("anonymized_at"),
     ...timestamps(),
   },
   // (event_id, id) único: alvo das FKs compostas das tabelas filhas.
@@ -185,6 +193,8 @@ export const giftOrders = mysqlTable(
     platformFeeBps: int("platform_fee_bps"),
     /** Valor do split para a plataforma informado pelo provedor (centavos), quando houver. */
     platformFeeCents: int("platform_fee_cents"),
+    /** Fase 6 (LGPD): nome, e-mail e recado do comprador trocados por marcadores. */
+    anonymizedAt: utcDatetime("anonymized_at"),
     ...timestamps(),
   },
   (t) => [
@@ -259,6 +269,9 @@ export const messages = mysqlTable(
     giftOrderId: fk("gift_order_id")
       .unique()
       .references(() => giftOrders.id, { onDelete: "set null" }),
+    /** Fase 6 (LGPD): aceite do aviso de privacidade no mural (nulo = antes ou via presente). */
+    consentAt: utcDatetime("consent_at"),
+    consentVersion: varchar("consent_version", { length: 16 }),
     ...timestamps(),
   },
   (t) => [index("messages_event_approved_idx").on(t.eventId, t.approved)],
