@@ -142,3 +142,28 @@ Em aberto (para depois, não bloqueiam as frentes):
 
 - Migration 0013 gerada pelo drizzle-kit e revisada (nomes de constraint ≤ 64 caracteres; FKs compostas nomeadas à mão); aplicada no `casamento` com `pnpm db:migrate` (14 linhas em `__drizzle_migrations`), dump antes em scratchpad `casamento-antes-0013.sql`.
 - Contratos, permissões (matriz e tela do anfitrião), stubs 501, páginas reservadas, menu, páginas sem conta (`/portaria/`, `/fornecedor/`) com CSP e `Permissions-Policy` próprias, isenção de `X-Web-Key` documentada, `site.caddy`, auditor e testes de enumeração/permissões estendidos.
+
+## 7. Frentes e integração
+
+**Frentes (A a D) e desvios dos commits:**
+
+- **A, check-in:** link da portaria com validade padrão de 48 h; sessão da portaria de 12 h assinada por HMAC e conferida no banco a cada chamada; PIN errado sofre limite por IP e bloqueio do link após 5 erros (15 min); token inválido, vencido, revogado, bloqueado e PIN errado dão o mesmo 401. Busca por nome ou código só dentro do evento, com referência opaca assinada. Campo "Aviso para a portaria" no convite.
+- **B, mesas:** troca de lugar entre duas pessoas numa transação; painel com distribuição, aviso de lotação, folhas por mesa e plaquinhas. A coluna **"Mesa"** entrou nas listas do cerimonial e da portaria e **deslocou "Chegou"** (a lista da portaria passou a `Convidado, Convite, Adulto/criança, Mesa, Chegou`).
+- **C, portal do fornecedor:** o e-mail sai pelo `Mailer`; falha no envio não desfaz o link e o endereço aparece uma vez no painel para copiar; rate limit por usuário na geração e por IP nos tokens recusados (429 depois de muitos). Selo "Enviado pelo fornecedor" no financeiro e nos contratos; links do portal no detalhe do fornecedor.
+- **D, WhatsApp e demais:** modelos, fila e envio em sequência pelos links `wa.me`; página Hoje; aviso de limite por acompanhantes (e-mail uma vez por estouro); data da anonimização em destaque na Privacidade; ajustes de toque no celular.
+
+**Integração:**
+
+- Merges A, B, C e D sem conflito. `admin/stub.ts` e o `PHASE7_STUB` do `admin-isolation.test.ts` foram removidos, junto das páginas "Em breve".
+- **401 do portal mantido** (decisão do orquestrador): token inválido, vencido, revogado ou evento arquivado respondem igual, coerente com a portaria; não se revela qual dos casos ocorreu.
+- **Câmera e o edge:** o snippet `seguranca` do edge, pelo contrato, só define HSTS, `nosniff`, `Referrer-Policy` e remove `Server`/`X-Powered-By`; não define `Permissions-Policy`, então o `camera=(self)` da portaria chega intacto ao navegador. Se um dia o edge passar a definir `Permissions-Policy`, ele precisa usar `header ?Permissions-Policy …` (só quando ausente) ou excluir `/portaria*`; do contrário a câmera não abre. A portaria continua útil pela digitação e pela busca por nome (ver `DEPLOY.md`).
+- Nenhuma migration nova além da 0013 (já aplicada na fundação).
+- Documentação: `DEPLOY.md` (caminhos do host da API, câmera, e-mails), `PERSONALIZAR.md` §12 (Dia do evento), `CLAUDE.md` e `STATUS.md`.
+
+**Verificações da integração:**
+
+- `pnpm test` três vezes seguidas verde (shared 82, db 58, web 144, api 816); `lint`, `typecheck`, `format:check` e `build` verdes.
+- **Intermitência real corrigida:** o cartão simulado dava 500 de vez em quando (visto na fundação em `orders.test.ts` e aqui em `admin.test.ts`): com arquivos em paralelo comprando no evento 1, o InnoDB escolhia a transação do `applyCharge` como vítima de deadlock no `insert ignore` em `payments`. As transações de pedido (`orders/service.ts`) agora repetem em 1213/1205 (`src/db-retry.ts`, `withDeadlockRetry`), o que também protege compras simultâneas em produção; o log de erro passou a trazer o `causeCode` do banco (antes só "Failed query").
+- E2E `painel-fase7.spec.ts` (evento próprio por rodada, org com plano Essencial, apagado no fim; CSP vigiada): mesas e impressão, portaria com PIN em contexto anônimo, chegada parcial, desfazer e contagem no painel e em Hoje, portal do fornecedor até o selo no Financeiro, WhatsApp (modelo, `wa.me`, marcar/desmarcar), telas do dia sem rolagem lateral em 390 px, acompanhante passando do limite com aviso no Dashboard e data da anonimização. Suíte completa nas portas 3100/3343: 99 passaram, 3 pulados de propósito; numa repetição, `fase2.spec.ts` (mobile) falhou uma vez pelo JSON pela metade do `next dev` já descrito no `playwright.config.ts` e passou sozinho.
+- O e2e achou dois ajustes de CSS: Mesas rolava para o lado no celular (selects com nome longo) e a lista do cronograma do portal tinha recuo.
+- Screenshots em `.screenshots/saas-fase7/` (390×844 e 1440×900). Banco `casamento` sem dado de demonstração; nada novo a aplicar (0013 já estava). Worktrees, branches `saas-f7*` e bancos `casamento_f7*` apagados.

@@ -535,3 +535,78 @@ erro "limite do plano" (409) com a mensagem do que ajustar; nada que já existe 
 - **Conta**: cada pessoa exporta os próprios dados e apaga a conta (`DELETE /me`, confirmando o
   e-mail); recusado se for a única dona de organização com evento.
 - **Avisos**: só por e-mail (sem `MAIL_HOST`, saem no console da API).
+
+## 12. Dia do evento (plataforma, Fase 7)
+
+No menu do evento, o grupo **Dia do evento** reúne **Hoje**, **Check-in** e **Mesas**; **WhatsApp**
+fica em menu próprio. A organização pode tirar cada área do anfitrião em **Organização → Eventos →
+Permissões**. Tudo funciona no celular.
+
+### Check-in (portaria)
+
+1. Em **Check-in**, gere um **link da portaria**: dê um nome (ex.: "Portaria principal") e escolha a
+   validade (padrão 48 h, no máximo 14 dias).
+2. O painel mostra o link (`/portaria/#...`) e o **PIN de 6 números uma única vez**: copie e passe
+   à portaria. Depois só se vê o nome do link; se perder o PIN, revogue e gere outro.
+3. Quem está na portaria abre o link no celular, digita o PIN e entra, sem conta. Errar o PIN 5 vezes
+   bloqueia o link por 15 minutos; link vencido, revogado ou bloqueado mostra o mesmo aviso de
+   acesso negado.
+4. Para achar o convite: **aponte a câmera para o QR** do convite (quando o navegador permitir; é
+   preciso autorizar a câmera) ou **digite o código** do QR ou **busque pelo nome** (2 letras ou
+   mais). A portaria vê só o nome do convite, as pessoas confirmadas, a mesa e o aviso de acesso;
+   nunca telefone, e-mail nem restrição alimentar.
+5. Confirme **quantas pessoas chegaram** (por padrão, as que faltam; pode ser menos, chegada
+   parcial, ou mais, com aviso). **Desfazer** corrige uma marcação errada sem apagar o histórico.
+6. A contagem se atualiza sozinha a cada poucos segundos, na portaria e em **Check-in** no painel,
+   onde também se vê a lista de chegadas, se marca ou desfaz e se **revoga** um link (a portaria
+   cai na hora).
+
+Dica: no convite, o campo **Aviso para a portaria** (ex.: "só cerimônia") aparece para quem
+atende; nunca escreva dado de saúde ali.
+
+### Mesas
+
+- **Criar mesas** (nome, lugares, lado ou grupo, observação) e reordenar com as setas.
+- **Distribuir**: a lista "Sem mesa" mostra quem confirmou (o filtro mostra também os pendentes);
+  sente a pessoa, o convite inteiro, mude de mesa ou troque duas pessoas. Passar dos lugares só
+  mostra um **aviso de lotação**. Quem recusou depois de sentado aparece num alerta para você tirar.
+- **Imprimir**: folhas por mesa (para o cerimonial) ou plaquinhas para dobrar; use "Salvar como
+  PDF" se preferir. A mesa aparece também nas listas do cerimonial e da portaria e no check-in.
+
+### Portal do fornecedor
+
+1. Em **Fornecedores**, abra o fornecedor do evento e gere um **link do portal**: confirme o
+   e-mail (vem do catálogo) e a validade (padrão 30 dias, no máximo 180).
+2. O link segue por e-mail (com SMTP configurado); se o envio falhar, o endereço aparece uma vez
+   na tela para você copiar. O mesmo link serve várias vezes até vencer; **revogue** quando quiser.
+3. O fornecedor, sem conta, vê o **cronograma do dia** (detalhes só dos itens dele), as **tarefas
+   atribuídas** a ele (escolha o fornecedor na tarefa), os próprios orçamentos e documentos. Ele
+   **envia orçamento** e **documentos** (PDF, JPG, PNG ou WebP, dentro do limite de espaço do
+   plano). Nunca vê convidados nem dados de outros fornecedores.
+4. Em **Financeiro** o orçamento chega como **recebido**, com o selo "Enviado pelo fornecedor"; a
+   equipe aprova e contrata como de costume. Documentos enviados aparecem nos contratos, com o mesmo
+   selo.
+
+### WhatsApp
+
+Sem API da Meta e sem custo: a plataforma monta a mensagem e abre a conversa no **seu** WhatsApp.
+
+1. **Modelos**: quatro tipos (convite, lembrete de confirmação, agradecimento, aviso do dia).
+   Variáveis: `{convite}`, `{evento}`, `{data}`, `{link}`, `{prazo}`. Texto vazio volta ao padrão.
+2. **Fila**: escolha o tipo e o filtro (ainda não enviados, sem resposta, confirmados, todos). Cada
+   convite mostra a mensagem pronta; convite sem telefone fica sem botão.
+3. **Enviar um por vez**: o botão abre o WhatsApp com a mensagem; envie lá e volte.
+4. **Marcar como enviado** (e **desfazer**, se errou): a plataforma não sabe se a mensagem saiu,
+   então a marca é sua; ela evita repetir o envio.
+
+### Hoje
+
+`Hoje` junta a contagem do check-in, os próximos itens do cronograma e as tarefas do dia ou
+atrasadas, com atalhos para Mesas e Check-in. É a tela para deixar aberta no dia do evento.
+
+### Limite de convidados
+
+Os acompanhantes que os convidados incluem ao confirmar contam no limite de convidados do plano. A
+confirmação **nunca é recusada**: ao passar do limite, a equipe recebe um e-mail (uma vez por
+estouro) e o início do painel mostra um aviso; cadastrar convidados pelo painel segue limitado até
+a lista voltar ao limite ou o plano subir.

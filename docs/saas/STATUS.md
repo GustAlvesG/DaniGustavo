@@ -1,8 +1,10 @@
 # Status da plataforma (atualizado em 21/11/2026)
 
+**Plataforma concluída (Fases 1 a 7), aguardando revisão.**
+
 ## Feito (branch `saas`)
 
-- Fase 7 (o dia do evento: check-in, mesas, portal do fornecedor, WhatsApp, painel no celular): **fundação feita** (`fase-7.md` §6). Migration 0013 (`checkin_links`, `checkins`, `seating_tables`, `seat_assignments`, `vendor_portal_links`, `whatsapp_templates`, `whatsapp_sends`; `invitations.access_note`, `event_tasks.event_vendor_id`, `source`/`portal_link_id` em `quotes` e `vendor_contracts`) aplicada no `casamento` (dump antes em scratchpad `casamento-antes-0013.sql`); contratos por frente, seis ações novas, stubs 501, páginas `/portaria/` e `/fornecedor/` com CSP/câmera próprias. Próximo: frentes A–D em paralelo (`saas-f7a`…`saas-f7d`), depois a integração.
+- Fase 7 (o dia do evento: check-in, mesas, portal do fornecedor, WhatsApp, painel no celular): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-7.md` §6 e §7). Portaria por link + PIN com QR pela câmera (ou digitação/busca), mapa de mesas com impressão e plaquinhas, portal do fornecedor por link mágico, WhatsApp por `wa.me` com modelos e fila, página Hoje, aviso de limite de convidados por acompanhantes e data de anonimização em destaque. Nenhuma migration nova além da 0013 (já aplicada no `casamento`). Screenshots em `.screenshots/saas-fase7/`, e2e em `painel-fase7.spec.ts`. **Com ela, a plataforma está concluída (Fases 1 a 7).**
 
 - Fase 6 (comercial, LGPD e endurecimento): **concluída, aguardando revisão** — fundação, frentes A–E e integração (`fase-6.md` §6 e §7). Planos (Cortesia na org 1, `essencial`/`profissional` com preços `TODO(conteudo)`), limites 409 `plan_limit`, assinatura (simulado/Asaas), inadimplência com painel só leitura (exceto reembolso, conciliação e privacidade) e painel da plataforma; cadastro self-service e site da plataforma; domínios (subdomínio automático, domínio próprio por TXT, `ask` do on-demand TLS); LGPD (consentimento, pedidos do titular, anonimização, retenção, apagar evento, exportar/apagar conta); CSP sem nonce, `X-Forwarded-Host` restrito, logs JSON, alertas por e-mail, `/api/health?db=1`, backup com uploads, CI com MySQL 8; Telegram removido; ajustes das Fases 2–5. Nenhuma migration nova (a próxima é a 0013). Screenshots em `.screenshots/saas-fase6/`, e2e em `painel-fase6.spec.ts`.
   - **Retenção do casamento:** mantida em 365 dias (decisão de 21/11/2026): anonimiza a partir de **09/04/2028**.
@@ -24,15 +26,17 @@
 6. ~~**Fase 5**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 7. ~~Pausa de 21/11/2026~~ — retomado no mesmo dia com as decisões do usuário (`AGENTES.md`).
 8. ~~**Fase 6**~~ — **feito** (fundação, frentes A–E, integração; frentes limpas).
-9. **Fase 7** (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, painel no celular): fundação feita; **próximo: frentes A–D** (worktrees à mão a partir da `saas`, ver item 2) e integração.
+9. ~~**Fase 7**~~ — **feito** (fundação, frentes A–D, integração). **Plataforma concluída**: resta a revisão e a lista abaixo.
 10. ~~Limpeza do banco órfão `casamento_mig_…`~~ — feito pelo usuário.
 
-## Decisões ainda abertas com o usuário
+## Pendências para produção e revisão
 
-As das Fases 1–5 foram respondidas em 21/11/2026 (`AGENTES.md`, "Decisões do usuário"; §5 de cada fase). Em aberto:
+As decisões das Fases 1–7 foram respondidas em 21/11/2026 (`AGENTES.md`, §5 de cada fase). Falta:
 
-- Preços e limites finais dos planos, `PLATFORM_FEE_PERCENT` e textos legais (termos, política, aviso de privacidade): `TODO(conteudo)`.
+- Revisão do usuário das Fases 1 a 7 (todas "aguardando revisão"); `docker build` nunca rodado (sem Docker na máquina de dev) e CI nunca rodou no GitHub (sem remote).
+- `TODO(conteudo)`: preços e limites finais dos planos, `PLATFORM_FEE_PERCENT`, textos legais (termos, política, aviso de privacidade) e textos padrão do WhatsApp.
 - `PLATFORM_HOST`, `PLATFORM_BASE_DOMAIN` de produção e o `ask` do on-demand TLS no edge (`DEPLOY.md`).
-- Chave sandbox do Asaas (pagamentos, subcontas, split, assinaturas) e liberação de split/subcontas na conta principal.
-- Ferramentas da Fase 7 por plano, textos padrão do WhatsApp e validades padrão dos links (`fase-7.md` §5).
-- CSP do site sem nonce (hoje `'unsafe-inline'`): manter ou reverter.
+- Asaas: chave sandbox (`$aact_hmlg_`) para validar Pix, cartão, webhooks, conciliação, reembolso, subcontas, split e assinaturas; liberação de split e subcontas na conta principal; `PAYMENT_SECRETS_KEY` obrigatória em produção (rotação fica para depois).
+- Fase 7: ferramentas por plano (hoje nenhuma é limitada), validades padrão dos links (portaria 48 h, portal 30 dias) e o cuidado com `Permissions-Policy` no edge (`DEPLOY.md`).
+- CSP do site sem nonce (hoje `'unsafe-inline'` em scripts): manter ou reverter.
+- Papéis de Dani e Gustavo seguem como estão (`TODO(fase1-papeis)`); retenção do casamento mantida em 365 dias (anonimiza a partir de 09/04/2028).

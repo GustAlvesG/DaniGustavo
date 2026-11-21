@@ -451,3 +451,25 @@ https:// {
 - Se o domínio estiver na Cloudflare, mantenha a nuvem cinza até o certificado sair.
 - Sem esse bloco no edge, domínios próprios cadastrados no painel não ganham HTTPS (o subdomínio
   `<slug>.<base>` e o `PLATFORM_HOST` continuam dependendo do DNS e do certificado acima).
+
+### Dia do evento (Fase 7): caminhos, câmera e e-mails
+
+- **Caminhos do host da API** (`API_DOMAIN`, já no `deploy/site.caddy`): além do painel, passam
+  `/portaria*` e `/fornecedor*` (páginas sem conta; o token vai no fragmento `#`, que nem chega ao
+  servidor), `/api/checkin/*` e `/api/vendor-portal/*` (isentas de `X-Web-Key`, usam
+  `Authorization: Bearer`), e também `/api/team-invites/*` e `/api/signup/*` (o painel as chama;
+  estavam fechadas). Quem mantém o `site.caddy` por cópia precisa levar essas linhas.
+- **Câmera da portaria**: a API responde `Permissions-Policy: camera=(self)` só em `/portaria/`
+  (o resto da API manda `camera=()`). O snippet `seguranca` do edge, pelo contrato, só define HSTS,
+  `nosniff`, `Referrer-Policy` e remove `Server`/`X-Powered-By`, então o cabeçalho chega intacto.
+  **Cuidado:** se o edge passar a definir `Permissions-Policy`, ele deve fazê-lo só quando ausente,
+  ou excluir `/portaria*`; senão a câmera não abre. A portaria continua útil pela digitação do
+  código e pela busca por nome. Exemplo (edge):
+  ```caddy
+  header ?Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  ```
+  (`?` = só define se a resposta não trouxe o cabeçalho.)
+- **E-mails novos** (link do portal do fornecedor e aviso de convidados acima do limite do plano)
+  dependem do SMTP (`MAIL_*`); sem ele, saem só no log da API. O link do portal usa o host da API
+  (`/fornecedor/#<token>`), então `BETTER_AUTH_URL` precisa apontar para ele.
+- Sem migration nova além da 0013 (aplicada pelo `migrate`).
