@@ -17,7 +17,17 @@
 4. ~~**Fase 3**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 5. ~~**Fase 4**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 6. ~~**Fase 5**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
-7. **Próximo: Fase 6** (comercial: cadastro self-service, planos com a taxa da plataforma, assinatura via Asaas, LGPD), no mesmo fluxo; depois a Fase 7.
+7. **PAUSADO pelo usuário em 21/11/2026**, com as Fases 1–5 concluídas e integradas (aguardando revisão). Para retomar, dizer: "Continue a partir do docs/saas/STATUS.md".
+8. **Próximo: fundação da Fase 6** (ainda não iniciada; nenhum arquivo criado). Escopo:
+   - Planos e assinaturas: planos em banco (preços `TODO(conteudo)`), limites por plano, taxa da plataforma por plano; assinatura via Asaas `/v3/subscriptions` (com simulado); teste e inadimplência sem derrubar o site de convidados; org 1 num plano interno "Cortesia" sem limites.
+   - Cadastro self-service: landing e preços no host da plataforma; cadastro próprio com verificação de e-mail; termos e privacidade.
+   - Domínios: `PLATFORM_BASE_DOMAIN` → `slug.<base>`; domínio próprio verificado por DNS; Caddy on-demand TLS via `/api/hosts/:host`.
+   - LGPD: exportação, exclusão/anonimização, consentimento no RSVP e recados, retenção, privacidade por evento.
+   - Endurecimento: CSP no site e painel, cabeçalhos; **restringir o `X-Forwarded-Host` aceito pelo `proxy.ts`** (desde a Fase 5; com Cloudflare em `trusted_proxies` um cliente pode forjá-lo); logs e alertas; backup incluindo uploads privados; CI com MySQL 8.
+   - Painel do platform admin.
+   - Migration seguinte: 0012 (dump antes em scratchpad `casamento-antes-0012.sql`).
+9. **Depois: Fase 7** (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, app do organizador).
+10. **Limpeza pendente:** banco órfão `casamento_mig_01m7y02nhztfh02fczt9z3g7r3` (sobra de `migration.test`); pode ser apagado.
 
 ## Decisões ainda abertas com o usuário
 
