@@ -110,16 +110,16 @@ Cada frente: worktree próprio, banco `casamento_f3<letra>`, portas de `AGENTES.
 
 Merge A → B → C → D na `saas`; apagar `admin/org/stub.ts` e os `TODO(fase3-*)`; conferir que `admin-isolation.test.ts` segue verde com as rotas reais (membro só leva 403 em `team.manage`); `pnpm build`, e2e (`painel`, `multi`) e screenshots do painel da organização em `.screenshots/saas-fase3/` (390×844 e 1440×900); `CLAUDE.md`, `docs/PERSONALIZAR.md` (criar evento e convidar pela UI) e `STATUS.md`.
 
-## 5. Decisões que dependem do usuário (padrões em vigor)
+## 5. Decisões do usuário (resolvidas em 21/11/2026)
 
-| Decisão                                            | Padrão                                                                                               |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Membro da organização pode criar evento?           | Sim (`events.create` para dono e membro). Só dono mexe na equipe.                                    |
-| Membro pode convidar anfitrião e mudar permissões? | Sim (`hosts.manage`).                                                                                |
-| Quais ações a organização pode tirar do anfitrião  | Todas menos ver o início do painel; padrão: o anfitrião pode tudo.                                   |
-| Validade do convite                                | 7 dias, uso único; reenvio gera link novo.                                                           |
-| Evento novo                                        | Nasce rascunho; domínio digitado (sem `PLATFORM_BASE_DOMAIN` automático).                            |
-| Apagar evento pela UI                              | Não: só arquivar (apagar tem pedidos/pagamentos com FK restrict e precisa de política de LGPD — F6). |
+| Decisão                                            | Padrão                                                                    | Decisão (21/11/2026)                                                                                                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Membro da organização pode criar evento?           | Sim (`events.create` para dono e membro). Só dono mexe na equipe.         | Mantido.                                                                                                                                                       |
+| Membro pode convidar anfitrião e mudar permissões? | Sim (`hosts.manage`).                                                     | Mantido.                                                                                                                                                       |
+| Quais ações a organização pode tirar do anfitrião  | Todas menos ver o início do painel; padrão: o anfitrião pode tudo.        | Mantido (ações configuráveis).                                                                                                                                 |
+| Validade do convite                                | 7 dias, uso único; reenvio gera link novo.                                | Mantido.                                                                                                                                                       |
+| Evento novo                                        | Nasce rascunho; domínio digitado (sem `PLATFORM_BASE_DOMAIN` automático). | Mantido (rascunho).                                                                                                                                            |
+| Apagar evento pela UI                              | Não: só arquivar (pedidos/pagamentos com FK restrict e política de LGPD). | Alterado: o dono apaga um evento arquivado, confirmando com o slug, removendo dados e arquivos (inclusive privados). Na Fase 6 (pedidos pagos em `fase-6.md`). |
 
 ## 6. Integração (concluída)
 

@@ -13,9 +13,9 @@ Leia antes de qualquer coisa: `CLAUDE.md`, este arquivo e o `docs/saas/fase-N.md
 - O `.env` não está no git. Copie `C:\dev\casamento\.env` para a raiz do worktree e altere:
   - `DATABASE_URL=mysql://root:@127.0.0.1:3306/casamento_<frente>` (nome exclusivo, minúsculo, ex.: `casamento_f2a`). Os bancos de teste derivam dele (`<nome>_test`, `<nome>_api_test`), então nada colide com outras frentes.
   - `PAYMENT_PROVIDER=simulado` e **apague** `ASAAS_API_KEY`/`ASAAS_WEBHOOK_TOKEN` (a chave do `.env` raiz é de PRODUÇÃO).
-  - Desligue Telegram/SMTP reais (deixe vazios) se existirem.
+  - Desligue o SMTP real (deixe vazio) se existir. O Telegram sai do código na Fase 6.
 - `pnpm install` no worktree, depois `pnpm db:reset` (cria e semeia o banco da frente).
-- Portas, se precisar subir servidores: frente A web 3101/api 3301, B 3102/3302, C 3103/3303, D 3104/3304 (`E2E_PORT`, `NEXT_DIST_DIR=.next-e2e`, `PORT` da API conforme `apps/api/src/env.ts`). E2E completo e screenshots ficam para a integração; nas frentes rode unitários/integração (`pnpm lint`, `pnpm typecheck`, `pnpm test`).
+- Portas, se precisar subir servidores: frente A web 3101/api 3301, B 3102/3302, C 3103/3303, D 3104/3304, E 3105/3305 (`E2E_PORT`, `NEXT_DIST_DIR=.next-e2e`, `PORT` da API conforme `apps/api/src/env.ts`). E2E completo e screenshots ficam para a integração; nas frentes rode unitários/integração (`pnpm lint`, `pnpm typecheck`, `pnpm test`).
 - Nunca use o banco `casamento` (dev do usuário) nem a porta 3000/3333 em frentes.
 
 ## Regras de código
@@ -33,12 +33,17 @@ Leia antes de qualquer coisa: `CLAUDE.md`, este arquivo e o `docs/saas/fase-N.md
 
 ≤350 palavras: branch/worktree e commits, o que foi feito, resultado de lint/typecheck/test (e e2e quando couber), desvios do plano, pendências e qualquer decisão que precise do usuário.
 
-## Decisões padrão adotadas (o usuário pode mudar depois)
+## Decisões do usuário (21/11/2026)
 
-- Papéis atuais mantidos (Gustavo platform admin, Dani e Gustavo owners da org 1).
-- `event_host` pode tudo no próprio evento; a Fase 3 cria ajuste por evento das permissões do anfitrião (feito pela organização).
-- Telegram: canal da plataforma.
-- Domínio: `PLATFORM_BASE_DOMAIN` (env) gera `slug.<base>`; domínio próprio por `event_domains`, SSL no proxy reverso (Caddy on-demand TLS consultando `/api/hosts/:host`) — documentado, sem código de infraestrutura.
-- Recebedor dos presentes (Fase 5): subconta Asaas da organização por padrão; por evento, pode-se escolher a subconta do anfitrião. Taxa da plataforma via split (percentual por plano).
-- Comercial (Fase 6): cadastro self-service cria uma organização (serve para cerimonialista e para casal que se organiza sozinho); planos em banco, preços `TODO(conteudo)`; assinatura via Asaas (fetch).
+- Papéis mantidos (Gustavo platform admin, Dani e Gustavo owners da org 1); `event_host` pode tudo no próprio evento e a organização ajusta por evento.
+- Taxa padrão da plataforma: 0,5% sobre o líquido (`PLATFORM_FEE_PERCENT` e plano); na Fase 6 vem do plano da organização.
+- Domínio base: definir depois (`PLATFORM_BASE_DOMAIN` vazio por padrão; código pronto na Fase 6); domínio próprio por `event_domains`, SSL no Caddy on-demand consultando `/api/hosts/:host`.
+- Planos: estrutura agora, preços `TODO(conteudo)`; org 1 (casamento) no plano interno "Cortesia" (sem limites nem cobrança, taxa 0, continua em `platform`). Cadastro self-service cria uma organização; assinatura via Asaas (fetch).
+- `X-Forwarded-Host` no `proxy.ts`: aceito só se o host estiver em `event_domains` (ou for o da plataforma); senão vale o `Host` (Fase 6).
+- Telegram desligado: o canal sai do código, env, docs e deploy na Fase 6 (avisos só por e-mail).
+- Membro da organização cria eventos e convida anfitriões; só o dono mexe na equipe. Convite vale 7 dias; evento nasce rascunho.
+- Apagar evento: o dono apaga um evento arquivado, confirmando com o slug, removendo dados e arquivos (inclusive privados); tratamento de pedidos pagos em `docs/saas/fase-6.md`.
+- Recebedor dos presentes (Fase 5): subconta Asaas da organização por padrão; anfitrião opt-in; casamento e anteriores em `platform`; sem conta aprovada, sem presentes em dinheiro.
+- Fase 4: anfitrião vê financeiro e contratos, mas não cadastra fornecedor no catálogo; categorias personalizadas por organização; lembrete semanal de tarefas por e-mail; modelos de tarefas da plataforma por tipo de evento; reabrir orçamento contratado sem parcela paga (Fase 6).
+- Ajustes da Fase 6: remover `gsap`/`@gsap/react`; tela para `couple.monogram_art` e `calendar.uid`; esconder botões de gravar sem permissão (`useCan`); editar data e fuso pela lista de eventos da organização.
 - Arquivos continuam em disco local atrás de uma interface `Storage` (S3 exige dependência: fica para quando o usuário aprovar). Miniaturas geradas no navegador (canvas) antes do upload.

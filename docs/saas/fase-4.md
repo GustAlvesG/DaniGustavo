@@ -126,16 +126,16 @@ Cada frente: worktree próprio, banco `casamento_f4<letra>`, portas de `AGENTES.
 
 Merge A → B → C → D; apagar `admin/stub.ts`; ligar o recálculo de prazos à mudança de data do evento (`admin/org/events.ts` e `/config`); `admin-isolation.test.ts` verde com as rotas reais; `pnpm build`, e2e (`painel`, `multi`) e screenshots em `.screenshots/saas-fase4/`; `CLAUDE.md`, `docs/PERSONALIZAR.md` e `STATUS.md`.
 
-## 5. Decisões que dependem do usuário (padrões em vigor)
+## 5. Decisões do usuário (resolvidas em 21/11/2026)
 
-| Decisão                                                 | Padrão                                                                        |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Anfitrião vê orçamentos/financeiro e contratos?         | Sim (pode tudo); a organização tira por evento (`budget.*`, `vendors.*`).     |
-| Anfitrião pode cadastrar fornecedor no catálogo da org? | Sim, ao ligar ao evento (`vendors.write`). Editar/arquivar: só a organização. |
-| Categorias de fornecedor/orçamento                      | Lista fixa de 18 em `planning.ts`; sem categoria personalizada.               |
-| Lembretes de tarefa por e-mail                          | Fora desta fase; resumo semanal opcional numa fase seguinte.                  |
-| Modelos de tarefas prontos da plataforma                | Nenhum (cada organização cria os seus); semear um modelo de casamento depois. |
-| Orçamento contratado pode ser reaberto?                 | Não nesta fase (imutável); só refazer o plano de parcelas.                    |
+| Decisão                                                 | Padrão                                                                    | Decisão (21/11/2026)                                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Anfitrião vê orçamentos/financeiro e contratos?         | Sim (pode tudo); a organização tira por evento (`budget.*`, `vendors.*`). | Mantido: vê financeiro e contratos.                                                                       |
+| Anfitrião pode cadastrar fornecedor no catálogo da org? | Sim, ao ligar ao evento (`vendors.write`).                                | Alterado: não cadastra; só liga fornecedor já existente. Na Fase 6.                                       |
+| Categorias de fornecedor/orçamento                      | Lista fixa de 18 em `planning.ts`.                                        | Alterado: categorias personalizadas por organização, além das 18. Na Fase 6.                              |
+| Lembretes de tarefa por e-mail                          | Fora da fase.                                                             | Alterado: resumo semanal de atrasadas/próximas para os responsáveis, opt-out por evento. Na Fase 6.       |
+| Modelos de tarefas prontos da plataforma                | Nenhum.                                                                   | Alterado: modelos da plataforma por tipo de evento, que a organização copia/aplica. Na Fase 6.            |
+| Orçamento contratado pode ser reaberto?                 | Não (imutável).                                                           | Alterado: reabre se nenhuma parcela foi paga (volta a aprovado, apaga parcelas, em transação). Na Fase 6. |
 
 ## 6. Integração: desvios e decisões
 

@@ -124,17 +124,17 @@ Cada frente: worktree próprio (a partir da `saas`), banco `casamento_f5<letra>`
 
 Merge A → B → C → D; apagar `admin/stub.ts`, `notImplemented` e o `PHASE5_STUB` do `admin-isolation.test.ts`; e2e: o setup do `multi` cria `ana-bruno` com `organization` — dar a ele uma subconta simulada aprovada (ou `platform`) para os testes de presente; e2e novo do fluxo (dono cadastra conta → aprovada no simulado → evento recebe → pedido com split no painel; anfitrião liberado cadastra a própria); `pnpm build`, screenshots em `.screenshots/saas-fase5/`; `CLAUDE.md`, `docs/PERSONALIZAR.md` §6 (subcontas, split, liberação do split no Asaas), `docs/DEPLOY.md` (`PAYMENT_SECRETS_KEY`) e `STATUS.md`.
 
-## 5. Decisões que dependem do usuário (padrões em vigor)
+## 5. Decisões do usuário (resolvidas em 21/11/2026)
 
-| Decisão                                                 | Padrão                                                                                        |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Percentual da plataforma                                | `PLATFORM_FEE_PERCENT` = 0 (sem split) até definir; Fase 6 leva aos planos. `TODO(conteudo)`. |
-| Evento sem conta aprovada                               | Presentes em dinheiro indisponíveis (aviso), em vez de cair na conta da plataforma.           |
-| Casamento e eventos já existentes                       | Continuam na conta principal (`platform`), sem taxa.                                          |
-| Quem cadastra a conta da organização                    | Só o dono (e o platform admin); membros só veem.                                              |
-| Anfitrião com conta própria                             | Opt-in por evento, liberado pela organização; o anfitrião nunca escolhe o recebedor.          |
-| Taxa do Asaas                                           | Paga pelo recebedor; a plataforma recebe o percentual sobre o líquido (regra do Asaas).       |
-| Liberação do split e subcontas na conta Asaas principal | Pedir ao Asaas antes de produção; validar tudo no sandbox (`$aact_hmlg_`) antes de publicar.  |
+| Decisão                                 | Padrão                                                                 | Decisão (21/11/2026)                                                                                   |
+| --------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Percentual da plataforma                | `PLATFORM_FEE_PERCENT` = 0 até definir. `TODO(conteudo)`.              | Alterado: 0,5% sobre o líquido (padrão da variável e do plano; na Fase 6 vem do plano da organização). |
+| Evento sem conta aprovada               | Presentes em dinheiro indisponíveis (aviso).                           | Mantido.                                                                                               |
+| Casamento e eventos já existentes       | Continuam em `platform`, sem taxa.                                     | Mantido (org 1 no plano "Cortesia").                                                                   |
+| Quem cadastra a conta da organização    | Só o dono (e o platform admin).                                        | Mantido.                                                                                               |
+| Anfitrião com conta própria             | Opt-in por evento, liberado pela organização.                          | Mantido.                                                                                               |
+| Taxa do Asaas                           | Paga pelo recebedor; a plataforma recebe o percentual sobre o líquido. | Mantido.                                                                                               |
+| Liberação do split e subcontas no Asaas | Pedir ao Asaas antes de produção; validar no sandbox.                  | Continua pendente (o usuário envia a chave sandbox depois).                                            |
 
 ## 6. Integração (desvios e decisões)
 

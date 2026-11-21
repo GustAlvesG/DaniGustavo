@@ -103,15 +103,15 @@ Cada frente: worktree próprio, banco `casamento_f2<letra>`, portas de `AGENTES.
 
 Merge A → D → C → B na `saas`; apagar `apps/web/src/content/{home,galeria,paginas}.ts`, `lib/legacy-content.ts`, `lib/fotos.ts`, `apps/web/public/fotos` (o teste de `packages/shared/test/image-size.test.ts` passa a ler `packages/db/legacy/dani-gustavo/fotos`), `SiteContent.story` e as chaves `story.items`/`gallery.items`; dump + `content:import-legacy` no banco `casamento`; e2e (`chromium`, `painel`, `multi`) e screenshots em `.screenshots/fase2/` comparando com o `v1-casamento`; CLAUDE.md e PERSONALIZAR.
 
-## 5. Decisões que dependem do usuário (padrões em vigor)
+## 5. Decisões do usuário (resolvidas em 21/11/2026)
 
-| Decisão                                    | Padrão                                                                                                                                       |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Palavras por tipo (`VOCABULARY`)           | "a debutante", "o aniversariante", "os papais", "a organização"; cada evento troca no painel.                                                |
-| Paletas e fontes dos temas Festa e Moderno | Festa: rosa/ameixa e lilás, DM Serif Display + Nunito Sans + Great Vibes. Moderno: grafite/verde-água e oceano, Outfit + Inter, sem cursiva. |
-| Lados padrão de evento novo                | Casamento: Noiva/Noivo; 15 anos e aniversário: Família/Amigos; demais: um lado "Convidados".                                                 |
-| Quem pode mudar tipo/módulos/lados         | Todos os papéis do evento (`event.configure`), como o resto da Fase 1.                                                                       |
-| Fotos do casamento no git                  | Copiadas para `packages/db/legacy/dani-gustavo/fotos` (≈9,5 MB, já estavam no git em `public/fotos`).                                        |
+| Decisão                                    | Padrão                                                                                                                                       | Decisão (21/11/2026)               |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Palavras por tipo (`VOCABULARY`)           | "a debutante", "o aniversariante", "os papais", "a organização"; cada evento troca no painel.                                                | Mantido.                           |
+| Paletas e fontes dos temas Festa e Moderno | Festa: rosa/ameixa e lilás, DM Serif Display + Nunito Sans + Great Vibes. Moderno: grafite/verde-água e oceano, Outfit + Inter, sem cursiva. | Mantido.                           |
+| Lados padrão de evento novo                | Casamento: Noiva/Noivo; 15 anos e aniversário: Família/Amigos; demais: um lado "Convidados".                                                 | Mantido.                           |
+| Quem pode mudar tipo/módulos/lados         | Todos os papéis do evento (`event.configure`).                                                                                               | Mantido (organização e anfitrião). |
+| Fotos do casamento no git                  | Copiadas para `packages/db/legacy/dani-gustavo/fotos` (≈9,5 MB).                                                                             | Mantido.                           |
 
 ## 6. Integração (concluída)
 

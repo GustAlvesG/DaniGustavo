@@ -134,24 +134,23 @@ Setup do zero: `cp .env.example .env` (preencher) → subir MariaDB (`C:\xampp\m
 - Plataforma — Fase 2 (conteúdo, temas, vocabulário, módulos, editor do site e galeria no painel): concluída, aguardando revisão; casamento importado no banco de dev e igual ao `v1-casamento` nos screenshots (`.screenshots/saas-fase2/`).
 - Plataforma — Fase 3 (painel da organização: eventos, equipe, convites, anfitriões e permissões): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase3/`. Status em `docs/saas/STATUS.md`.
 - Plataforma — Fase 4 (tarefas e modelos, fornecedores e contratos, orçamentos/parcelas/financeiro, cronograma): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase4/`, e2e em `painel-fase4.spec.ts`.
-- Plataforma — Fase 5 (recebimentos: subcontas Asaas, split, situação cadastral): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Próxima: Fase 6 (comercial/planos/LGPD).
+- Plataforma — Fase 5 (recebimentos: subcontas Asaas, split, situação cadastral): concluída, aguardando revisão; screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Próxima: Fase 6.
+- Plataforma — Fase 6 (comercial, LGPD, endurecimento e ajustes das decisões de 21/11/2026): fundação feita (migration 0012, contratos por frente, rotas reservadas); frentes A–E em `docs/saas/fase-6.md` §4.
 - Fases seguintes do produto: F2 conteúdo/temas/vocabulário por tipo de evento; F3 painel da organização (criar evento pela UI); F4 tarefas/fornecedores/orçamentos; F5 subcontas Asaas; F6 comercial/planos/LGPD; F7 extras.
 
 ## Pendências
 
 - O CI nunca rodou no GitHub (ainda sem remote).
-- `gsap` e `@gsap/react` ficaram sem uso depois do design "Álbum" (Lenis roda sozinho): remover com o ok do usuário.
+- Fase 6: remover `gsap` e `@gsap/react` (sem uso depois do design "Álbum"), autorizado pelo usuário.
 - Asaas real sem teste em sandbox (a chave no `.env` é de produção): com uma chave `$aact_hmlg_`, validar Pix, fatura do cartão e webhook antes de publicar.
 - Conciliação diária e reembolso pelo painel: prontos sobre a interface (`getCharge`/`refund`); validar com o Asaas no sandbox.
 - Fase 5: validar no sandbox subcontas (criação, link de documentos, aprovação, webhook da subconta) e split em Pix/fatura; pedir ao Asaas a liberação de subcontas e split na conta principal (conta nova vem com split desabilitado); `PAYMENT_SECRETS_KEY` obrigatória em produção (trocar invalida as chaves gravadas; rotação fica para depois); a Asaas recomenda esperar ~15 s após criar a subconta antes de consultar documentos.
 - Login no painel: 5 tentativas/min por IP; e2e + screenshots seguidos podem esbarrar no limite (reinicie a API de teste).
-- CSP (PROMPT §9): Fase 7. Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
+- CSP (PROMPT §9): Fase 6, frente D (`docs/saas/fase-6.md`). Sem SDK de pagamento no front (o cartão é na página do Asaas); o QR é data URI (`img-src data:`).
 - E2E: o `next dev` não sobe duas vezes na mesma pasta; com o servidor do usuário na 3000, rode `E2E_PORT=3000 pnpm --filter @casamento/web test:e2e`.
-- Decisões aguardando o usuário (`docs/saas/fase-1.md` §9): papéis de Dani/Gustavo (hoje Gustavo é platform admin e os dois são owners da org 1, `TODO(fase1-papeis)`); permissões do `event_host` (padrão tudo; a organização ajusta por evento); Telegram (adotado: canal da plataforma); domínio base `PLATFORM_BASE_DOMAIN` (ainda não usado pelo código).
-- Decisões da Fase 5 aguardando o usuário (`docs/saas/fase-5.md` §5): percentual da plataforma (`PLATFORM_FEE_PERCENT`, `TODO(conteudo)`), evento sem conta aprovada fica sem presentes em dinheiro, eventos existentes em `platform`, só o dono cadastra a conta da org, conta do anfitrião opt-in, taxa sobre o líquido.
-- Decisões da Fase 2 aguardando o usuário (`docs/saas/fase-2.md` §5): vocabulário por tipo, paletas/fontes de Festa e Moderno, lados padrão, quem muda tipo/módulos, fotos do casamento versionadas em `packages/db/legacy`.
-- `couple.monogram_art` e `calendar.uid` não têm tela no painel (só banco/CLI).
-- `.env` de dev tem Asaas de produção: em testes use `PAYMENT_PROVIDER=simulado`.
+- Decisões das Fases 1–5 resolvidas em 21/11/2026; ver `docs/saas/AGENTES.md`. Liberação de split/subcontas e validação no sandbox do Asaas seguem pendentes (o usuário manda a chave sandbox).
+- `couple.monogram_art` e `calendar.uid` não têm tela no painel (só banco/CLI): a tela vem na Fase 6.
+- `.env` de dev já está em `PAYMENT_PROVIDER=simulado`; mantenha assim em testes (a chave Asaas dele é de produção).
 - O evento `ana-bruno` existe no banco de dev (criado pelo setup do e2e `multi`).
 
 ## Deploy: contrato da VPS ArtZan (siga ao criar ou alterar o deploy)

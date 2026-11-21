@@ -98,18 +98,18 @@ Teste `packages/db/test/migration.test.ts`: banco temporário `casamento_mig_<ul
 | 8   | Testes de isolamento, auditor falhando, e2e com dois hosts, migration 0007 (remove DEFAULT 1)                                                      | médio | sonnet |
 | 9   | CLAUDE.md, `.env.example` (`WEB_INTERNAL_URL`, `PLATFORM_BASE_DOMAIN`), PERSONALIZAR                                                               | baixo | haiku  |
 
-## 9. Decisões do usuário
+## 9. Decisões do usuário (resolvidas em 21/11/2026)
 
-Estado ao fim da etapa 9. Os padrões abaixo estão em vigor e podem ser trocados sem mexer na arquitetura.
+Todas as linhas foram decididas; a coluna "Decisão" traz o resultado.
 
-| Decisão                               | Estado                                                                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Papéis de Dani e Gustavo              | **Pendente.** Padrão: Gustavo é `platform_admin` (`ADMIN_EMAIL_2` no seed) e os dois são `owner` da org 1 (`TODO(fase1-papeis)` em `seed.ts`).         |
-| Permissões do `event_host`            | **Pendente.** Padrão: tudo no seu evento (matriz em `tenancy/permissions.ts`); restringir é editar a matriz.                                           |
-| Canal de Telegram                     | Padrão adotado: canal da plataforma (um bot só), com o nome do evento no começo da mensagem. Alternativa: token/chat por evento (Fase 3).              |
-| Domínio base (`PLATFORM_BASE_DOMAIN`) | **Pendente.** Documentado no `.env.example`, mas o código ainda não o usa: cada domínio entra por `domain:add`. Entra com o cadastro pela UI (Fase 3). |
-| Avisos para owners da org             | Padrão: só os hosts do evento; owners entram com `notify.org_owners` (ou se o evento não tem hosts).                                                   |
-| `invitations.side` (`dani`/`gustavo`) | Mantido na Fase 1, assim como o rótulo "O casamento" do site neutro. Vocabulário por tipo de evento na Fase 2.                                         |
+| Decisão                               | Estado na Fase 1                                                                                               | Decisão (21/11/2026)                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Papéis de Dani e Gustavo              | Gustavo é `platform_admin` (`ADMIN_EMAIL_2` no seed) e os dois são `owner` da org 1.                           | Mantido.                                                                                         |
+| Permissões do `event_host`            | Tudo no seu evento (matriz em `tenancy/permissions.ts`).                                                       | Mantido (pode tudo; a organização ajusta por evento).                                            |
+| Canal de Telegram                     | Canal da plataforma (um bot só), com o nome do evento no começo da mensagem.                                   | Alterado: desligado; o canal sai do código, env, docs e deploy na Fase 6 (avisos só por e-mail). |
+| Domínio base (`PLATFORM_BASE_DOMAIN`) | Documentado no `.env.example`, mas o código ainda não o usa: cada domínio entra por `domain:add`.              | Definir depois: vazio por padrão; código pronto na Fase 6.                                       |
+| Avisos para owners da org             | Só os hosts do evento; owners entram com `notify.org_owners` (ou se o evento não tem hosts).                   | Mantido.                                                                                         |
+| `invitations.side` (`dani`/`gustavo`) | Mantido na Fase 1, assim como o rótulo "O casamento" do site neutro. Vocabulário por tipo de evento na Fase 2. | Mantido (resolvido na Fase 2).                                                                   |
 
 ## 10. Desvios em relação ao plano
 

@@ -2,6 +2,8 @@
 
 ## Feito (branch `saas`)
 
+- Fase 6 (comercial, LGPD e endurecimento): **fundação feita** (`fase-6.md`; §6 com os desvios). Migration 0012 aplicada no `casamento` (dump antes em scratchpad `casamento-antes-0012.sql`): planos (org 1 e as demais já existentes no plano interno "Cortesia"; `essencial`/`profissional` com preços `TODO(conteudo)`), assinaturas, uso, cadastro, aceite dos termos, domínios verificados (só verificado resolve), LGPD (consentimento, pedidos dos titulares, anonimização, resumo de evento apagado), categorias de fornecedor por organização, lembrete de tarefas e modelos de tarefas da plataforma. Contratos por frente em `packages/shared` (`plans`, `signup`, `privacy`, `ops`, `adjustments`), ações novas (`privacy.*`, `vendors.catalog`, `billing.manage`, `domains.manage`, `events.delete`, `categories.manage`, `platform.*`), rotas reservadas (501), painel da plataforma restrito ao platform admin (404 para os outros), rotinas ligadas no `server.ts`, variáveis novas nos exemplos/compose, Telegram fora dos exemplos e do compose, `gsap` removido. Decisões do usuário de 21/11/2026 registradas em `AGENTES.md` e nos §5 das fases 1–5.
+
 - Fase 5 (recebimentos: subcontas Asaas e split): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-5.md` §6). Conta de recebimento da organização (só o dono cadastra) e, opt-in, do anfitrião; recebedor por evento; cobrança pela subconta com split da taxa (`PLATFORM_FEE_PERCENT`); situação cadastral por webhook da subconta, botão e rotina de 6 h; sem conta aprovada, "Disponível em breve" no site. Casamento e eventos anteriores seguem em `platform`. Nada novo a aplicar no `casamento` (0011 já estava). Screenshots em `.screenshots/saas-fase5/`, e2e em `painel-fase5.spec.ts`. Falta validar no sandbox do Asaas e pedir a liberação de subcontas/split.
 
 - Fase 4 (gestão do evento): **concluída, aguardando revisão** — fundação, frentes A–D e integração (`fase-4.md` §6). Tarefas e modelos, fornecedores com contratos privados, orçamentos/parcelas/planejado × realizado e cronograma do dia; data do evento nas Configurações recalcula os prazos das tarefas. Nada novo a aplicar no `casamento` (0010 já estava). Screenshots em `.screenshots/saas-fase4/`.
@@ -17,18 +19,18 @@
 4. ~~**Fase 3**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 5. ~~**Fase 4**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
 6. ~~**Fase 5**~~ — **feito** (fundação, frentes A–D, integração; frentes limpas).
-7. **PAUSADO pelo usuário em 21/11/2026**, com as Fases 1–5 concluídas e integradas (aguardando revisão). Para retomar, dizer: "Continue a partir do docs/saas/STATUS.md".
-8. **Próximo: fundação da Fase 6** (ainda não iniciada; nenhum arquivo criado). Escopo:
+7. ~~Pausa de 21/11/2026~~ — retomado no mesmo dia com as decisões do usuário (`AGENTES.md`).
+8. **Fase 6:** fundação **feita**. **Próximo: frentes A–E em paralelo** (`fase-6.md` §4; worktrees à mão em `C:\dev\casamento-wt\f6a` … `f6e`, branches `saas-f6a` … `saas-f6e`), depois a integração. Escopo original:
    - Planos e assinaturas: planos em banco (preços `TODO(conteudo)`), limites por plano, taxa da plataforma por plano; assinatura via Asaas `/v3/subscriptions` (com simulado); teste e inadimplência sem derrubar o site de convidados; org 1 num plano interno "Cortesia" sem limites.
    - Cadastro self-service: landing e preços no host da plataforma; cadastro próprio com verificação de e-mail; termos e privacidade.
    - Domínios: `PLATFORM_BASE_DOMAIN` → `slug.<base>`; domínio próprio verificado por DNS; Caddy on-demand TLS via `/api/hosts/:host`.
    - LGPD: exportação, exclusão/anonimização, consentimento no RSVP e recados, retenção, privacidade por evento.
    - Endurecimento: CSP no site e painel, cabeçalhos; **restringir o `X-Forwarded-Host` aceito pelo `proxy.ts`** (desde a Fase 5; com Cloudflare em `trusted_proxies` um cliente pode forjá-lo); logs e alertas; backup incluindo uploads privados; CI com MySQL 8.
    - Painel do platform admin.
-   - Migration seguinte: 0012 (dump antes em scratchpad `casamento-antes-0012.sql`).
+   - Migration 0012: **aplicada** pela fundação. A próxima é a 0013.
 9. **Depois: Fase 7** (check-in por QR, mapa de mesas, portal do fornecedor, WhatsApp, app do organizador).
-10. **Limpeza pendente:** banco órfão `casamento_mig_01m7y02nhztfh02fczt9z3g7r3` (sobra de `migration.test`); pode ser apagado.
+10. ~~Limpeza do banco órfão `casamento_mig_…`~~ — feito pelo usuário.
 
 ## Decisões ainda abertas com o usuário
 
-Papéis de Dani/Gustavo, permissões do anfitrião, Telegram, domínio base (padrões em `AGENTES.md`), as 6 da Fase 3 (`fase-3.md` §5: quem cria evento, quem convida anfitrião, ações configuráveis, validade do convite, evento nasce rascunho, apagar evento) as 6 da Fase 4 (`fase-4.md` §5: anfitrião no financeiro/contratos, anfitrião no catálogo, categorias, lembretes de tarefa, modelos prontos, reabrir orçamento contratado), as 7 da Fase 5 (`fase-5.md` §5: percentual da plataforma, evento sem conta aprovada, eventos existentes na conta principal, quem cadastra a conta da org, conta própria do anfitrião opt-in, taxa do Asaas sobre o líquido, liberar split/subcontas no Asaas) e as 5 da Fase 2 (`fase-2.md` §5: vocabulário por tipo, paletas/fontes dos temas novos, lados padrão, quem pode mudar tipo/módulos, fotos do casamento versionadas em `packages/db/legacy`).
+As das Fases 1–5 foram respondidas em 21/11/2026 (`AGENTES.md`, "Decisões do usuário"; §5 de cada fase). Ficam para depois: preços e limites finais dos planos e textos legais (`TODO(conteudo)`), `PLATFORM_BASE_DOMAIN`/`PLATFORM_HOST` de produção, a chave sandbox do Asaas (validar pagamentos, subcontas, split e assinaturas) e a liberação de split/subcontas na conta principal.
