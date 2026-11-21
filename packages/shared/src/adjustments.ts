@@ -103,6 +103,8 @@ export interface PlatformTaskTemplateView {
   name: string;
   eventType: string | null;
   description: string | null;
+  /** Inativo não aparece para as organizações. */
+  active: boolean;
   items: PlatformTaskTemplateItemView[];
 }
 
@@ -114,6 +116,16 @@ export const PlatformTaskTemplateItemInput = z.object({
   offsetDays: OffsetDays,
 });
 export type PlatformTaskTemplateItemInput = z.infer<typeof PlatformTaskTemplateItemInput>;
+
+/** PUT /api/admin/platform/task-templates/:id (troca nome, tipo, texto e todos os itens). */
+export const PlatformTaskTemplateInput = z.object({
+  name: z.string().trim().min(1, { error: "Dê um nome ao modelo." }).max(191),
+  eventType: z.string().trim().min(1).max(32).nullable(),
+  description: z.string().trim().max(5000).nullable(),
+  active: z.boolean(),
+  items: z.array(PlatformTaskTemplateItemInput).max(300),
+});
+export type PlatformTaskTemplateInput = z.infer<typeof PlatformTaskTemplateInput>;
 
 /* ------------------------------------------------------------------------ */
 /* Data e fuso do evento pela organização                                    */

@@ -5,10 +5,10 @@ import {
   type MeOrganization,
   type MeResponse,
 } from "@casamento/shared";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apiRoot } from "./api.ts";
 import { formatDate } from "./format.ts";
-import { eventPath, orgPath } from "./nav.ts";
+import { eh, eventPath, orgPath } from "./nav.ts";
 import { Badge, PageHeader } from "./ui.tsx";
 
 export type { MeEvent, MeOrganization, MeResponse };
@@ -154,3 +154,29 @@ const ORG_ROLE_LABEL: Record<MeOrganization["role"], string> = {
   org_owner: "Dono",
   org_member: "Membro",
 };
+
+/** Página de gravação aberta por quem só pode ler (link direto): aviso e volta. */
+export function NoWrite({ back }: { back: string }) {
+  return (
+    <div className="stack stack--lg">
+      <a className="back" href={eh(back)}>
+        ← Voltar
+      </a>
+      <PageHeader title="Sem permissão" />
+      <p className="empty">Você pode ver esta área, mas não alterar o que há nela.</p>
+    </div>
+  );
+}
+
+/**
+ * Página de edição aberta por quem só pode ler: os campos ficam desabilitados e os botões de
+ * gravar somem (o estilo está em `.readonly-scope`). A API continua recusando a escrita (403).
+ */
+export function ReadOnlyScope({ readOnly, children }: { readOnly: boolean; children: ReactNode }) {
+  if (!readOnly) return <>{children}</>;
+  return (
+    <fieldset className="readonly-scope" disabled>
+      {children}
+    </fieldset>
+  );
+}

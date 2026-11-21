@@ -7,6 +7,7 @@ import {
 } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
+import { useCan } from "../event.tsx";
 import { centsToInput, formatBRL, parseBRL } from "../format.ts";
 import {
   Badge,
@@ -25,6 +26,7 @@ type GiftsData = { gifts: AdminGift[]; categories: GiftCategory[] };
 
 export function Presentes() {
   const toast = useToast();
+  const canWrite = useCan("gifts.write");
   const { data, setData, error, loading, reload } = useLoad(() => api<GiftsData>("/gifts"), []);
   const [editing, setEditing] = useState<AdminGift | "new" | null>(null);
   const [removing, setRemoving] = useState<AdminGift | null>(null);
@@ -82,9 +84,11 @@ export function Presentes() {
         title="Presentes"
         subtitle="A ordem aqui é a ordem da lista no site."
         actions={
-          <button className="button" onClick={() => setEditing("new")}>
-            Novo presente
-          </button>
+          canWrite ? (
+            <button className="button" onClick={() => setEditing("new")}>
+              Novo presente
+            </button>
+          ) : undefined
         }
       />
       {data.gifts.length === 0 ? (
@@ -115,46 +119,48 @@ export function Presentes() {
                 </div>
                 <div className="row__side">
                   {g.active ? <Badge tone="ok">No site</Badge> : <Badge tone="muted">Oculto</Badge>}
-                  <div className="actions actions--tight">
-                    <button
-                      className="icon-button"
-                      disabled={i === 0}
-                      onClick={() => move(i, -1)}
-                      aria-label={`Subir ${g.title}`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      className="icon-button"
-                      disabled={i === data.gifts.length - 1}
-                      onClick={() => move(i, 1)}
-                      aria-label={`Descer ${g.title}`}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      className="button button--small button--ghost"
-                      onClick={() => setEditing(g)}
-                      aria-label={`Editar ${g.title}`}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="button button--small button--ghost"
-                      onClick={() => toggle(g)}
-                    >
-                      {g.active ? "Ocultar" : "Mostrar"}
-                    </button>
-                    {!g.hasOrders && (
+                  {canWrite && (
+                    <div className="actions actions--tight">
                       <button
-                        className="button button--small button--danger-ghost"
-                        onClick={() => setRemoving(g)}
-                        aria-label={`Excluir ${g.title}`}
+                        className="icon-button"
+                        disabled={i === 0}
+                        onClick={() => move(i, -1)}
+                        aria-label={`Subir ${g.title}`}
                       >
-                        Excluir
+                        ↑
                       </button>
-                    )}
-                  </div>
+                      <button
+                        className="icon-button"
+                        disabled={i === data.gifts.length - 1}
+                        onClick={() => move(i, 1)}
+                        aria-label={`Descer ${g.title}`}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="button button--small button--ghost"
+                        onClick={() => setEditing(g)}
+                        aria-label={`Editar ${g.title}`}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="button button--small button--ghost"
+                        onClick={() => toggle(g)}
+                      >
+                        {g.active ? "Ocultar" : "Mostrar"}
+                      </button>
+                      {!g.hasOrders && (
+                        <button
+                          className="button button--small button--danger-ghost"
+                          onClick={() => setRemoving(g)}
+                          aria-label={`Excluir ${g.title}`}
+                        >
+                          Excluir
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </li>
             );

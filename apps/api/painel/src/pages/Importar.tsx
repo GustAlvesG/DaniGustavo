@@ -1,3 +1,4 @@
+import { NoWrite, useCan } from "../event.tsx";
 import {
   IMPORT_COLUMNS,
   IMPORT_MAX_BYTES,
@@ -15,6 +16,7 @@ import { ea, eh } from "../nav.ts";
 /* Importar convidados de CSV ou XLSX: escolher → prévia validada → confirmar. */
 
 export function Importar() {
+  const canWrite = useCan("invitations.write");
   const config = useEventConfig().data;
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
@@ -68,6 +70,8 @@ export function Importar() {
   const withErrors = preview?.rows.filter((r) => r.errors.length > 0) ?? [];
   const canImport =
     !!preview && !preview.fileError && preview.errorCount === 0 && preview.toCreate.invitations > 0;
+
+  if (!canWrite) return <NoWrite back="/convites" />;
 
   return (
     <div className="stack stack--lg">

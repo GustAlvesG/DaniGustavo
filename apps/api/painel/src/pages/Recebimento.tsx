@@ -8,7 +8,7 @@ import {
 } from "@casamento/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
-import { useEvent } from "../event.tsx";
+import { useCan, useEvent } from "../event.tsx";
 import { Badge, ErrorBox, FormError, Loading, PageHeader, useLoad, useToast } from "../ui.tsx";
 import { ContaRecebimentoForm } from "./ContaRecebimentoForm.tsx";
 import { SituacaoConta } from "./recebimentos/SituacaoConta.tsx";
@@ -53,6 +53,7 @@ function Recebedor({
   onSaved: (v: EventPaymentView) => void;
 }) {
   const toast = useToast();
+  const canConfigure = useCan("payments.configure");
   const [receiver, setReceiver] = useState<PaymentReceiver>(view.receiver);
   const [accountId, setAccountId] = useState<number | "">(
     view.receiver === "host" ? (view.account?.id ?? "") : "",
@@ -102,7 +103,7 @@ function Recebedor({
             type="radio"
             name="recebedor"
             checked={receiver === r}
-            disabled={r === "host" && hostOptions.length === 0}
+            disabled={!canConfigure || (r === "host" && hostOptions.length === 0)}
             onChange={() => setReceiver(r)}
           />
           <span>
@@ -117,6 +118,7 @@ function Recebedor({
         <label className="field">
           <span className="field__label">Conta do anfitrião</span>
           <select
+            disabled={!canConfigure}
             value={accountId}
             onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : "")}
           >
@@ -130,11 +132,13 @@ function Recebedor({
         </label>
       ) : null}
       <FormError message={error} />
-      <div className="actions">
-        <button className="button" type="submit" disabled={busy}>
-          {busy ? "Salvando…" : "Salvar recebedor"}
-        </button>
-      </div>
+      {canConfigure && (
+        <div className="actions">
+          <button className="button" type="submit" disabled={busy}>
+            {busy ? "Salvando…" : "Salvar recebedor"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

@@ -1,3 +1,4 @@
+import { useCan } from "../event.tsx";
 import type { AdminMessage } from "@casamento/shared";
 import { useState } from "react";
 import { api, errorMessage, send } from "../api.ts";
@@ -12,6 +13,7 @@ const TABS = [
 
 export function Recados() {
   const toast = useToast();
+  const canModerate = useCan("messages.moderate");
   const [tab, setTab] = useState<(typeof TABS)[number]["value"]>("pending");
   const { data, setData, error, loading, reload } = useLoad(
     () => api<{ messages: AdminMessage[] }>(`/messages?status=${tab}`),
@@ -77,7 +79,7 @@ export function Recados() {
               <blockquote>{m.body}</blockquote>
               <div className="card__foot">
                 <span className="muted small">{formatDateTime(m.createdAt)}</span>
-                {m.approved ? (
+                {!canModerate ? null : m.approved ? (
                   <button
                     className="button button--small button--ghost"
                     onClick={() => setApproved(m, false)}

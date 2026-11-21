@@ -1,3 +1,4 @@
+import { ReadOnlyScope, useCan } from "../event.tsx";
 import { MEDIA_MAX_PER_EVENT, MediaUpdate, type AdminMedia } from "@casamento/shared";
 import { useState, type ChangeEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
@@ -20,6 +21,15 @@ import "../editor.css";
 type MediaList = { media: AdminMedia[] };
 
 export function Galeria() {
+  const canWrite = useCan("content.write");
+  return (
+    <ReadOnlyScope readOnly={!canWrite}>
+      <GaleriaPage />
+    </ReadOnlyScope>
+  );
+}
+
+function GaleriaPage() {
   const toast = useToast();
   const { data, setData, error, loading, reload } = useLoad(() => api<MediaList>("/media"), []);
   const [progress, setProgress] = useState<string | null>(null);

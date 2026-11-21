@@ -18,13 +18,15 @@ import {
   CONTRACT_MAX_BYTES,
   ContractMeta,
   EventVendorInput,
+  limitMessage,
   EventVendorUpdate,
   type ContractRow,
   type EventVendorRow,
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { apiError, ERROR_CODES } from "../errors.ts";
+import { apiError, ERROR_CODES, errorBody } from "../errors.ts";
+import { checkPlanLimit } from "../plans/limits.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv, EventCtx } from "../tenancy/types.ts";
 import {
@@ -33,6 +35,8 @@ import {
   CONTRACT_MIME_BY_EXT,
   sniffContract,
 } from "../vendors/files.ts";
+import { categoriesProblem, categoryOptions, customLabels } from "../vendors/categories.ts";
+import { can } from "../tenancy/permissions.ts";
 import {
   eventCounts,
   findVendor,
@@ -78,6 +82,14 @@ export function adminVendorCatalogRoutes(deps: AdminDeps) {
       rows.map((r) => r.id),
     );
     return c.json({ vendors: rows.map((r) => toVendorRow(r, counts.get(r.id) ?? 0)) });
+  });
+  /** Categorias para escolher (fixas + próprias da organização do evento). */
+  app.get("/categories", requirePermission("vendors.read"), async (c) => {
+    const orgId = c.get("event").orgId;
+    return c.json({
+      options: await categoryOptions(db, orgId),
+      labels: await customLabels(db, orgId),
+    });
   });
   return app;
 }
@@ -170,6 +182,22 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
     const parsed = EventVendorInput.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const input = parsed.data;
+    // Fornecedor novo no catálogo da organização: o anfitrião só liga um que já existe.
+    if (input.vendor && !can(c.get("eventRole"), "vendors.catalog", c.get("hostDeny"))) {
+      return apiError(
+        c,
+        403,
+        ERROR_CODES.unauthorized,
+        "Só a organização cadastra fornecedores novos no catálogo. Escolha um que já exista.",
+      );
+    }
+    const bad = await categoriesProblem(
+      db,
+      ev.orgId,
+      [input.category, input.vendor?.category].filter((k): k is string => k !== undefined),
+      { allowArchived: false },
+    );
+    if (bad) return invalid(c, [{ message: bad }]);
     let document: string | null = null;
     let catalogCategory = input.vendor?.category;
     if (input.vendor) {
@@ -219,6 +247,12 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
     const parsed = EventVendorUpdate.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     if (!(await findLink(ev, id))) return notFound(c, vendorName);
+    const bad = await categoriesProblem(
+      db,
+      ev.orgId,
+      parsed.data.category ? [parsed.data.category] : [],
+    );
+    if (bad) return invalid(c, [{ message: bad }]);
     const changes = Object.fromEntries(
       Object.entries(parsed.data).filter(([, v]) => v !== undefined),
     );
@@ -313,6 +347,13 @@ export function adminEventVendorRoutes(deps: AdminDeps) {
       const ext = sniffContract(bytes);
       if (!ext || bytes.byteLength === 0) {
         return invalid(c, [{ message: "Formato não aceito. Envie PDF, JPG, PNG ou WebP." }]);
+      }
+      const limit = await checkPlanLimit(db, ev.orgId, {
+        kind: "storageMb",
+        addingBytes: bytes.byteLength,
+      });
+      if (!limit.ok) {
+        return c.json(errorBody(ERROR_CODES.planLimit, limitMessage(limit.kind, limit.limit)), 409);
       }
       const name = `${newPublicId()}.${ext}`;
       await storage.putPrivate(ev.id, name, bytes);

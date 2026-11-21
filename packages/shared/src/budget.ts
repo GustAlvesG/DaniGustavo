@@ -4,7 +4,7 @@ import {
   Cents,
   optionalText,
   QuoteStatus,
-  VendorCategory,
+  VendorCategoryKey,
   type EventVendorStatus,
 } from "./planning.ts";
 
@@ -26,7 +26,7 @@ export const QuoteInput = z.object({
   eventVendorId: z.number().int().positive(),
   title: z.string().trim().min(1, { error: "Dê um nome ao orçamento." }).max(191),
   /** Padrão: a categoria do fornecedor no evento. */
-  category: VendorCategory.optional(),
+  category: VendorCategoryKey.optional(),
   discountCents: Cents.default(0),
   validUntil: LocalDate.nullish().transform((v) => v ?? null),
   notes: optionalText(5000),
@@ -96,7 +96,7 @@ export interface QuoteSummary {
   vendorName: string;
   vendorStatus: EventVendorStatus;
   title: string;
-  category: VendorCategory;
+  category: VendorCategoryKey;
   status: QuoteStatus;
   totalCents: number;
   paidCents: number;
@@ -114,7 +114,7 @@ export interface QuoteView extends QuoteSummary {
 /** PUT /budget: previsto por categoria (categoria ausente = sem previsão). */
 export const BudgetPlan = z.object({
   lines: z
-    .array(z.object({ category: VendorCategory, plannedCents: Cents, notes: optionalText(300) }))
+    .array(z.object({ category: VendorCategoryKey, plannedCents: Cents, notes: optionalText(300) }))
     .max(50)
     .refine((ls) => new Set(ls.map((l) => l.category)).size === ls.length, {
       error: "Categoria repetida.",
@@ -124,7 +124,7 @@ export type BudgetPlan = z.infer<typeof BudgetPlan>;
 
 /** Uma linha do planejado × realizado. */
 export interface BudgetCategoryRow {
-  category: VendorCategory;
+  category: VendorCategoryKey;
   plannedCents: number;
   /** Soma dos orçamentos contratados da categoria. */
   contractedCents: number;

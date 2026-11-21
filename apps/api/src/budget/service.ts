@@ -39,6 +39,7 @@ import {
   type VendorCategory,
 } from "@casamento/shared";
 import type { EventCtx } from "../tenancy/types.ts";
+import { categoriesProblem } from "../vendors/categories.ts";
 
 /*
  * Fase 4, frente C: orçamentos, parcelas e planejado × realizado. Todo acesso filtra pelo
@@ -244,6 +245,17 @@ export async function getQuote(
 /* Escrita                                                                   */
 /* ------------------------------------------------------------------------ */
 
+/** Categoria própria tem de ser da organização do evento (de outra → 422). */
+async function assertCategory(
+  db: Database,
+  ev: EventCtx,
+  keys: string[],
+  allowArchived = false,
+): Promise<void> {
+  const bad = await categoriesProblem(db, ev.orgId, keys, { allowArchived });
+  if (bad) throw unprocessable(bad, "category");
+}
+
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /** O fornecedor tem de estar ligado a este evento (de outro evento → 422). */
@@ -298,6 +310,7 @@ export async function createQuote(deps: BudgetDeps, ev: EventCtx, input: QuoteIn
     throw unprocessable("Data de validade inválida.", "validUntil");
   }
   const now = nowOf(deps);
+  if (input.category) await assertCategory(deps.db, ev, [input.category]);
   const id = await deps.db.transaction(async (tx) => {
     const vendor = await eventVendorOf(tx, ev, input.eventVendorId);
     const [res] = await tx.insert(quotes).values({
@@ -329,6 +342,7 @@ export async function updateQuote(
     throw unprocessable("Data de validade inválida.", "validUntil");
   }
   const now = nowOf(deps);
+  if (input.category) await assertCategory(deps.db, ev, [input.category], true);
   await deps.db.transaction(async (tx) => {
     const current = await lockQuote(tx, ev, quoteId);
     if (current.status === "contracted") throw immutable();
@@ -418,6 +432,45 @@ export async function changeQuoteStatus(
     await tx
       .update(quotes)
       .set({ status: to, updatedAt: now, ...(stamp ? { [stamp]: now } : {}) })
+      .where(and(byEvent(quotes, ev), eq(quotes.id, quoteId)));
+  });
+  return getQuote(deps, ev, quoteId);
+}
+
+/**
+ * Reabre um orçamento contratado (volta a "aprovado") se nenhuma parcela foi paga: apaga as
+ * parcelas, na mesma transação da linha travada. Com parcela paga → 409.
+ */
+export async function reopenQuote(deps: BudgetDeps, ev: EventCtx, quoteId: number) {
+  const now = nowOf(deps);
+  await deps.db.transaction(async (tx) => {
+    const current = await lockQuote(tx, ev, quoteId);
+    if (current.status !== "contracted") {
+      throw new BudgetError(409, "Só um orçamento contratado pode ser reaberto.");
+    }
+    const paid = await tx
+      .select({ id: quoteInstallments.id })
+      .from(quoteInstallments)
+      .where(
+        and(
+          byEvent(quoteInstallments, ev),
+          eq(quoteInstallments.quoteId, quoteId),
+          isNotNull(quoteInstallments.paidAt),
+        ),
+      )
+      .for("update");
+    if (paid.length > 0) {
+      throw new BudgetError(
+        409,
+        "Há parcelas pagas neste orçamento. Desfaça os pagamentos antes de reabri-lo.",
+      );
+    }
+    await tx
+      .delete(quoteInstallments)
+      .where(and(byEvent(quoteInstallments, ev), eq(quoteInstallments.quoteId, quoteId)));
+    await tx
+      .update(quotes)
+      .set({ status: "approved", contractedAt: null, updatedAt: now })
       .where(and(byEvent(quotes, ev), eq(quotes.id, quoteId)));
   });
   return getQuote(deps, ev, quoteId);
@@ -664,6 +717,12 @@ export async function getBudget(deps: BudgetDeps, ev: EventCtx): Promise<BudgetV
 
 export async function saveBudgetPlan(deps: BudgetDeps, ev: EventCtx, plan: BudgetPlan) {
   const now = nowOf(deps);
+  await assertCategory(
+    deps.db,
+    ev,
+    plan.lines.map((l) => l.category),
+    true,
+  );
   await deps.db.transaction(async (tx) => {
     await tx.delete(budgetLines).where(byEvent(budgetLines, ev));
     if (plan.lines.length === 0) return;

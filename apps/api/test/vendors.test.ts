@@ -257,15 +257,18 @@ describe("fornecedores do evento", () => {
     expect((await upload("stranger", t.eventB.id, id, PDF)).status).toBe(404);
   });
 
-  it("catálogo visível ao anfitrião, que cadastra ao ligar mas não edita a organização", async () => {
+  it("catálogo visível ao anfitrião, que liga um existente mas não cadastra nem edita a organização", async () => {
     const res = await call("host", `/api/admin/events/${t.eventA.id}/vendor-catalog`);
     expect(res.status).toBe(200);
+    // Fase 6: fornecedor novo no catálogo é da organização (vendors.catalog); o anfitrião recebe 403.
     const made = await link("host", t.eventA.id, {
       vendor: newVendor("Pelo anfitrião", { category: "doces" }),
     });
-    expect(made.res.status).toBe(201);
+    expect(made.res.status).toBe(403);
     const listed = await json<{ vendors: VendorRow[] }>(await call("owner", orgUrl(t.orgA.id)));
-    expect(listed.vendors.some((v) => v.name === "Pelo anfitrião")).toBe(true);
+    expect(listed.vendors.some((v) => v.name === "Pelo anfitrião")).toBe(false);
+    const existing = await createVendor("owner", t.orgA.id, "Ligado pelo anfitrião");
+    expect((await link("host", t.eventA.id, { vendorId: existing.id })).res.status).toBe(201);
     expect((await call("host", orgUrl(t.orgA.id), "POST", newVendor("n"))).status).toBe(404);
   });
 

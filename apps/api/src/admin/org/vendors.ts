@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { apiError, ERROR_CODES } from "../../errors.ts";
 import { requireOrgPermission } from "../../tenancy/org-access.ts";
 import type { OrgAdminEnv } from "../../tenancy/types.ts";
+import { categoryProblem } from "../../vendors/categories.ts";
 import {
   eventCounts,
   findVendor,
@@ -60,6 +61,8 @@ export function orgVendorRoutes(deps: AdminDeps) {
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const document = normalizeDocument(parsed.data.document);
     if (document === "invalid") return invalid(c, [{ message: INVALID_DOCUMENT }]);
+    const bad = await categoryProblem(db, org.id, parsed.data.category);
+    if (bad) return invalid(c, [{ message: bad }]);
     const [res] = await db
       .insert(vendors)
       .values({ organizationId: org.id, ...vendorValues(parsed.data, document) });
@@ -84,6 +87,8 @@ export function orgVendorRoutes(deps: AdminDeps) {
     const document =
       parsed.data.document === undefined ? undefined : normalizeDocument(parsed.data.document);
     if (document === "invalid") return invalid(c, [{ message: INVALID_DOCUMENT }]);
+    const bad = await categoryProblem(db, org.id, parsed.data.category);
+    if (bad) return invalid(c, [{ message: bad }]);
     const changes = vendorChanges(parsed.data, raw as Record<string, unknown>, document);
     if (Object.keys(changes).length) {
       await db

@@ -1,11 +1,8 @@
 import {
   QUOTE_STATUS_LABELS,
-  VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABELS,
   type BudgetView,
   type InstallmentRow,
   type QuoteSummary,
-  type VendorCategory,
 } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
@@ -29,6 +26,7 @@ import {
   QuoteForm,
   todayLocal,
 } from "./financeiro/Orcamento.tsx";
+import { useCategories, type Categories } from "./fornecedores/categorias.ts";
 
 /**
  * Fase 4, frente C: orçamentos, parcelas e planejado × realizado (#/financeiro e
@@ -41,6 +39,7 @@ export function Financeiro({ quoteId }: { quoteId?: number }) {
 
 function Resumo() {
   const canWrite = useCan("budget.write");
+  const categories = useCategories("event");
   const budget = useLoad(() => api<BudgetView>("/budget"), []);
   const quotes = useLoad(() => api<{ quotes: QuoteSummary[] }>("/quotes"), []);
   const [creating, setCreating] = useState(false);
@@ -76,7 +75,7 @@ function Resumo() {
         {budget.loading && !budget.data ? (
           <Loading />
         ) : budget.data ? (
-          <BudgetTable view={budget.data} />
+          <BudgetTable view={budget.data} categories={categories} />
         ) : null}
       </section>
 
@@ -110,7 +109,7 @@ function Resumo() {
                 <a className="row__main" href={eh(`/financeiro/orcamentos/${q.id}`)}>
                   <span className="row__title">{q.title}</span>
                   <span className="row__meta">
-                    {q.vendorName} · {VENDOR_CATEGORY_LABELS[q.category] ?? q.category}
+                    {q.vendorName} · {categories.label(q.category)}
                     {q.status === "contracted" && ` · pago ${formatBRL(q.paidCents)}`}
                   </span>
                 </a>
@@ -139,6 +138,7 @@ function Resumo() {
       <Modal title="Previsto por categoria" open={planning} onClose={() => setPlanning(false)} wide>
         {planning && budget.data && (
           <PlanForm
+            categories={categories}
             view={budget.data}
             onCancel={() => setPlanning(false)}
             onSaved={(v) => {
@@ -152,7 +152,7 @@ function Resumo() {
   );
 }
 
-function BudgetTable({ view }: { view: BudgetView }) {
+function BudgetTable({ view, categories }: { view: BudgetView; categories: Categories }) {
   if (view.categories.length === 0) {
     return (
       <p className="muted">
@@ -184,7 +184,7 @@ function BudgetTable({ view }: { view: BudgetView }) {
             return (
               <tr key={c.category}>
                 <td>
-                  {VENDOR_CATEGORY_LABELS[c.category] ?? c.category}
+                  {categories.label(c.category)}
                   {c.notes && <span className="muted small"> · {c.notes}</span>}
                 </td>
                 <td className="num" data-label="Previsto">
@@ -287,19 +287,28 @@ function OpenInstallments({
 }
 
 function PlanForm({
+  categories,
   view,
   onCancel,
   onSaved,
 }: {
+  categories: Categories;
   view: BudgetView;
   onCancel: () => void;
   onSaved: (v: BudgetView) => void;
 }) {
   const toast = useToast();
   const byCat = new Map(view.categories.map((c) => [c.category, c]));
+  // As escolhas (fixas + próprias) e as que já têm previsto (mesmo de categoria arquivada).
+  const keys = [
+    ...categories.options.map((c) => c.key),
+    ...view.categories
+      .map((c) => c.category)
+      .filter((k) => !categories.options.some((o) => o.key === k)),
+  ];
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      VENDOR_CATEGORIES.map((c) => {
+      keys.map((c) => {
         const planned = byCat.get(c)?.plannedCents ?? 0;
         return [c, planned ? centsToInput(planned) : ""];
       }),
@@ -310,13 +319,13 @@ function PlanForm({
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    const lines: { category: VendorCategory; plannedCents: number; notes: string | null }[] = [];
-    for (const category of VENDOR_CATEGORIES) {
+    const lines: { category: string; plannedCents: number; notes: string | null }[] = [];
+    for (const category of keys) {
       const text = values[category]?.trim() ?? "";
       if (!text) continue;
       const cents = parseBRL(text);
       if (cents === null) {
-        return setError(`Valor inválido em ${VENDOR_CATEGORY_LABELS[category]}.`);
+        return setError(`Valor inválido em ${categories.label(category)}.`);
       }
       lines.push({ category, plannedCents: cents, notes: byCat.get(category)?.notes ?? null });
     }
@@ -336,9 +345,9 @@ function PlanForm({
     <form className="stack" onSubmit={(e) => void save(e)}>
       <p className="muted small">Deixe em branco as categorias sem previsão. Valores em reais.</p>
       <div className="form-grid">
-        {VENDOR_CATEGORIES.map((c) => (
+        {keys.map((c) => (
           <label key={c} className="field">
-            <span className="field__label">{VENDOR_CATEGORY_LABELS[c]}</span>
+            <span className="field__label">{categories.label(c)}</span>
             <input
               inputMode="decimal"
               placeholder="0,00"

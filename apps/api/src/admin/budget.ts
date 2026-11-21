@@ -17,6 +17,7 @@ import {
   getBudget,
   getQuote,
   listQuotes,
+  reopenQuote,
   replanInstallments,
   saveBudgetPlan,
   setInstallmentPayment,
@@ -125,6 +126,10 @@ export function adminQuoteRoutes(deps: AdminDeps) {
     }),
   );
 
+  app.post(`${one}/reopen`, requirePermission("budget.write"), (c) =>
+    handle(c, async () => c.json({ quote: await reopenQuote(bd, c.get("event"), quoteId(c)) })),
+  );
+
   app.put(`${one}/installments`, requirePermission("budget.write"), (c) =>
     handle(c, async () => {
       const b = await body(c, InstallmentPlan);
@@ -157,10 +162,12 @@ export function adminBudgetRoutes(deps: AdminDeps) {
   app.get("/", requirePermission("budget.read"), async (c) =>
     c.json(await getBudget(bd, c.get("event"))),
   );
-  app.put("/", requirePermission("budget.write"), async (c) => {
-    const b = await body(c, BudgetPlan);
-    if (!b.ok) return b.res;
-    return c.json(await saveBudgetPlan(bd, c.get("event"), b.data));
-  });
+  app.put("/", requirePermission("budget.write"), (c) =>
+    handle(c, async () => {
+      const b = await body(c, BudgetPlan);
+      if (!b.ok) return b.res;
+      return c.json(await saveBudgetPlan(bd, c.get("event"), b.data));
+    }),
+  );
   return app;
 }

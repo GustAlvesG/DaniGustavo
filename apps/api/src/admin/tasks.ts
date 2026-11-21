@@ -17,6 +17,7 @@ import {
   TaskRuleError,
   updateTask,
 } from "../tasks/service.ts";
+import { applyPlatformTemplate, listPlatformTemplates } from "../tasks/platform-templates.ts";
 import { listTemplates } from "../tasks/templates.ts";
 import { requirePermission } from "../tenancy/permissions.ts";
 import type { EventAdminEnv } from "../tenancy/types.ts";
@@ -51,6 +52,18 @@ export function adminTaskRoutes(deps: AdminDeps) {
     const parsed = ApplyTaskTemplate.safeParse(await readJson(c));
     if (!parsed.success) return invalid(c, parsed.error.issues);
     const created = await applyTemplate(db, c.get("event"), parsed.data.templateId);
+    if (created === null) return notFound(c, "Modelo");
+    return c.json({ created } satisfies ApplyTaskTemplateResult);
+  });
+
+  app.get("/platform-templates", requirePermission("tasks.read"), async (c) =>
+    c.json({ templates: await listPlatformTemplates(db, c.get("event").type) }),
+  );
+
+  app.post("/apply-platform-template", requirePermission("tasks.write"), async (c) => {
+    const parsed = ApplyTaskTemplate.safeParse(await readJson(c));
+    if (!parsed.success) return invalid(c, parsed.error.issues);
+    const created = await applyPlatformTemplate(db, c.get("event"), parsed.data.templateId);
     if (created === null) return notFound(c, "Modelo");
     return c.json({ created } satisfies ApplyTaskTemplateResult);
   });

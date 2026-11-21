@@ -25,7 +25,7 @@ import {
 } from "@casamento/shared";
 import { Hono } from "hono";
 import { cardFeePercent } from "../orders/service.ts";
-import { recalculateTaskDues } from "../tasks/service.ts";
+import { afterEventDateChange } from "../tasks/event-date.ts";
 import { resolverFor } from "../tenancy/resolver.ts";
 import { eventBaseUrl } from "../tenancy/urls.ts";
 import { buildSiteContent } from "../site-content.ts";
@@ -303,9 +303,7 @@ export function adminSettingsRoutes(deps: AdminDeps) {
       }
     });
     if (dateChanged) {
-      // Data/fuso vivem no cache do resolver (60 s); os prazos relativos das tarefas seguem a data.
-      resolverFor(db, deps.eventResolver).invalidate(ev.id);
-      await recalculateTaskDues(db, { ...ev, ...next });
+      await afterEventDateChange(db, deps.eventResolver, ev, next);
     }
     await revalidate(ev.id, ["site", "gifts"]);
     return c.json({ ok: true, saved: Object.keys(parsed.data) });

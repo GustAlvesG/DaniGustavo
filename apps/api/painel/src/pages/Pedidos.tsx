@@ -8,6 +8,7 @@ import type {
 import { useState } from "react";
 import { api, errorMessage, send } from "../api.ts";
 import { formatBRL, formatDateTime, plural } from "../format.ts";
+import { useCan } from "../event.tsx";
 import { eh, go } from "../nav.ts";
 import {
   Badge,
@@ -32,6 +33,7 @@ const METHOD_LABEL: Record<PaymentMethod, string> = { pix: "Pix", card: "Cartão
 
 export function Pedidos({ openId }: { openId?: string }) {
   const toast = useToast();
+  const canReconcile = useCan("orders.reconcile");
   const [status, setStatus] = useState<"" | OrderStatus>("");
   const [method, setMethod] = useState<"" | PaymentMethod>("");
   const [q, setQ] = useState("");
@@ -70,9 +72,11 @@ export function Pedidos({ openId }: { openId?: string }) {
         title="Pedidos"
         subtitle="Presentes comprados no site. Só leitura, com reembolso."
         actions={
-          <button className="button button--ghost" onClick={reconcile} disabled={checking}>
-            {checking ? "Conferindo…" : "Conferir com o provedor"}
-          </button>
+          canReconcile ? (
+            <button className="button button--ghost" onClick={reconcile} disabled={checking}>
+              {checking ? "Conferindo…" : "Conferir com o provedor"}
+            </button>
+          ) : undefined
         }
       />
       <div className="filters" role="search">
@@ -139,6 +143,7 @@ export function Pedidos({ openId }: { openId?: string }) {
 
 function OrderDetail({ publicId, onChanged }: { publicId: string; onChanged: () => void }) {
   const toast = useToast();
+  const canRefund = useCan("orders.refund");
   const { data, error, loading, reload } = useLoad(
     () => api<{ order: AdminOrderDetail }>(`/orders/${publicId}`),
     [publicId],
@@ -241,7 +246,7 @@ function OrderDetail({ publicId, onChanged }: { publicId: string; onChanged: () 
           {!o.showOnWall && <span className="muted small"> (pediu para não ir ao mural)</span>}
         </blockquote>
       )}
-      {o.canRefund && (
+      {o.canRefund && canRefund && (
         <div className="actions">
           <button className="button button--danger-ghost" onClick={() => setConfirming(true)}>
             Reembolsar

@@ -1,3 +1,4 @@
+import { useCan } from "../event.tsx";
 import type { ReminderSendResult, ReminderStatus } from "@casamento/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
@@ -18,6 +19,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 /** Lembretes de RSVP por e-mail: agenda automática, liga/desliga e envio na hora. */
 export function Lembretes() {
   const toast = useToast();
+  const canWrite = useCan("reminders.write");
   const { data, setData, error, loading, reload } = useLoad(
     () => api<ReminderStatus>("/reminders"),
     [],
@@ -104,15 +106,17 @@ export function Lembretes() {
               {data.withoutEmail > 0 &&
                 ` ${plural(data.withoutEmail, "convite pendente está", "convites pendentes estão")} sem e-mail e não entra${data.withoutEmail === 1 ? "" : "m"}.`}
             </p>
-            <div>
-              <button
-                className="button"
-                disabled={data.sendableNow === 0}
-                onClick={() => setConfirming(true)}
-              >
-                Enviar lembretes agora
-              </button>
-            </div>
+            {canWrite && (
+              <div>
+                <button
+                  className="button"
+                  disabled={data.sendableNow === 0}
+                  onClick={() => setConfirming(true)}
+                >
+                  Enviar lembretes agora
+                </button>
+              </div>
+            )}
           </section>
 
           <form className="card stack" onSubmit={save} noValidate aria-labelledby="lembretes-auto">
@@ -152,11 +156,13 @@ export function Lembretes() {
               </p>
             )}
             <FormError message={formError} />
-            <div>
-              <button className="button" type="submit" disabled={saving}>
-                {saving ? "Salvando…" : "Salvar lembretes"}
-              </button>
-            </div>
+            {canWrite && (
+              <div>
+                <button className="button" type="submit" disabled={saving}>
+                  {saving ? "Salvando…" : "Salvar lembretes"}
+                </button>
+              </div>
+            )}
             <p className="muted small">
               {plural(data.sentTotal, "lembrete já enviado", "lembretes já enviados")} até hoje.
             </p>

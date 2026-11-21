@@ -18,8 +18,10 @@ import {
 import {
   CreateOrgEventInput,
   EventSlug,
+  isCalendarDate,
   limitMessage,
   localDateTimeToIso,
+  OrgEventDateInput,
   UpdateOrgEventInput,
   type OrgDashboard,
   type OrgEventSummary,
@@ -28,6 +30,7 @@ import {
 import { Hono } from "hono";
 import { ERROR_CODES, errorBody, routeNotFound } from "../../errors.ts";
 import { checkPlanLimit } from "../../plans/limits.ts";
+import { afterEventDateChange, saveEventDate } from "../../tasks/event-date.ts";
 import { requireOrgPermission } from "../../tenancy/org-access.ts";
 import { resolverFor } from "../../tenancy/resolver.ts";
 import type { OrgAdminEnv } from "../../tenancy/types.ts";
@@ -250,6 +253,39 @@ export function orgEventRoutes(deps: AdminDeps) {
     // O status vive no cache do resolver (60 s) e o site público passa de 404 a aberto.
     resolverFor(db, deps.eventResolver).invalidate(eventId);
     await deps.revalidate(eventId, ["site"]);
+    const [summary] = await loadOrgEventSummaries(db, org.id, eventId);
+    return c.json({ event: summary });
+  });
+
+  /**
+   * Data e fuso do evento pela lista da organização (Fase 6): mesmo efeito do PUT /settings com
+   * wedding.datetime/wedding.timezone (events, resolver e prazos das tarefas).
+   */
+  app.patch("/:eventId/schedule", requireOrgPermission("events.create"), async (c) => {
+    const org = c.get("org");
+    const raw = c.req.param("eventId");
+    const eventId = ID.test(raw) ? Number(raw) : null;
+    if (!eventId) return routeNotFound(c);
+    const [found] = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(and(eq(events.id, eventId), eq(events.organizationId, org.id)));
+    if (!found) return routeNotFound(c);
+    const parsed = OrgEventDateInput.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return invalid(c, parsed.error.issues);
+    const ev = await resolverFor(db, deps.eventResolver).byId(eventId);
+    if (!ev || ev.orgId !== org.id) return routeNotFound(c);
+    const { date, time, timezone } = parsed.data;
+    if (!isCalendarDate(date))
+      return invalid(c, [{ message: "Essa data não existe no calendário." }]);
+    const datetimeIso = localDateTimeToIso(date, time, timezone);
+    const startsAt = new Date(datetimeIso);
+    if (Number.isNaN(startsAt.getTime())) {
+      return invalid(c, [{ message: "Data ou horário inválidos." }]);
+    }
+    await saveEventDate(db, ev, { startsAt, timezone, datetimeIso });
+    await afterEventDateChange(db, deps.eventResolver, ev, { startsAt, timezone });
+    await deps.revalidate(eventId, ["site", "gifts"]);
     const [summary] = await loadOrgEventSummaries(db, org.id, eventId);
     return c.json({ event: summary });
   });

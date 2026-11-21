@@ -1,19 +1,14 @@
-import {
-  VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABELS,
-  type VendorCategory,
-  type VendorInput,
-  type VendorRow,
-} from "@casamento/shared";
+import { type VendorInput, type VendorRow } from "@casamento/shared";
 import { useState, type FormEvent } from "react";
 import { errorMessage } from "../../api.ts";
 import { Field, FormError } from "../../ui.tsx";
+import { useCategories } from "./categorias.ts";
 
 /* Fase 4, frente B: campos do fornecedor, usados no catálogo da organização e ao ligar ao evento. */
 
 export interface VendorDraft {
   name: string;
-  category: VendorCategory;
+  category: string;
   contactName: string;
   email: string;
   phone: string;
@@ -75,12 +70,18 @@ export function VendorForm({
   submitLabel,
   onSubmit,
   onCancel,
+  scope,
 }: {
+  /** De onde vêm as categorias: do evento aberto ou da organização aberta. */
+  scope: "event" | "org";
   initial: VendorDraft;
   submitLabel: string;
   onSubmit: (draft: VendorDraft) => Promise<void>;
   onCancel?: () => void;
 }) {
+  const own = useCategories(scope);
+  const options = own.options;
+  const label = own.label;
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -112,15 +113,15 @@ export function VendorForm({
           />
         </Field>
         <Field label="Categoria">
-          <select
-            value={draft.category}
-            onChange={(e) => set("category", e.target.value as VendorCategory)}
-          >
-            {VENDOR_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {VENDOR_CATEGORY_LABELS[c]}
+          <select value={draft.category} onChange={(e) => set("category", e.target.value)}>
+            {options.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
               </option>
             ))}
+            {draft.category && !options.some((c) => c.key === draft.category) && (
+              <option value={draft.category}>{label(draft.category)}</option>
+            )}
           </select>
         </Field>
         <Field label="Avaliação">

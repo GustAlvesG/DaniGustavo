@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, errorMessage, send } from "../api.ts";
 import { sideName, useEventConfig } from "../config.ts";
-import { useEvent } from "../event.tsx";
+import { NoWrite, useCan, useEvent } from "../event.tsx";
 import { ea, eh, go } from "../nav.ts";
 import { formatDateTime, plural } from "../format.ts";
 import {
@@ -47,6 +47,7 @@ const AGE_OPTIONS: { value: AgeRange; label: string }[] = [
 /* ------------------------------------------------------------------------ */
 
 export function Convites() {
+  const canWrite = useCan("invitations.write");
   const config = useEventConfig().data;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"" | InvitationStatus>("");
@@ -68,16 +69,20 @@ export function Convites() {
             <a className="button button--ghost" href={ea("/invitations/export.csv")} download>
               Exportar confirmados (CSV)
             </a>
-            <a className="button" href={eh("/convites/novo")}>
-              Novo convite
-            </a>
+            {canWrite && (
+              <a className="button" href={eh("/convites/novo")}>
+                Novo convite
+              </a>
+            )}
           </>
         }
       />
       <nav className="actions actions--tight" aria-label="Ferramentas dos convites">
-        <a className="button button--ghost button--small" href={eh("/convites/importar")}>
-          Importar planilha
-        </a>
+        {canWrite && (
+          <a className="button button--ghost button--small" href={eh("/convites/importar")}>
+            Importar planilha
+          </a>
+        )}
         <a className="button button--ghost button--small" href={eh("/convites/qr")}>
           Imprimir QR dos convites
         </a>
@@ -110,7 +115,7 @@ export function Convites() {
       ) : data && data.invitations.length === 0 ? (
         <p className="empty">
           {q || status ? "Nenhum convite com esse filtro." : "Nenhum convite ainda."}{" "}
-          <a href={eh("/convites/novo")}>Criar convite</a>
+          {canWrite ? <a href={eh("/convites/novo")}>Criar convite</a> : "Nenhum convite ainda."}
         </p>
       ) : (
         <ul className="rows" aria-busy={loading}>
@@ -158,6 +163,7 @@ export function ConviteDetalhe({ id }: { id: number }) {
   const config = useEventConfig().data;
   const toast = useToast();
   const event = useEvent();
+  const canWrite = useCan("invitations.write");
   const { data, setData, error, loading, reload } = useLoad(
     () => api<{ invitation: AdminInvitation; responses: AdminRsvpLog[] }>(`/invitations/${id}`),
     [id],
@@ -228,9 +234,11 @@ export function ConviteDetalhe({ id }: { id: number }) {
         actions={
           <>
             <Badge tone={inv.status}>{INVITATION_STATUS_LABEL[inv.status]}</Badge>
-            <a className="button button--ghost" href={eh(`/convites/${inv.id}/editar`)}>
-              Editar
-            </a>
+            {canWrite && (
+              <a className="button button--ghost" href={eh(`/convites/${inv.id}/editar`)}>
+                Editar
+              </a>
+            )}
           </>
         }
       />
@@ -254,13 +262,15 @@ export function ConviteDetalhe({ id }: { id: number }) {
             href={whatsappLink(inv, event.name)}
             target="_blank"
             rel="noreferrer"
-            onClick={markSent}
+            onClick={canWrite ? markSent : undefined}
           >
             Enviar no WhatsApp
           </a>
-          <button className="button button--ghost" onClick={() => setConfirm("token")}>
-            Gerar link novo
-          </button>
+          {canWrite && (
+            <button className="button button--ghost" onClick={() => setConfirm("token")}>
+              Gerar link novo
+            </button>
+          )}
         </div>
         <div className="qr-inline">
           <div
@@ -356,11 +366,13 @@ export function ConviteDetalhe({ id }: { id: number }) {
         )}
       </section>
 
-      <div>
-        <button className="button button--danger-ghost" onClick={() => setConfirm("delete")}>
-          Excluir convite
-        </button>
-      </div>
+      {canWrite && (
+        <div>
+          <button className="button button--danger-ghost" onClick={() => setConfirm("delete")}>
+            Excluir convite
+          </button>
+        </div>
+      )}
 
       <Confirm
         open={confirm === "token"}
@@ -421,6 +433,7 @@ const emptyGuest = (): GuestDraft => ({
 
 export function ConviteForm({ id }: { id?: number }) {
   const toast = useToast();
+  const canWrite = useCan("invitations.write");
   const editing = id !== undefined;
   const existing = useLoad(
     () =>
@@ -513,6 +526,7 @@ export function ConviteForm({ id }: { id?: number }) {
     }
   }
 
+  if (!canWrite) return <NoWrite back="/convites" />;
   if (editing && existing.loading && !inv) return <Loading />;
   if (existing.error) return <ErrorBox message={existing.error} onRetry={existing.reload} />;
 

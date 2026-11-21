@@ -1,3 +1,4 @@
+import { ReadOnlyScope, useCan } from "../event.tsx";
 import {
   AdminEventConfigInput,
   EVENT_TYPES,
@@ -41,6 +42,15 @@ const keyOf = (label: string) =>
 
 /** Página Evento (Fase 2): tipo, módulos, lados dos convites e palavras do site. */
 export function Evento() {
+  const canWrite = useCan("event.configure");
+  return (
+    <ReadOnlyScope readOnly={!canWrite}>
+      <EventoPage />
+    </ReadOnlyScope>
+  );
+}
+
+function EventoPage() {
   const { data, error, loading, reload } = useEventConfig();
   return (
     <div className="stack stack--lg">

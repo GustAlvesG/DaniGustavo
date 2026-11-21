@@ -3,8 +3,6 @@ import {
   QUOTE_STATUS_LABELS,
   QUOTE_TRANSITIONS,
   quoteSubtotal,
-  VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABELS,
   type EventVendorRow,
   type InstallmentInput,
   type InstallmentRow,
@@ -17,6 +15,7 @@ import { api, errorMessage, send } from "../../api.ts";
 import { useCan, useEvent } from "../../event.tsx";
 import { centsToInput, formatBRL, parseBRL } from "../../format.ts";
 import { eh, go } from "../../nav.ts";
+import { useCategories } from "../fornecedores/categorias.ts";
 import {
   Badge,
   Confirm,
@@ -69,6 +68,7 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
   const toast = useToast();
   const { timezone } = useEvent();
   const canWrite = useCan("budget.write");
+  const categories = useCategories("event");
   const { data, setData, error, loading, reload } = useLoad(
     () => api<{ quote: QuoteView }>(`/quotes/${quoteId}`),
     [quoteId],
@@ -77,6 +77,7 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
   const [contracting, setContracting] = useState(false);
   const [replanning, setReplanning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (loading && !data) return <Loading />;
@@ -105,6 +106,14 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
       () => send("POST", `/quotes/${q.id}/status`, { status }),
       `Orçamento agora está como “${QUOTE_STATUS_LABELS[status]}”.`,
     );
+
+  async function reopen() {
+    const ok = await act(
+      () => send("POST", `/quotes/${q.id}/reopen`),
+      "Orçamento reaberto: voltou a “Aprovado” e as parcelas foram apagadas.",
+    );
+    if (ok) setReopening(false);
+  }
 
   async function remove() {
     setBusy(true);
@@ -143,7 +152,7 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
           title={q.title}
           subtitle={
             <>
-              {q.vendorName} · {VENDOR_CATEGORY_LABELS[q.category] ?? q.category} ·{" "}
+              {q.vendorName} · {categories.label(q.category)} ·{" "}
               <Badge tone={QUOTE_TONE[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>
             </>
           }
@@ -251,6 +260,25 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
         {q.notes && <p className="muted small">{q.notes}</p>}
       </section>
 
+      {canWrite && locked && !q.installments.some((i) => i.paidAt) && (
+        <section className="card stack">
+          <h2>Reabrir orçamento</h2>
+          <p className="muted small">
+            Nenhuma parcela foi paga. Reabrindo, o orçamento volta a “Aprovado” e o plano de
+            parcelas é apagado; depois dá para editar e contratar de novo.
+          </p>
+          <div>
+            <button
+              className="button button--ghost"
+              disabled={busy}
+              onClick={() => setReopening(true)}
+            >
+              Reabrir orçamento
+            </button>
+          </div>
+        </section>
+      )}
+
       {locked && (
         <section className="card stack">
           <div className="card__head">
@@ -357,6 +385,17 @@ export function Orcamento({ quoteId }: { quoteId: number }) {
           />
         )}
       </Modal>
+
+      <Confirm
+        open={reopening}
+        title="Reabrir este orçamento?"
+        confirmLabel="Reabrir"
+        busy={busy}
+        onConfirm={() => void reopen()}
+        onCancel={() => setReopening(false)}
+      >
+        <p>O plano de parcelas de “{q.title}” será apagado e o orçamento volta a “Aprovado”.</p>
+      </Confirm>
 
       <Confirm
         open={deleting}
@@ -570,6 +609,7 @@ export function QuoteForm({
   onSaved: (q: QuoteView) => void;
 }) {
   const toast = useToast();
+  const categories = useCategories("event");
   // Fornecedores do evento (frente B); sem acesso a eles, o orçamento existente mantém o seu.
   const vendors = useLoad(() => api<{ vendors: EventVendorRow[] }>("/vendors"), []);
   const [eventVendorId, setEventVendorId] = useState(quote ? String(quote.eventVendorId) : "");
@@ -689,11 +729,14 @@ export function QuoteForm({
         <Field label="Categoria" hint="Em branco: a do fornecedor no evento.">
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="">Do fornecedor</option>
-            {VENDOR_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {VENDOR_CATEGORY_LABELS[c]}
+            {categories.options.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
               </option>
             ))}
+            {category && !categories.options.some((c) => c.key === category) && (
+              <option value={category}>{categories.label(category)}</option>
+            )}
           </select>
         </Field>
         <Field label="Válido até (opcional)">
