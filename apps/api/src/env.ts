@@ -13,6 +13,12 @@ const secret = (nome: string) =>
     .string({ error: "não foi definida" })
     .min(32, { error: `deve ter pelo menos 32 caracteres (gere um ${nome} aleatório)` });
 
+/** E-mail opcional: string vazia (`ADMIN_EMAIL_1=` no .env/compose) conta como ausente. */
+const optionalEmail = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  z.email({ error: "deve ser um e-mail válido" }).optional(),
+);
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -40,8 +46,8 @@ export const envSchema = z
     MAIL_PASS: z.string().optional(),
     MAIL_FROM: z.string().default("nao-responda@localhost"),
     /** E-mails dos noivos: só o seed os usa (usuários do painel). Os avisos vão aos membros do evento. */
-    ADMIN_EMAIL_1: z.email({ error: "deve ser um e-mail válido" }).optional(),
-    ADMIN_EMAIL_2: z.email({ error: "deve ser um e-mail válido" }).optional(),
+    ADMIN_EMAIL_1: optionalEmail,
+    ADMIN_EMAIL_2: optionalEmail,
     /**
      * Provedor de pagamento: "simulado" (padrão; Pix e cartão de mentira, sem conta) ou
      * "asaas". Escolha explícita: ter a chave no .env não liga o Asaas sozinho.

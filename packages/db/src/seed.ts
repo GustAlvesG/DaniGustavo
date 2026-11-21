@@ -181,9 +181,7 @@ async function insertSettings(db: Database): Promise<number> {
  * organização 1 e o Gustavo (dev, ADMIN_NAMES[1]) é admin da plataforma.
  */
 async function seedMembers(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
-  const emails = [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2]
-    .filter((e): e is string => Boolean(e))
-    .map((e) => e.trim().toLowerCase());
+  const emails = adminEmails(env).map((a) => a.email);
   if (emails.length === 0) return 0;
 
   const users = await db
@@ -199,10 +197,7 @@ async function seedMembers(db: Database, env: NodeJS.ProcessEnv): Promise<number
     if (res.affectedRows === 1) created++;
   }
 
-  const platformAdmin = env.ADMIN_EMAIL_2?.trim().toLowerCase();
-  if (platformAdmin) {
-    await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
-  }
+  await promotePlatformAdmin(db, env);
   return created;
 }
 
@@ -274,10 +269,7 @@ async function setupPlatformOnly(db: Database, env: NodeJS.ProcessEnv): Promise<
   await ensurePlans(db);
   await ensurePlatformTaskTemplates(db);
   const adminsCreated = await seedAdmins(db, env);
-  const platformAdmin = env.ADMIN_EMAIL_2?.trim().toLowerCase();
-  if (platformAdmin) {
-    await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
-  }
+  await promotePlatformAdmin(db, env, true);
   const [domains] = await db
     .select({ n: count() })
     .from(eventDomains)
@@ -309,29 +301,69 @@ export async function listInvitationTokens(
   return [...byToken.values()];
 }
 
-/** Cria os dois usuários do painel (e-mails do .env) com a senha inicial, se ainda não existirem. */
-export async function seedAdmins(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
-  const emails = [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2];
-  const password = env.ADMIN_PASSWORD_INICIAL;
-  if (!password || emails.some((e) => !e)) {
+/** E-mails de ADMIN_EMAIL_* preenchidos (vazios ignorados), normalizados, com o índice original. */
+function adminEmails(env: NodeJS.ProcessEnv): { index: number; email: string }[] {
+  return [env.ADMIN_EMAIL_1, env.ADMIN_EMAIL_2].flatMap((raw, index) => {
+    const email = raw?.trim().toLowerCase();
+    return email ? [{ index, email }] : [];
+  });
+}
+
+/**
+ * `platform_admin` = ADMIN_EMAIL_2 (Gustavo). Sem ele nunca se promove ninguém sozinho; no setup
+ * "só plataforma" com só ADMIN_EMAIL_1, avisa (`warnIfMissing`).
+ */
+async function promotePlatformAdmin(
+  db: Database,
+  env: NodeJS.ProcessEnv,
+  warnIfMissing = false,
+): Promise<void> {
+  const platformAdmin = env.ADMIN_EMAIL_2?.trim().toLowerCase();
+  if (platformAdmin) {
+    await db.update(user).set({ platformRole: "admin" }).where(eq(user.email, platformAdmin));
+  } else if (warnIfMissing && adminEmails(env).length > 0) {
     console.warn(
-      "Usuários do painel não criados: defina ADMIN_EMAIL_1, ADMIN_EMAIL_2 e ADMIN_PASSWORD_INICIAL no .env e rode o seed de novo.",
+      "ADMIN_EMAIL_2 vazio: ninguém foi promovido a admin da plataforma. Defina ADMIN_EMAIL_2 ou use a CLI.",
+    );
+  }
+}
+
+/**
+ * Cria os usuários do painel de cada ADMIN_EMAIL_* preenchido (vazios são ignorados) com a senha
+ * inicial, se ainda não existirem. Devolve a quantidade criada; o log diz quem foi criado e quem já
+ * existia (nunca a senha).
+ */
+export async function seedAdmins(db: Database, env: NodeJS.ProcessEnv): Promise<number> {
+  const admins = adminEmails(env);
+  const password = env.ADMIN_PASSWORD_INICIAL;
+  if (admins.length === 0) {
+    console.warn(
+      "Usuários do painel não criados: nenhum ADMIN_EMAIL_1/ADMIN_EMAIL_2 preenchido no .env.",
+    );
+    return 0;
+  }
+  if (!password) {
+    console.warn(
+      "Usuários do painel não criados: defina ADMIN_PASSWORD_INICIAL no .env e rode o seed de novo.",
     );
     return 0;
   }
 
-  let created = 0;
-  for (const [i, rawEmail] of emails.entries()) {
-    const email = rawEmail!.trim().toLowerCase();
+  const created: string[] = [];
+  const existing: string[] = [];
+  for (const { index, email } of admins) {
     const found = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
-    if (found.length > 0) continue;
+    if (found.length > 0) {
+      existing.push(email);
+      continue;
+    }
 
     const userId = ulid();
     const hash = await hashPassword(password);
     await db.transaction(async (tx) => {
       await tx.insert(user).values({
         id: userId,
-        name: ADMIN_NAMES[i] ?? email,
+        name: ADMIN_NAMES[index] ?? email,
         email,
         emailVerified: true,
       });
@@ -344,7 +376,11 @@ export async function seedAdmins(db: Database, env: NodeJS.ProcessEnv): Promise<
         password: hash,
       });
     });
-    created++;
+    created.push(email);
   }
-  return created;
+  console.log(
+    `Contas do painel: ${created.length} criada(s)${created.length ? ` (${created.join(", ")})` : ""}; ` +
+      `${existing.length} já existia(m)${existing.length ? ` (${existing.join(", ")})` : ""}.`,
+  );
+  return created.length;
 }

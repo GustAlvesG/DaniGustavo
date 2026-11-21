@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, count, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Database } from "../src/client.ts";
 import { runMigrations } from "../src/migrate.ts";
 import { resetDatabase } from "../src/reset.ts";
@@ -15,7 +15,7 @@ import {
   LEGACY_EVENT_ID,
   organizationMembers,
 } from "../src/schema/tenancy.ts";
-import { seed, setup } from "../src/seed.ts";
+import { seed, seedAdmins, setup } from "../src/seed.ts";
 import { createTestDb } from "./helpers.ts";
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -230,5 +230,74 @@ describe("setup só plataforma (SETUP_WEDDING=0)", () => {
       domainsCreated: 0,
       membersCreated: 0,
     });
+  });
+});
+
+describe("seedAdmins com e-mails parciais", () => {
+  const base = { UPLOAD_DIR: uploadDir, ADMIN_PASSWORD_INICIAL: "senha-de-teste-123" };
+
+  beforeAll(async () => {
+    await resetDatabase(db);
+    await runMigrations(db);
+  });
+
+  async function emails() {
+    const rows = await db.select({ email: user.email }).from(user).orderBy(user.email);
+    return rows.map((r) => r.email);
+  }
+
+  async function clean() {
+    await db.delete(account);
+    await db.delete(user);
+  }
+
+  it("só ADMIN_EMAIL_2: cria a conta e o admin da plataforma", async () => {
+    await clean();
+    const e = { ...base, ADMIN_EMAIL_1: "", ADMIN_EMAIL_2: "So2@Exemplo.com" };
+    expect(await seedAdmins(db, e)).toBe(1);
+    expect(await emails()).toEqual(["so2@exemplo.com"]);
+    expect(await seedAdmins(db, e)).toBe(0);
+    const plat = { ...e, SETUP_WEDDING: "0" };
+    await setup(db, plat);
+    const [u] = await db.select().from(user);
+    expect(u?.platformRole).toBe("admin");
+  });
+
+  it("só ADMIN_EMAIL_1: cria a conta e não promove ninguém no setup só plataforma", async () => {
+    await clean();
+    const e = { ...base, ADMIN_EMAIL_1: "so1@exemplo.com", ADMIN_EMAIL_2: undefined };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const r = await setup(db, { ...e, SETUP_WEDDING: "0" });
+      expect(r.adminsCreated).toBe(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("ADMIN_EMAIL_2 vazio"));
+    } finally {
+      warn.mockRestore();
+    }
+    const [u] = await db.select().from(user);
+    expect(u).toMatchObject({ email: "so1@exemplo.com", platformRole: null });
+  });
+
+  it("os dois: cria as duas contas", async () => {
+    await clean();
+    const e = { ...base, ADMIN_EMAIL_1: "a@exemplo.com", ADMIN_EMAIL_2: "b@exemplo.com" };
+    expect(await seedAdmins(db, e)).toBe(2);
+    expect(await emails()).toEqual(["a@exemplo.com", "b@exemplo.com"]);
+  });
+
+  it("nenhum e a senha ausente: não cria e avisa", async () => {
+    await clean();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(await seedAdmins(db, { ...base, ADMIN_EMAIL_1: "", ADMIN_EMAIL_2: "" })).toBe(0);
+      expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("nenhum ADMIN_EMAIL"));
+      expect(
+        await seedAdmins(db, { ADMIN_EMAIL_1: "x@exemplo.com", ADMIN_PASSWORD_INICIAL: "" }),
+      ).toBe(0);
+      expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("ADMIN_PASSWORD_INICIAL"));
+    } finally {
+      warn.mockRestore();
+    }
+    expect(await emails()).toEqual([]);
   });
 });

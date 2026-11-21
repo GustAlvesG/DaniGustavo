@@ -28,7 +28,7 @@ basta copiar, trocar o que está entre `<sinais>` e colar no terminal da VPS.
 ## 1. Primeiro acesso e troca de senha
 
 A sua conta foi criada na instalação do servidor, com a senha inicial definida no arquivo `.env`
-(`ADMIN_PASSWORD_INICIAL`). O e-mail de `ADMIN_EMAIL_2` é o administrador da plataforma.
+(`ADMIN_PASSWORD_INICIAL`). O e-mail de `ADMIN_EMAIL_2` é o administrador da plataforma (`ADMIN_EMAIL_1` é opcional).
 
 1. Abra https://happy4ever-api.artzan.tech/painel/.
 2. Em **Entrar no painel**, digite o seu e-mail e a senha inicial e toque em **Entrar**.

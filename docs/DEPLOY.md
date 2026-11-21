@@ -177,7 +177,8 @@ Preencha:
   importar o casamento;
 - `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `WEB_KEY`, `BETTER_AUTH_SECRET` (cada um com um valor
   diferente do `openssl`; hex evita `@ / : #`, que quebram a `DATABASE_URL`);
-- `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
+- `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2` (basta um; o vazio é ignorado, mas só `ADMIN_EMAIL_2` vira admin
+  da plataforma), `ADMIN_PASSWORD_INICIAL` (mín. 10 caracteres);
 - SMTP (`MAIL_*`): sem ele os e-mails de confirmação e lembretes não saem (só aparecem no log);
 - pagamentos: comece com `PAYMENT_PROVIDER=simulado` e ligue o Asaas no passo 10. Em produção o
   simulado **não aceita pagamento**: presentes em dinheiro ficam "Disponível em breve" em todos
@@ -241,8 +242,9 @@ docker compose run --rm setup     # SETUP_WEDDING=0: planos, contas e admin da p
 ```
 
 - Com `SETUP_WEDDING=0` (este projeto) o `setup` cria os planos, os modelos de tarefas, os
-  usuários `ADMIN_EMAIL_1`/`ADMIN_EMAIL_2` com a senha `ADMIN_PASSWORD_INICIAL` e marca
-  `ADMIN_EMAIL_2` como admin da plataforma. Não cria evento, não importa o casamento e não
+  usuários de cada `ADMIN_EMAIL_1`/`ADMIN_EMAIL_2` preenchido (o vazio é ignorado) com a senha
+  `ADMIN_PASSWORD_INICIAL` e marca `ADMIN_EMAIL_2` como admin da plataforma (sem ele, avisa e não
+  promove ninguém). A saída diz quantas contas criou e quais já existiam. Não cria evento, não importa o casamento e não
   cadastra domínio. Num banco vazio a migration 0006 deixa um evento 1 de reserva ("Evento 1", sem
   data nem domínio); o setup o arquiva para que não responda. Pode rodar de novo: não sobrescreve
   nada.
@@ -427,8 +429,8 @@ Resumo do caminho deste projeto (`happy4ever`, branch `saas`), sem tocar no proj
    - `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `WEB_KEY`, `BETTER_AUTH_SECRET`,
      `PAYMENT_SECRETS_KEY`: um `openssl rand -hex 32` diferente para cada; **não** reaproveite os
      do projeto `casamento`.
-   - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL`: contas do painel; o
-     `ADMIN_EMAIL_2` (Gustavo) vira admin da plataforma.
+   - `ADMIN_EMAIL_1`, `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_INICIAL`: contas do painel (basta
+     um e-mail); o `ADMIN_EMAIL_2` (Gustavo) vira admin da plataforma.
    - `SETUP_WEDDING=0`: o `setup` não cria evento nem importa o casamento (uma cópia aqui
      divergiria dos dados reais, que seguem chegando no projeto antigo).
    - `MAIL_*`, `PAYMENT_PROVIDER`, `BILLING_PROVIDER`, `SIGNUP_ENABLED`...: como no §5; comece
