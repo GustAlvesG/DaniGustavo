@@ -1,0 +1,9 @@
+{
+  "errors": [
+    {
+      "code": "invalid_cpfCnpj",
+      "description": "O CPF/CNPJ 529.982.247-25 já está em uso por outra conta (ana.exemplo@exemplo.com)."
+    },
+    { "code": "invalid_mobilePhone", "description": "O celular (11) 98765-4321 é inválido." }
+  ]
+}

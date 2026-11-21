@@ -1,0 +1,15 @@
+{
+  "rejectReasons": "Documento ilegível. Envie uma nova foto.",
+  "data": [
+    {
+      "id": "172ed152-4fa4-43ad-9b69-39c323e9526c",
+      "status": "REJECTED",
+      "type": "IDENTIFICATION",
+      "title": "Documentos de identificação",
+      "description": "Envie uma foto do documento com foto (frente e verso) e uma selfie.",
+      "onboardingUrl": "javascript:alert(1)",
+      "onboardingUrlExpirationDate": "2026-11-28",
+      "documents": [{ "id": "8d257732-2220-11ec-b695-b6af4a64184e", "status": "REJECTED" }]
+    }
+  ]
+}

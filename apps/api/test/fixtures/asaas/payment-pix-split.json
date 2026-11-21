@@ -1,0 +1,27 @@
+{
+  "object": "payment",
+  "id": "pay_080225913252",
+  "dateCreated": "2026-11-21",
+  "customer": "cus_000005219613",
+  "value": 200,
+  "netValue": 198.01,
+  "billingType": "PIX",
+  "status": "RECEIVED",
+  "dueDate": "2026-11-22",
+  "invoiceUrl": "https://sandbox.asaas.com/i/080225913252",
+  "externalReference": "PUBSPLIT",
+  "deleted": false,
+  "split": [
+    {
+      "id": "8d0d1f27-2bd0-4b1a-9e1c-000000000001",
+      "walletId": "7bafd95a-e783-4a62-9be1-23999af742c6",
+      "fixedValue": null,
+      "percentualValue": 2.5,
+      "totalValue": 4.95,
+      "cancellationReason": null,
+      "status": "PENDING",
+      "externalReference": null,
+      "description": null
+    }
+  ]
+}

@@ -1,11 +1,22 @@
 import {
+  accountRequestBody,
+  accountStatusFromAsaas,
+  parseAccountCreated,
+  parseAsaasAccountWebhook,
+  scrubProviderText,
+  splitFromPayment,
+  splitRequestBody,
+  type AsaasAccountDocuments,
+  type AsaasAccountStatus,
+  type AsaasSplit,
+} from "./asaas-accounts.ts";
+import {
   fromAmount,
-  notImplemented,
-  parseAccountEvent,
   parsePaymentEvent,
   PaymentProviderError,
   toAmount,
   verifyWebhookToken,
+  type AccountCredentials,
   type CardCheckoutInput,
   type ChargeSnapshot,
   type PaymentProvider,
@@ -27,6 +38,13 @@ import {
  *   sempre de um GET na cobrança, nunca do corpo do aviso.
  *
  * O CPF só atravessa esta camada a caminho do Asaas: não é gravado nem logado.
+ *
+ * Fase 5 (subcontas): a conta principal cria as subcontas (`createSubaccount`, POST /accounts,
+ * já com o webhook de cada uma); `forAccount(creds)` devolve este mesmo provedor falando com a
+ * `apiKey` da subconta (mesmas URLs: cliente, cobrança, QR, estorno e exclusão ficam na conta
+ * que recebe) e só ela consulta a situação cadastral (`getAccountStatus`). O split para a
+ * carteira da plataforma vai no corpo da cobrança. A chave da subconta só vive em memória,
+ * dentro desta closure; nenhum erro ou `raw` a carrega.
  */
 
 export type AsaasEnvironment = "sandbox" | "producao";
@@ -65,6 +83,8 @@ export interface AsaasPayment {
   externalReference?: string | null;
   invoiceUrl?: string | null;
   deleted?: boolean;
+  /** Fase 5: repasses da cobrança. */
+  split?: AsaasSplit[] | null;
 }
 
 interface AsaasList<T> {
@@ -116,6 +136,7 @@ export function snapshotFromPayment(
     amountCents: fromAmount(payment.value),
     pix: status === "pending" ? pix : null,
     checkoutUrl: payment.invoiceUrl ?? null,
+    split: splitFromPayment(payment.split),
     raw: payment,
   };
 }
@@ -126,25 +147,60 @@ export function dueDate(now: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(tomorrow);
 }
 
+/** Item de erro do Asaas (`errors[]`). */
+export interface AsaasErrorItem {
+  code: string | undefined;
+  description: string | undefined;
+}
+
+/**
+ * Resposta 4xx/5xx do Asaas. `details` (herdado) e `errors` têm só códigos e descrições
+ * (descrições sem documento, e-mail ou telefone); nada do corpo enviado nem a chave.
+ */
+export class AsaasApiError extends PaymentProviderError {
+  readonly errors: AsaasErrorItem[];
+  constructor(message: string, status: number, errors: AsaasErrorItem[]) {
+    super(message, status, errors.length ? errors : undefined);
+    this.name = "AsaasApiError";
+    this.errors = errors;
+  }
+  /** Códigos do Asaas (ex.: "invalid_action", "invalid_cpfCnpj"). */
+  get codes(): string[] {
+    return this.errors.map((e) => e.code).filter((c): c is string => !!c);
+  }
+}
+
 /** Só os códigos e descrições do erro do Asaas (nada do corpo que enviamos). */
-function errorDetails(json: unknown): unknown {
+function errorItems(json: unknown): AsaasErrorItem[] {
   const errors = (json as { errors?: { code?: unknown; description?: unknown }[] } | undefined)
     ?.errors;
   return Array.isArray(errors)
-    ? errors.map((e) => ({ code: e.code, description: e.description }))
-    : undefined;
+    ? errors.map((e) => ({
+        code: typeof e?.code === "string" ? e.code.slice(0, 64) : undefined,
+        description: scrubProviderText(e?.description),
+      }))
+    : [];
 }
 
 export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
+  return buildAsaasProvider(opts, null);
+}
+
+/** `account` nulo = conta principal; senão, a instância que age pela subconta. */
+function buildAsaasProvider(
+  opts: AsaasOptions,
+  account: Omit<AccountCredentials, "apiKey"> | null,
+): PaymentProvider {
   const base = (opts.apiUrl ?? ASAAS_URLS[opts.environment]).replace(/\/+$/, "");
   const doFetch = opts.fetch ?? fetch;
   const now = opts.now ?? (() => new Date());
+  const apiKey = opts.apiKey;
   // O Asaas exige User-Agent em contas novas (nome da aplicação e ambiente).
   const userAgent = `casamento-dani-gustavo/1.0 (Node.js; ${opts.environment})`;
 
   async function call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown) {
     const headers: Record<string, string> = {
-      access_token: opts.apiKey,
+      access_token: apiKey,
       accept: "application/json",
       "user-agent": userAgent,
     };
@@ -169,10 +225,10 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
     }
     if (!res.ok) {
       // Caminho sem o query string: ele pode levar o CPF (busca de cliente).
-      throw new PaymentProviderError(
+      throw new AsaasApiError(
         `O Asaas respondeu ${res.status} em ${method} ${path.split("?")[0]}.`,
         res.status,
-        errorDetails(json),
+        errorItems(json),
       );
     }
     return json as T;
@@ -210,12 +266,19 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
     await call("DELETE", `/payments/${encodeURIComponent(id)}`);
   }
 
+  /** `split` do corpo (ausente sem taxa); nunca para a carteira da conta que cobra. */
+  const splitOf = (rules: PixChargeInput["split"]) => {
+    const split = splitRequestBody(rules, account?.walletId);
+    return split ? { split } : {};
+  };
+
   return {
     name: "asaas",
     publicKey: null,
     requiresCpf: true,
 
     async createPix(input) {
+      const split = splitOf(input.split);
       const customer = await findOrCreateCustomer(input);
       const payment = await call<AsaasPayment>("POST", "/payments", {
         customer,
@@ -224,6 +287,7 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
         dueDate: dueDate(now()),
         description: input.description.slice(0, 500),
         externalReference: input.publicId,
+        ...split,
       });
       let qr: { encodedImage?: string; payload?: string };
       try {
@@ -254,6 +318,7 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
     },
 
     async createCardCheckout(input: CardCheckoutInput) {
+      const split = splitOf(input.split);
       const value = toAmount(input.amountCents);
       // Reaproveita a fatura de cartão aberta com o mesmo valor (clique duplo, voltar da
       // fatura); apaga as de outro valor (a pessoa mudou "cobrir a taxa").
@@ -281,6 +346,7 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
         dueDate: dueDate(now()),
         description: input.description.slice(0, 500),
         externalReference: input.publicId,
+        ...split,
       };
       let payment: AsaasPayment;
       if (input.successUrl) {
@@ -324,19 +390,50 @@ export function createAsaasProvider(opts: AsaasOptions): PaymentProvider {
     },
 
     verifyWebhook(req: WebhookRequest) {
+      // Na subconta o token fica vazio (a rota confere o token dela pelo hash gravado) e
+      // `verifyWebhookToken` nunca aceita token vazio.
       return verifyWebhookToken(opts.webhookToken, req);
     },
 
     parseWebhook: parsePaymentEvent,
 
-    // Fase 5, frente A (docs/saas/fase-5.md): POST /v3/accounts, GET /v3/myAccount/status e
-    // /documents com a apiKey da subconta, split na cobrança. Reservados pela fundação.
-    createSubaccount() {
-      return Promise.reject(notImplemented("Cadastro de subconta no Asaas"));
+    parseAccountWebhook: parseAsaasAccountWebhook,
+
+    async createSubaccount(input) {
+      if (account) throw new PaymentProviderError("Só a conta principal cria subcontas.", 400);
+      const json = await call<unknown>("POST", "/accounts", accountRequestBody(input));
+      return parseAccountCreated(json, input);
     },
-    forAccount() {
-      throw notImplemented("Cobrança por subconta do Asaas");
+
+    forAccount(creds: AccountCredentials) {
+      if (account) {
+        throw new PaymentProviderError("Esta instância já age por uma subconta.", 400);
+      }
+      if (!creds.apiKey || !creds.walletId || !creds.providerAccountId) {
+        throw new PaymentProviderError("Credenciais da subconta incompletas.", 500);
+      }
+      const keyEnv = asaasEnvFromKey(creds.apiKey);
+      if (keyEnv && keyEnv !== opts.environment) {
+        // Chave de sandbox com a API de produção (ou o contrário): o Asaas daria 401.
+        throw new PaymentProviderError(
+          `A chave da subconta não é do ambiente ${opts.environment} do Asaas.`,
+          500,
+        );
+      }
+      return buildAsaasProvider(
+        { ...opts, apiKey: creds.apiKey, webhookToken: "" },
+        { providerAccountId: creds.providerAccountId, walletId: creds.walletId },
+      );
     },
-    parseAccountWebhook: parseAccountEvent,
+
+    ...(account
+      ? {
+          async getAccountStatus() {
+            const status = await call<AsaasAccountStatus>("GET", "/myAccount/status");
+            const documents = await call<AsaasAccountDocuments>("GET", "/myAccount/documents");
+            return accountStatusFromAsaas(status ?? {}, documents ?? {});
+          },
+        }
+      : {}),
   };
 }
